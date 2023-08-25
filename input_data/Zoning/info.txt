@@ -1,0 +1,9 @@
+Zoning Data after RPA peer review
+
+Maximum residential dwelling units per acre (maxDUA) and Maximum Nonresidential Floor to Area Ratio (maxFAR)
+for each zoning district
+
+Census Blocks were intersected with zoning districts and assigned the maxDUA and maxFAR of the zone with the largest
+areal overlap of the block.
+Then, Blocks were intersected with the non-developable land constraints layer to remove areas that are protected/restricted
+for development.
