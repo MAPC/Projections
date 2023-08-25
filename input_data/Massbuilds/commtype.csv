@@ -1,0 +1,352 @@
+muni_id,municipal,comm_type,comm_name,Comm_low,Comm_high,Edu_publ,Industrial,Unit
+1,Abington,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+2,Acton,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+3,Acushnet,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+4,Adams,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+5,Agawam,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+6,Alford,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+7,Amesbury,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+8,Amherst,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+9,Andover,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+10,Arlington,1,Inner Core,327.0760823,257.2300903,604.5442389,800.8608823,square feet per job
+11,Ashburnham,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+12,Ashby,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+13,Ashfield,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+14,Ashland,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+15,Athol,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+16,Attleboro,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+17,Auburn,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+18,Avon,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+19,Ayer,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+20,Barnstable,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+21,Barre,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+22,Becket,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+23,Bedford,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+24,Belchertown,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+25,Bellingham,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+26,Belmont,1,Inner Core,327.0760823,257.2300903,604.5442389,800.8608823,square feet per job
+27,Berkley,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+28,Berlin,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+29,Bernardston,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+30,Beverly,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+31,Billerica,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+32,Blackstone,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+33,Blandford,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+34,Bolton,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+35,Boston,1,Inner Core,327.0760823,257.2300903,604.5442389,800.8608823,square feet per job
+36,Bourne,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+37,Boxborough,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+38,Boxford,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+39,Boylston,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+40,Braintree,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+41,Brewster,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+42,Bridgewater,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+43,Brimfield,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+44,Brockton,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+45,Brookfield,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+46,Brookline,1,Inner Core,327.0760823,257.2300903,604.5442389,800.8608823,square feet per job
+47,Buckland,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+48,Burlington,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+49,Cambridge,1,Inner Core,327.0760823,257.2300903,604.5442389,800.8608823,square feet per job
+50,Canton,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+51,Carlisle,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+52,Carver,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+53,Charlemont,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+54,Charlton,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+55,Chatham,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+56,Chelmsford,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+57,Chelsea,1,Inner Core,327.0760823,257.2300903,604.5442389,800.8608823,square feet per job
+58,Cheshire,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+59,Chester,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+60,Chesterfield,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+61,Chicopee,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+62,Chilmark,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+63,Clarksburg,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+64,Clinton,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+65,Cohasset,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+66,Colrain,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+67,Concord,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+68,Conway,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+69,Cummington,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+70,Dalton,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+312,Warwick,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+71,Danvers,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+72,Dartmouth,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+73,Dedham,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+74,Deerfield,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+75,Dennis,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+76,Dighton,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+77,Douglas,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+78,Dover,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+79,Dracut,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+80,Dudley,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+81,Dunstable,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+82,Duxbury,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+83,East Bridgewater,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+84,East Brookfield,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+85,East Longmeadow,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+86,Eastham,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+87,Easthampton,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+88,Easton,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+89,Edgartown,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+90,Egremont,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+91,Erving,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+92,Essex,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+93,Everett,1,Inner Core,327.0760823,257.2300903,604.5442389,800.8608823,square feet per job
+94,Fairhaven,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+95,Fall River,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+96,Falmouth,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+97,Fitchburg,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+98,Florida,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+99,Foxborough,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+100,Framingham,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+101,Franklin,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+102,Freetown,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+103,Gardner,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+104,Aquinnah,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+105,Georgetown,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+106,Gill,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+107,Gloucester,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+108,Goshen,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+109,Gosnold,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+110,Grafton,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+111,Granby,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+112,Granville,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+113,Great Barrington,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+114,Greenfield,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+115,Groton,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+116,Groveland,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+117,Hadley,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+118,Halifax,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+119,Hamilton,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+120,Hampden,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+121,Hancock,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+122,Hanover,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+123,Hanson,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+124,Hardwick,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+125,Harvard,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+126,Harwich,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+127,Hatfield,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+128,Haverhill,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+129,Hawley,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+130,Heath,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+131,Hingham,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+132,Hinsdale,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+133,Holbrook,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+134,Holden,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+135,Holland,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+136,Holliston,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+137,Holyoke,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+138,Hopedale,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+139,Hopkinton,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+140,Hubbardston,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+141,Hudson,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+142,Hull,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+143,Huntington,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+144,Ipswich,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+145,Kingston,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+146,Lakeville,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+147,Lancaster,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+148,Lanesborough,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+149,Lawrence,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+150,Lee,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+151,Leicester,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+152,Lenox,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+153,Leominster,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+154,Leverett,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+155,Lexington,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+156,Leyden,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+157,Lincoln,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+158,Littleton,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+159,Longmeadow,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+160,Lowell,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+161,Ludlow,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+162,Lunenburg,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+163,Lynn,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+164,Lynnfield,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+165,Malden,1,Inner Core,327.0760823,257.2300903,604.5442389,800.8608823,square feet per job
+166,Manchester,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+167,Mansfield,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+168,Marblehead,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+169,Marion,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+170,Marlborough,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+171,Marshfield,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+172,Mashpee,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+173,Mattapoisett,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+174,Maynard,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+175,Medfield,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+176,Medford,1,Inner Core,327.0760823,257.2300903,604.5442389,800.8608823,square feet per job
+177,Medway,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+178,Melrose,1,Inner Core,327.0760823,257.2300903,604.5442389,800.8608823,square feet per job
+179,Mendon,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+180,Merrimac,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+181,Methuen,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+182,Middleborough,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+183,Middlefield,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+184,Middleton,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+185,Milford,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+186,Millbury,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+187,Millis,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+188,Millville,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+189,Milton,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+190,Monroe,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+191,Monson,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+192,Montague,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+193,Monterey,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+194,Montgomery,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+195,Mount Washington,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+196,Nahant,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+197,Nantucket,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+198,Natick,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+199,Needham,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+200,New Ashford,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+201,New Bedford,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+202,New Braintree,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+203,New Marlborough,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+204,New Salem,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+205,Newbury,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+206,Newburyport,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+207,Newton,1,Inner Core,327.0760823,257.2300903,604.5442389,800.8608823,square feet per job
+208,Norfolk,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+209,North Adams,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+210,North Andover,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+211,North Attleborough,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+212,North Brookfield,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+213,North Reading,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+214,Northampton,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+215,Northborough,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+216,Northbridge,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+217,Northfield,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+218,Norton,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+219,Norwell,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+220,Norwood,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+221,Oak Bluffs,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+222,Oakham,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+223,Orange,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+224,Orleans,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+225,Otis,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+226,Oxford,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+227,Palmer,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+228,Paxton,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+229,Peabody,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+230,Pelham,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+231,Pembroke,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+232,Pepperell,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+233,Peru,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+234,Petersham,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+235,Phillipston,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+236,Pittsfield,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+237,Plainfield,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+238,Plainville,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+239,Plymouth,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+240,Plympton,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+241,Princeton,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+242,Provincetown,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+243,Quincy,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+244,Randolph,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+245,Raynham,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+246,Reading,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+247,Rehoboth,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+248,Revere,1,Inner Core,327.0760823,257.2300903,604.5442389,800.8608823,square feet per job
+249,Richmond,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+250,Rochester,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+251,Rockland,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+252,Rockport,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+253,Rowe,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+254,Rowley,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+255,Royalston,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+256,Russell,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+257,Rutland,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+258,Salem,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+259,Salisbury,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+260,Sandisfield,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+261,Sandwich,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+262,Saugus,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+263,Savoy,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+264,Scituate,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+265,Seekonk,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+266,Sharon,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+267,Sheffield,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+268,Shelburne,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+269,Sherborn,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+270,Shirley,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+271,Shrewsbury,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+272,Shutesbury,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+273,Somerset,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+274,Somerville,1,Inner Core,327.0760823,257.2300903,604.5442389,800.8608823,square feet per job
+275,South Hadley,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+276,Southampton,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+277,Southborough,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+313,Washington,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+278,Southbridge,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+279,Southwick,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+280,Spencer,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+281,Springfield,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+282,Sterling,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+283,Stockbridge,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+284,Stoneham,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+285,Stoughton,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+286,Stow,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+287,Sturbridge,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+288,Sudbury,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+289,Sunderland,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+290,Sutton,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+291,Swampscott,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+292,Swansea,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+293,Taunton,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+294,Templeton,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+295,Tewksbury,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+296,Tisbury,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+297,Tolland,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+298,Topsfield,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+299,Townsend,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+300,Truro,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+301,Tyngsborough,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+302,Tyringham,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+303,Upton,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+304,Uxbridge,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+305,Wakefield,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+306,Wales,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+307,Walpole,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+308,Waltham,1,Inner Core,327.0760823,257.2300903,604.5442389,800.8608823,square feet per job
+309,Ware,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+310,Wareham,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+311,Warren,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+314,Watertown,1,Inner Core,327.0760823,257.2300903,604.5442389,800.8608823,square feet per job
+315,Wayland,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+316,Webster,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+317,Wellesley,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+318,Wellfleet,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+319,Wendell,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+320,Wenham,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+321,West Boylston,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+322,West Bridgewater,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+323,West Brookfield,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+324,West Newbury,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+325,West Springfield,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+326,West Stockbridge,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+327,West Tisbury,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+328,Westborough,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+329,Westfield,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+330,Westford,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+331,Westhampton,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+332,Westminster,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+333,Weston,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+334,Westport,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+335,Westwood,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+336,Weymouth,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+337,Whately,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+338,Whitman,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+339,Wilbraham,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+340,Williamsburg,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+341,Williamstown,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+342,Wilmington,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+343,Winchendon,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+344,Winchester,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
+345,Windsor,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+346,Winthrop,1,Inner Core,327.0760823,257.2300903,604.5442389,800.8608823,square feet per job
+347,Woburn,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+348,Worcester,2,Regional Urban Centers,620.23404,742.974303,885.7189171,1423.824031,square feet per job
+349,Worthington,5,Rural Towns,620.23404,742.974303,898.3260699,1423.824031,square feet per job
+350,Wrentham,4,Developing Suburbs,501.5395247,431.5265874,840.9978761,1411.125717,square feet per job
+351,Yarmouth,3,Maturing Suburbs,571.9686823,476.7972856,898.3260699,988.9396302,square feet per job
