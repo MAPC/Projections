@@ -1,0 +1,26 @@
+naics2digit,naics2digit_sector_description,superNAICS,superNAICS_sector_description
+23,Construction,1,Construction
+61,Educational Services,2,Education and Health Services
+62,Health Care and Social Assistance,2,Education and Health Services
+52,Finance and Insurance,3,Financial Activities
+53,Real Estate and Rental and Leasing,3,Financial Activities
+92,Public Administration ,4,Government
+51,Information,5,Information
+44,Retail Trade,6,Leisure and Hospitality
+45,Retail Trade,6,Leisure and Hospitality
+71,"Arts, Entertainment, and Recreation",6,Leisure and Hospitality
+72,Accommodation and Food Services,6,Leisure and Hospitality
+31,Manufacturing,7,Manufacturing
+32,Manufacturing,7,Manufacturing
+33,Manufacturing,7,Manufacturing
+11,"Agriculture, Forestry, Fishing and Hunting",8,Mining and Logging / Other Services
+21,"Mining, Quarrying, and Oil and Gas Extraction",8,Mining and Logging / Other Services
+81,Other Services (except Public Administration),8,Mining and Logging / Other Services
+99,,8,Mining and Logging / Other Services
+54,"Professional, Scientific, and Technical Services",9,Professional and Business Services
+55,Management of Companies and Enterprises,9,Professional and Business Services
+56,Administrative and Support and Waste Management and Remediation Services,9,Professional and Business Services
+22,Utilities,10,"Trade, Transportation, Utilities"
+42,Wholesale Trade,10,"Trade, Transportation, Utilities"
+48,Transportation and Warehousing,10,"Trade, Transportation, Utilities"
+49,Transportation and Warehousing,10,"Trade, Transportation, Utilities"
