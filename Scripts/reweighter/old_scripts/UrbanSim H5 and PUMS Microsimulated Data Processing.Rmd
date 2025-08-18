@@ -1,0 +1,5392 @@
+---
+title: "UrbanSim H5 and PUMS Microsimulated Data Processing"
+author: "Brandon Stanaway"
+date: "2022-12-22"
+output: html_document
+---
+Setup
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(tidycensus)
+library(magrittr)
+library(RPostgres)
+library(data.table)
+library(reticulate)
+library(mapcdatakeys)
+library(janitor)
+library(rhdf5)
+library(tidycensus)
+library(sf)
+library(leaflet)
+library(tigris)
+library(readxl)
+library(writexl)
+#library(htmlwidgets)
+library(viridis)
+mapcdatakeys::all_muni_data_keys
+options(scipen = 999)
+```
+
+URBANSIM H5 PROCESSING
+
+TODO:
+1. Learn reticulate
+2. Get python working on work machine 
+3. Port python scripts for H5 processing from python to R
+
+Displays the file structure of the to-be-processed H5 file
+```{r}
+###Set Working Directory
+#NOTE: Change the directory of the run
+
+run = 'run_112'
+
+#In-Office
+setwd(paste0("K:/DataServices/Projects/Current_Projects/LandUseAllocationModel/Data/Analysis/UrbanSim_Validation/UrbanSim_Outputs/", run))
+
+#Remote
+#setwd(paste0("K:/DataServices/Projects/Current_Projects/LandUseAllocationModel/Data/Analysis/UrbanSim_Validation/UrbanSim_Outputs/"+ run))
+
+#Should have directories for Households, Jobs, and Residential Units by each year
+h5ls("run_results.h5")
+
+```
+
+Processes the H5 file
+```{python}
+```
+
+SETTING GEOGRAPHIES
+
+TODO:
+1. Fix bl10_id in mapcdatakeys
+```{r}
+#Harmonize geographies included in the analysis
+#2010 Block and Block Group geographies crosswalked to Municipalities and Counties
+keys_1 <- mapcdatakeys::geog_xw_2010 %>% 
+  select(
+    bl10_id,
+    bg10_id,
+    muni_id,
+    muni_name,
+    county
+  ) %>% 
+  mutate(
+    across(
+      where(is.double), as.character
+    )
+  )
+
+#Add RPA flags and Community Types and Subtypes
+keys_2 <- mapcdatakeys::all_muni_data_keys %>% 
+  dplyr::select(
+    muni_id,
+    muni_name,
+    cmtyp08,
+    cmsbt08,
+    rpa_acr,
+    mpo
+  ) %>%
+    mutate(
+    across(
+      where(is.double), as.character
+    )
+  )
+
+keys_3 <- mapcdatakeys::geog_xw_2010 %>% 
+  select(
+    bg10_id,
+    muni_id,
+    muni_name
+  ) %>% 
+  mutate(
+    across(
+      where(is.double), as.character
+    )
+  ) %>% 
+  distinct(
+    bg10_id,
+    .keep_all = TRUE
+  )
+
+keys_4 <- mapcdatakeys::geog_xw_2010 %>% 
+  select(
+    bl10_id,
+    bg10_id
+  ) %>% 
+  mutate(
+    across(
+      where(is.double), as.character
+    )
+  )
+#For use in the municipal summary files
+keys_cmtyp <- mapcdatakeys::all_muni_data_keys %>% 
+  select(
+    muni_name,
+    county,
+    cmtyp08,
+    cmsbt08
+  )
+
+#Join all key files together 
+keys <- left_join(keys_1, keys_2, by = c("muni_id", "muni_name"))
+```
+
+HOUSEHOLDS
+
+TODO:
+1. Table functions
+2. Maps functions
+3. COMMENT CODE
+4. Clean up file paths
+5. Add QA/QC capabilities
+6. Charts!
+7. Edit RPA boundaries to include Duxbury in OCPC
+
+SWM: Reads post-processed (outputs from: urbansim_postprocessor_03_person_duplication.R)
+Creates dataframes for the municipal review files (e.g.,//Data-001/DS-Projects/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/state_run_96/state_run_96_municipal_aggregation_2010_2049_v1)
+NOTE: R is generally unable to allocate enough space for the full 2010-2049 microdata dataframe. Needs to be processed one or two years at a time
+```{r}
+#You've done it! Statewide HHds for each projection year!
+#Lets write this to the analysis folder
+
+root <- "K:/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/UrbanSim_Outputs/"
+
+### --- NEED TO MANUALLY CHANGE --- ###
+#MAPCM Runs
+run <- "run_139"
+
+#SWM Runs
+#run <- "state_run_97"
+
+#Years of the output files
+years <- c(2039,2049)
+########################################
+
+#Set an empty dataframe. Loop appends data to this dataframe.
+SWM_hh <- data.frame()
+
+#For loop that reads the .rds files from the household population post-processor
+for (yr in years) {
+  tmp <- readRDS(paste0(root, run, "/urbansim_",run,"_microhouseholds_",yr,"_pop_corrected_v3.rds"))
+  SWM_hh <- bind_rows(SWM_hh, tmp)
+  rm(tmp)
+  print(paste0("Finished: ", yr))
+}
+
+print(unique(SWM_hh$year))
+#Takes the full dataframe of microdata and summarizes it to the municipal level
+#by age, income group, persons and children in a household.
+SWM_hh_muni <- SWM_hh %>% 
+  select(
+    c(
+      year,
+      person_num,
+      age,
+      persons,
+      children,
+      income_grp,
+      muni_id,
+      muni_name,
+      rpa_acr,
+      mpo
+    )
+  ) %>% 
+  filter(
+    person_num == 1
+  ) %>% 
+  group_by(
+    age,
+    persons,
+    children,
+    income_grp,
+    year,
+    muni_id,
+    muni_name,
+    rpa_acr,
+    mpo,
+  ) %>% 
+  summarise(
+    households = sum(person_num)
+  ) %>% 
+  ungroup() %>% 
+  left_join(
+    keys_cmtyp,
+    by = c("muni_name")
+  ) %>% 
+  relocate(
+    age,
+    persons,
+    children,
+    income_grp,
+    year,
+    muni_id,
+    muni_name,
+    county,
+    rpa_acr,
+    mpo,
+    cmtyp08,
+    cmsbt08,
+    households
+  )
+
+t_test <- SWM_hh_muni %>% 
+  group_by(
+    year,
+    mpo
+  ) %>% 
+  summarise(
+    households = sum(households)
+  ) %>% 
+  ungroup()
+
+print(sum(SWM_hh_muni$households))
+print(sum(SWM_hh_muni$persons*SWM_hh_muni$households))
+### Export the data
+#main_dir <- "K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/state_run_96/"
+#run_dir <- run
+
+#if (file.exists(run_dir)){
+#  setwd(file.path(main_dir, run_dir))
+#} else{
+#  dir.create(file.path(main_dir, run_dir))
+#  setwd(file.path(main_dir, run_dir))
+#}
+ 
+write.csv(
+  SWM_hh_muni,
+  "K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/MAPC/run_139/run_139_municipal_aggregation_2039_2049_v1.csv",
+  row.names = FALSE
+)
+
+t_10 <- read.csv("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/state_run_97_v2/state_run_97_municipal_aggregation_2010_2019_v1.csv")
+t_19 <- read.csv("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/state_run_97_v2/state_run_97_municipal_aggregation_2029_2039_v1.csv")
+t_29 <- read.csv("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/state_run_97_v2/state_run_97_municipal_aggregation_2049_v1.csv")
+
+t <- bind_rows(t_10,t_19,t_29)
+
+write.csv(
+  t,
+  "K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/state_run_97_v2/state_run_97_municipal_aggregation_2010_2049_v1.csv",
+  row.names = FALSE
+) 
+
+m_10 <- read.csv("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/MAPC/run_139/run_139_municipal_aggregation_2010_2029_v1.csv")
+m_19 <- read.csv("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/MAPC/run_139/run_139_municipal_aggregation_2039_2049_v1.csv")
+
+m <- bind_rows(m_10,m_19)
+
+write.csv(
+  m,
+  "K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/MAPC/run_139/run_139_municipal_aggregation_2010_2049_v1.csv",
+  row.names = FALSE
+)
+
+m_97 <- m |> 
+  filter(
+    !muni_name %in% c("Duxbury","Hanover","Pembroke","Stoughton") 
+  )
+
+t_101 <- t |> 
+  filter(
+    !mpo %in% c("MAPC")
+  )
+
+t_101_rebeltest <- t_101 |> 
+  filter(
+    muni_name %in% c("Duxbury","Hanover","Pembroke","Stoughton")
+  )
+
+
+m97_t101 <- bind_rows(m_97, t_101)
+
+print(length(unique(m97_t101$muni_name)))
+
+t_test <- m97_t101 %>% 
+  group_by(
+    year,
+    mpo
+  ) %>% 
+  summarise(
+    households = sum(households)
+  ) %>% 
+  ungroup()
+
+write.csv(
+  m97_t101,
+  "K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/run_139_state_run_97_municipal_aggregation_2010_2049_v2.csv",
+  row.names = FALSE
+)
+
+#Workers
+SWM_workers <- SWM_hh %>% 
+  filter(
+    person_num == 1
+  ) %>% 
+  select(
+    year,
+    mpo,
+    hid,
+    age,
+    person_num,
+    persons,
+    workers
+  ) %>% 
+  group_by(
+    year,
+    mpo,
+    age
+  ) %>% 
+  summarise(
+    households = sum(person_num),
+    persons = sum(persons),
+    workers = sum(workers)
+  ) %>% 
+  ungroup()
+
+w_test <- SWM_workers %>% 
+  group_by(
+    year,
+    mpo
+  ) %>% 
+  summarise(
+    workers = sum(workers)
+  ) %>% 
+  ungroup()
+
+print(sum(SWM_workers$households))
+print(sum(SWM_workers$persons))
+print(sum(SWM_workers$workers))
+print(sum(SWM_workers$workers)/sum(SWM_workers$persons))
+
+write.csv(
+  SWM_workers,
+  "K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/state_run_97/state_run_97_workers_mpo_age_2049_v1.csv",
+  row.names = FALSE
+) 
+
+
+w_10 <- read.csv("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/state_run_97/state_run_97_workers_mpo_age_2010_v1.csv")
+w_19 <- read.csv("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/state_run_97/state_run_97_workers_mpo_age_2019_v1.csv")
+w_29 <- read.csv("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/state_run_97/state_run_97_workers_mpo_age_2029_v1.csv")
+w_39 <- read.csv("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/state_run_97/state_run_97_workers_mpo_age_2039_v1.csv")
+w_49 <- read.csv("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/state_run_97/state_run_97_workers_mpo_age_2049_v1.csv")
+
+w <- bind_rows(w_10,w_19,w_29,w_39,w_49)
+
+write.csv(
+  w,
+  "K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/state_run_97/state_run_97_workers_mpo_age_2010_2049_v1.csv",
+  row.names = FALSE
+) 
+```
+Creates SWM controls Comparison File
+```{r}
+a <- read.csv("K:/DataServices/Projects/Current_Projects/Projections/Reweighter/Output_Files/Statewide_Control_HHds_Projections2050_MB_v03.29.23_one_year_offset_HH_Adj.csv")
+b <- read.csv("K:/DataServices/Projects/Current_Projects/Projections/Reweighter/Output_Files/Statewide_Control_HHds_Projections2050_MB_v03.23.23_one_year_offset.csv")
+
+ab <- left_join(a, b, by = c("year","subregion_code","age_of_head_min","age_of_head_max","income_min","income_max","persons_min","persons_max",
+                             "children_min","children_max"))
+
+ab <- ab %>% 
+  mutate(
+    diff = total_number_of_households.x - total_number_of_households.y
+  )
+
+write.csv(
+  ab,
+  "K:/DataServices/Projects/Current_Projects/Projections/Reweighter/Output_Files/SWM_agecat15_final_adjustments.csv",
+  row.names = FALSE
+)
+```
+Creates MAPCM Controls Comparison Files
+```{r}
+c <- read.csv("K:/DataServices/Projects/Current_Projects/Projections/Reweighter/Output_Files/MAPC_Control_HHds_Projections2050_MB_97to101_v03.30.23_one_year_offset_HH_Adj.csv")
+d <- read.csv("K:/DataServices/Projects/Current_Projects/Projections/Reweighter/Output_Files/MAPC_Control_HHds_Projections2050_MB_97to101_v03.23.23_one_year_offset.csv")
+
+cd <- left_join(c, d, by = c("year","age_of_head_min","age_of_head_max","income_min","income_max","persons_min","persons_max",
+                             "children_min","children_max"))
+cd <- cd %>% 
+  mutate(
+    diff = total_number_of_households.x - total_number_of_households.y
+  )
+
+write.csv(
+  cd,
+  "K:/DataServices/Projects/Current_Projects/Projections/Reweighter/Output_Files/MAPCM_agecat15_final_adjustments.csv",
+  row.names = FALSE
+)
+```
+
+#### DONT NEED TO USE
+```{r}
+#First we need to create a place to put the data. 
+#Check if a directory exists for that run and create one if it doesn't already exist.
+#
+setwd("//data-001/public/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statwide/")
+
+main_dir <- "//data-001/public/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/"
+run_dir <- SWM_run
+
+if (file.exists(run_dir)){
+  setwd(file.path(main_dir, run_dir))
+} else{
+  dir.create(file.path(main_dir, run_dir))
+  setwd(file.path(main_dir, run_dir))
+}
+
+#With a run specified and a corresponding directory created, write the csv file to that location.
+write.csv(
+  SWM_hh_full,
+  paste0("//data-001/public/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",SWM_run,"/urbansim_",SWM_run, "_microhouseholds_REVIEW_v1.csv"),
+  row.names = FALSE
+)
+```
+STATEWIDE Export .csv for Municipal Aggregated HHds
+```{r}
+# Summarize households to municipalities
+SWM_hh_full_muni <- SWM_hh_full %>% 
+  group_by(
+    age,
+    persons,
+    children,
+    income_grp,
+    year,
+    muni_id,
+    muni_name,
+    county,
+    rpa_acr,
+    mpo,
+    cmtyp08,
+    cmsbt08
+  ) %>% 
+  summarise(
+    households = sum(households)
+  )
+
+#Redefine years and run 
+#SWM_years = c("2010","2019", "2029", "2039", "2049")
+#SWM_years = c("2010","2019")
+SWM_max_year = max(SWM_years)
+SWM_min_year = min(SWM_years)
+
+#For loop that iterates through the full municipal aggregated household dataframe
+#And writes a file for each decade
+for (yr in SWM_years) {
+  
+  SWM_hh_full_muni_v1 <- SWM_hh_full_muni %>% 
+  filter(year == yr)
+  
+  write.csv(
+  SWM_hh_full_muni_v1,
+  paste0("//data-001/public/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",SWM_run,"/urbansim_",SWM_run,"_microhouseholds_MUNIS_",yr,"_REVIEW_v1.csv"),
+  row.names = FALSE
+)
+  
+}
+
+#Writes a file for the full municipal
+write_xlsx(
+  SWM_hh_full_muni,
+  paste0("//data-001/public/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",SWM_run,"/urbansim_",SWM_run,"_microhouseholds_MUNIS_",SWM_min_year,"_",SWM_max_year,"_REVIEW_v1.xlsx")
+)
+```
+MAPC Model Household Processing
+```{r}
+###Set the year list and main directory
+
+#Create the empty dataframe to which each decade of processed data will be appended
+hh_full <- NULL
+
+#Year list: will remain the same for the most part
+#years = c("2010","2019", "2029", "2039", "2049")
+years = c("2010","2019")
+
+#Run #: Change when processing new/different runs
+run = "run_117"
+
+#Set directory
+#In-Office
+setwd(paste0("K:/DataServices/Projects/Current_Projects/LandUseAllocationModel/Data/Analysis/UrbanSim_Validation/UrbanSim_Outputs/", run))
+
+#Remote
+#setwd()
+
+
+for (yr in years) {
+  
+  hh <- fread(paste0("urbansim_",run,"_microhouseholds_",yr, ".csv"))
+  
+  #Observe structure of households file
+  print(str(hh))
+  
+  #Make any preliminary adjustments to the dataframe
+  hh <- data.frame(hh)
+  
+  
+  hh_cleaned <- hh %>% 
+    #Select the variables we need for this part of the analysis
+    select(
+      serialno,
+      hid,
+      block_id,
+      blockgroup_id,
+      year,
+      age,
+      hhinc2010,
+      persons,
+      person_num
+    ) %>% 
+    dplyr::mutate(
+      #Convert household and geographic indictators to characters
+      serialno = as.character(serialno),
+      block_id = as.character(block_id),
+      blockgroup_id = as.character(blockgroup_id),
+      year = as.character(year),
+      #Create child variable
+      child = case_when(
+        age <= 18 ~ 1,
+        age > 18 ~ 0
+      ),
+      income_grp = cut(
+          hhinc2010,
+          breaks = c(-Inf, 35000, 75000, 125000, 225000, Inf),
+          labels = c("<=35000","35000-75000","75000-125000","125000-225000",">225000")
+      ),
+      #Household flag
+      obs_flag = 1
+    ) %>%
+    #Need to aggregate to households to create a variable that represents the # of children in a household
+    group_by(
+      block_id,
+      serialno,
+      hid
+    ) %>% 
+    mutate(
+      children = sum(child)
+    ) %>% 
+    ungroup() %>%
+    #Remove "non-householders" - essentially de-duplicating serialno
+    filter(
+      person_num == 1
+    ) %>% 
+    group_by(
+      block_id,
+      serialno,
+      age,
+      persons,
+      children,
+      income_grp
+    ) %>% 
+    #Count the number of households, each row is weighted at 1
+    count(
+      obs_flag,
+      wt=NULL
+    ) %>% 
+    ungroup() %>% 
+    mutate(
+      year = yr
+    ) %>% 
+    dplyr::rename(
+      households = n
+    ) %>% 
+    select(
+      -c(
+        obs_flag
+      )
+    )
+  
+  
+  #Testing if the # of households from our summary matches the number of households recorded in Census 2020 PL-94
+  test <- hh_cleaned %>% 
+    summarise(
+      households = sum(households)
+    )
+  #This should be pretty damn close to 1.34M
+  print(test$households)
+  #This should be pretty damn close to 1.0
+  print(test$households/1344610)
+
+  #If this is the case! Wooohoo! Lets Proceed to geographic aggregations
+
+  hh_cleaned_geo <- left_join(hh_cleaned, keys, by = c("block_id" = "bl10_id"))
+
+  #Lets also test the municipal aggregations
+  test_geo <- hh_cleaned_geo %>% 
+    group_by(muni_name) %>% 
+    summarise(
+      households = sum(households)
+    )
+  #Im just eyeballing this now, but TODO: add in PL-94 muni level data to check, +/- 5% threshold
+
+  #Now append this to hh_full
+  hh_full <- hh_full %>% rbind(hh_cleaned_geo)
+  
+}
+
+#Last minute reorganizing
+
+hh_full <- hh_full %>% 
+  mutate(
+    age_group1 = case_when(
+      age < 15 ~ "<15",
+      age >= 15 & age <= 34 ~ "15-34",
+      age >= 35 & age <= 54 ~ "35-54",
+      age >= 55 & age <= 64 ~ "55-64",
+      age >= 65 & age <= 84 ~ "65-84",
+      age >= 85 ~ "85+"
+    ),
+    age_group4 = case_when(
+      age <= 15 ~ "<=15",
+      age > 15 & age <= 35 ~ "16-35",
+      age > 35 & age <= 55 ~ "36-55",
+      age > 55 & age <= 65 ~ "56-65",
+      age > 65 & age <= 85 ~ "66-85",
+      age > 85 ~ "86+" 
+    ),
+    hhtype = case_when(
+      children >= 1 & persons > 1 ~ "1",
+      children == 0 & persons > 1 ~ "3",
+      children == 0 & persons == 1 ~ "5",
+      children == 1 & persons == 1 ~ "5"
+    ),
+    HHd_over65 = case_when(
+      age >= 65 ~ 1,
+      age < 65 ~ 0
+    ),
+    single_person_hhd = case_when(
+      persons == 1 ~ 1,
+      persons != 1 ~ 0
+    ),
+    age_group2 = case_when(
+      age <= 18 ~ "Child",
+      age > 18 & age <= 29 ~ "19-29",
+      age > 29 & age <= 39 ~ "30-39",
+      age > 39 & age <= 49 ~ "40-49",
+      age > 49 & age <= 59 ~ "50-59",
+      age > 59 & age <= 69 ~ "60-69",
+      age > 69 & age <= 79 ~ "70-79",
+      age > 79 ~ "80 and over"
+    ),
+    age_group3 = case_when(
+      age < 19 ~ "Child",
+      age >= 19 & age <= 24 ~ "19-24",
+      age >= 25 & age <= 29 ~ "25-29",
+      age >= 30 & age <= 34 ~ "30-34",
+      age >= 35 & age <= 39 ~ "35-39",
+      age >= 40 & age <= 44 ~ "40-44",
+      age >= 45 & age <= 49 ~ "45-49",
+      age >= 50 & age <= 54 ~ "50-54",
+      age >= 55 & age <= 59 ~ "55-59",
+      age >= 60 & age <= 64 ~ "60-64",
+      age >= 65 & age <= 69 ~ "65-69",
+      age >= 70 & age <= 74 ~ "70-74",
+      age >= 75 & age <= 79 ~ "75-79",
+      age >= 80 & age <= 84 ~ "80-84",
+      age >= 85 ~ "85 and over",
+    ),
+    hh_size = case_when(
+      persons == 1 ~ "One Person",
+      persons == 2 ~ "Two Person",
+      persons == 3 ~ "Three Person",
+      persons >= 4 ~ "Four or More Person"
+    ),
+    child_flag = case_when(
+      children > 0 ~ "1",
+      children <= 0 ~ "0"
+    )
+  )
+
+hh_full <- hh_full %>% 
+  relocate(
+    serialno,
+    age,
+    age_group1,
+    persons,
+    children,
+    hhtype,
+    income_grp,
+    year,
+    households,
+    block_id,
+    bg10_id,
+    muni_id,
+    muni_name,
+    county,
+    rpa_acr,
+    mpo,
+    cmtyp08,
+    cmsbt08
+  )
+```
+MAPC ModelExport .csv of the hh_full file
+```{r}
+#You've done it! MAPC HHds for each projection year!
+#Lets write this to the analysis folder
+
+#First we need to create a place to put the data. 
+#Check if a directory exists for that run and create one if it doesn't already exist.
+setwd("//data-001/public/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/MAPC/")
+
+main_dir <- "//data-001/public/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/MAPC/"
+run_dir <- MAPCM_run
+
+if (file.exists(run_dir)){
+  setwd(file.path(main_dir, run_dir))
+} else{
+  dir.create(file.path(main_dir, run_dir))
+  setwd(file.path(main_dir, run_dir))
+}
+
+#With a run specified and a corresponding directory created, write the csv file to that location.
+write.csv(
+  MAPCM_hh_full,
+  paste0("//data-001/public/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/MAPC/", MAPCM_run, "/urbansim_", MAPCM_run, "_microhouseholds_REVIEW_v1.csv"),
+  row.names = FALSE
+)
+```
+MAPC Model Export .csv for Municipal Aggregated HHds
+```{r}
+# Summarize households to municipalities
+MAPCM_hh_full_muni <- MAPCM_hh_full %>% 
+  group_by(
+    age,
+    persons,
+    children,
+    income_grp,
+    year,
+    muni_id,
+    muni_name,
+    county,
+    rpa_acr,
+    mpo,
+    cmtyp08,
+    cmsbt08
+  ) %>% 
+  summarise(
+    households = sum(households)
+  )
+
+#Redefine years and run 
+#MAPCM_years = c("2010","2019", "2029", "2039", "2049")
+MAPCM_years = c("2010","2019")
+MAPCM_min_years = min(MAPCM_years)
+MAPCM_max_years = max(MAPCM_years)
+
+#For loop that iterates through the full municipal aggregated household dataframe
+#And writes a file for each decade
+for (yr in MAPCM_years) {
+  
+  MAPCM_hh_full_muni_v1 <- MAPCM_hh_full_muni %>% 
+  filter(year == yr)
+  
+  write.csv(
+  MAPCM_hh_full_muni_v1,
+  paste0("//data-001/public/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/MAPC/",MAPCM_run,"/urbansim_",MAPCM_run,"_microhouseholds_MUNIS_",yr,"_REVIEW_v1.csv"),
+  row.names = FALSE
+)
+  
+}
+
+#Writes a file for the full municipal
+write_xlsx(
+  MAPCM_hh_full_muni,
+  paste0("//data-001/public/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/MAPC/",MAPCM_run,"/urbansim_",MAPCM_run,"_microhouseholds_MUNIS_",MAPCM_min_years,"_",MAPCM_max_years,"_REVIEW_v1.xlsx")
+)
+
+```
+####### DONT NEED TO USE
+
+
+Statewide Model Household Analysis: RPA/MPO/Municipality Feedback Tables 2010-2030
+```{r}
+
+root <- "K:/DataServices/Projects/Current_Projects/LandUseAllocationModel/Data/Analysis/UrbanSim_Validation/UrbanSim_Outputs/"
+
+#run <- "run_131"
+run <- "state_run_97"
+
+SWM_hh <- data.frame()
+
+SWM_hh_2010 <- readRDS(paste0(root, run, "/urbansim_",run,"_microhouseholds_2010_pop_corrected_v3.rds")) %>%
+  mutate(year = 2010) %>% 
+  select(
+    -c(
+      age1,age2,age3,age4,age5,age6,age7,age8,
+      age9,age10,age11,age12,age13,age14,
+      age15,age16,age17,age18,sporder,delete,addflag,
+      bl10_id,block_id
+    )
+  )
+SWM_hh_2019 <- readRDS(paste0(root, run, "/urbansim_",run,"_microhouseholds_2019_pop_corrected_v3.rds")) %>%
+  mutate(year = 2019) %>% 
+  select(
+    -c(
+      age1,age2,age3,age4,age5,age6,age7,age8,
+      age9,age10,age11,age12,age13,age14,
+      age15,age16,age17,age18,sporder,delete,addflag,
+      bl10_id,block_id
+    )
+  )
+SWM_hh_2029 <- readRDS(paste0(root, run, "/urbansim_",run,"_microhouseholds_2029_pop_corrected_v3.rds")) %>% 
+  mutate(year = 2029) %>% 
+  select(
+    -c(
+      age1,age2,age3,age4,age5,age6,age7,age8,
+      age9,age10,age11,age12,age13,age14,
+      age15,age16,age17,age18,sporder,delete,addflag,
+      bl10_id,block_id
+    )
+  )
+
+SWM_hh <- bind_rows(SWM_hh_2010,SWM_hh_2019,SWM_hh_2029)
+#Tables for Municipal + RPA review 
+#Table 1: Household Type
+#===============================================================================
+
+#Total households in a municipality by year
+SWM_hh_total_muni <- SWM_hh  %>% 
+  filter(
+    person_num == 1
+  ) %>% 
+  #Include 
+  select(
+    muni_name,
+    year,
+    person_num
+  ) %>% 
+  group_by(
+    muni_name,
+    year
+  ) %>% 
+  summarise(
+    households = sum(person_num)
+  ) %>% 
+  ungroup(
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2010" ~ "Households_2010",
+      year == "2019" ~ "Households_2020",
+      year == "2029" ~ "Households_2030"
+    )
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = households
+  ) %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  ) %>%
+  mutate(
+    `Household Type` = "Total Households"
+  ) %>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    `Household Type`,
+    Households_2010,
+    Households_2020,
+    Households_2030
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    Muni = muni_name,
+    Muni_ID = muni_id
+  )
+
+SWM_hhtype_muni <- SWM_hh %>% 
+  filter(
+    person_num == 1
+  ) %>%  
+  select(
+    muni_name,
+    year,
+    HHtype,
+    person_num
+  ) %>% 
+  group_by(
+    muni_name,
+    HHtype,
+    year
+  ) %>% 
+  summarise(
+    households = sum(person_num)
+  ) %>% 
+  ungroup(
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2010" ~ "Households_2010",
+      year == "2019" ~ "Households_2020",
+      year == "2029" ~ "Households_2030"
+    )
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = households
+  ) %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  ) %>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    HHtype,
+    Households_2010,
+    Households_2020,
+    Households_2030
+  ) %>%
+  mutate(
+    HHtype = case_when(
+      HHtype == "1" ~ "HH with Children",
+      HHtype == "3" ~ "2+ Adults with No Children",
+      HHtype == "5" ~ "Living Alone"
+    )
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    Muni = muni_name,
+    Muni_ID = muni_id,
+    `Household Type` = HHtype
+  )
+
+
+SWM_hhtype_muni <- rbind(SWM_hhtype_muni, SWM_hh_total_muni)
+
+sapply(SWM_hhtype_muni, function(x) sum(is.na(x)))
+
+write_xlsx(
+  SWM_hhtype_muni,
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",run,"/hhtype_muni_2010_2030_tbl.xlsx")
+)
+
+#Table 2: Householder Age
+#===================================================
+
+SWM_hh_age_muni <- SWM_hh %>% 
+  filter(
+    person_num == 1
+  ) %>%  
+  select(
+    muni_name,
+    year,
+    ageHHder,
+    person_num
+  ) %>% 
+  mutate(
+    hher_age_grp = case_when(
+      ageHHder %in% 15:34 ~ "15-34",
+      ageHHder %in% 35:44 ~ "35-44",
+      ageHHder %in% 45:64 ~ "45-64",
+      ageHHder %in% 65:74 ~ "65-74",
+      ageHHder >= 75 ~ "75p"
+    )
+  ) %>% 
+  group_by(
+    muni_name,
+    hher_age_grp,
+    year
+  ) %>% 
+  summarise(
+    households = sum(person_num)
+  ) %>% 
+  ungroup(
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2010" ~ "Households_2010",
+      year == "2019" ~ "Households_2020",
+      year == "2029" ~ "Households_2030"
+    )
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = households
+  ) %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  ) %>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    hher_age_grp,
+    Households_2010,
+    Households_2020,
+    Households_2030
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    Muni = muni_name,
+    Muni_ID = muni_id,
+    `Household Type` = hher_age_grp
+  )
+
+SWM_hh_age_muni <- rbind(SWM_hh_age_muni, SWM_hh_total_muni) %>% 
+  dplyr::rename(
+    `Householder Age Group` = `Household Type`
+  ) %>% 
+  na.omit()
+
+sapply(SWM_hh_age_muni, function(x) sum(is.na(x)))
+
+write_xlsx(
+  SWM_hh_age_muni,
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",run,"/hh_age_muni_2010_2030_tbl.xlsx")
+)
+
+#===============================================================================
+#Table 3: Households by Household Income Goup
+
+SWM_hh_income_muni <- SWM_hh   %>% 
+  filter(
+    person_num == 1
+  ) %>%  
+  select(
+    muni_name,
+    year,
+    income_grp,
+    person_num
+  ) %>% 
+  group_by(
+    muni_name,
+    income_grp,
+    year
+  ) %>% 
+  summarise(
+    households = sum(person_num)
+  ) %>% 
+  ungroup(
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2010" ~ "Households_2010",
+      year == "2019" ~ "Households_2020",
+      year == "2029" ~ "Households_2030"
+    )
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = households
+  ) %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  ) %>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    income_grp,
+    Households_2010,
+    Households_2020,
+    Households_2030
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    Muni = muni_name,
+    Muni_ID = muni_id,
+    `Household Income Group` = income_grp
+  )
+
+sapply(SWM_hh_income_muni, function(x) sum(is.na(x)))
+
+write_xlsx(
+  SWM_hh_income_muni,
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",run,"/hh_income_muni_2010_2030_tbl.xlsx")
+)
+
+#===============================================================================
+#Table 5: Household Population
+SWM_hhpop_total_muni <- SWM_hh  %>%
+  mutate(
+    person_flag = 1
+  ) %>% 
+  #Include 
+  select(
+    muni_name,
+    year,
+    person_flag
+  ) %>% 
+  group_by(
+    muni_name,
+    year
+  ) %>% 
+  summarise(
+    persons = sum(person_flag)
+  ) %>% 
+  ungroup(
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2010" ~ "HHPop_2010",
+      year == "2019" ~ "HHPop_2020",
+      year == "2029" ~ "HHPop_2030"
+    )
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = persons
+  ) %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  ) %>%
+  mutate(
+    `Household Population` = "Total Household Populuation"
+  ) %>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    `Household Population`,
+    HHPop_2010,
+    HHPop_2020,
+    HHPop_2030
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    Muni = muni_name,
+    Muni_ID = muni_id
+  )
+
+sapply(SWM_hhpop_total_muni, function(x) sum(is.na(x)))
+
+write_xlsx(
+  SWM_hhpop_total_muni,
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",run,"/hhpop_total_muni_2010_2030_tbl.xlsx")
+)
+
+#===============================================================================
+#Table 6: Household Population by Age
+
+SWM_hhpop_age_muni <- SWM_hh %>% 
+  mutate(
+    person_flag = 1,
+    age_group2 = case_when(
+      age >= 0 & age <= 4 ~ "0-04",
+      age >= 5 & age <= 9 ~ "05-09",
+      age >= 10 & age <= 14 ~ "10-14",
+      age >= 15 & age <= 19 ~ "15-19", 
+      age >= 20 & age <= 24 ~ "20-24",
+      age >= 25 & age <= 29 ~ "25-29",
+      age >= 30 & age <= 34 ~ "30-34",
+      age >= 35 & age <= 39 ~ "35-39",
+      age >= 40 & age <= 44 ~ "40-44",
+      age >= 45 & age <= 49 ~ "45-49",
+      age >= 50 & age <= 54 ~ "50-54",
+      age >= 55 & age <= 59 ~ "55-59",
+      age >= 60 & age <= 64 ~ "60-64",
+      age >= 65 & age <= 69 ~ "65-69",
+      age >= 70 & age <= 74 ~ "70-74",
+      age >= 75 & age <= 79 ~ "75-79",
+      age >= 80 & age <= 84 ~ "80-84",
+      age >= 85 ~ "85p",
+    )
+  ) %>% 
+  #Include 
+  select(
+    muni_name,
+    year,
+    age_group2,
+    person_flag
+  ) %>% 
+  group_by(
+    muni_name,
+    year,
+    age_group2
+  ) %>% 
+  summarise(
+    persons = sum(person_flag)
+  ) %>% 
+  ungroup(
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2010" ~ "HHPop_2010",
+      year == "2019" ~ "HHPop_2020",
+      year == "2029" ~ "HHPop_2030"
+    )
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = persons
+  ) %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  )%>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    age_group2,
+    HHPop_2010,
+    HHPop_2020,
+    HHPop_2030
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    Muni = muni_name,
+    Muni_ID = muni_id,
+    `Household Population` = age_group2
+  )
+
+SWM_hhpop_age_muni <- rbind(SWM_hhpop_age_muni, SWM_hhpop_total_muni) %>% 
+  dplyr::rename(
+    `Household Population Age Group` = `Household Population`
+  ) %>% 
+  na.omit()
+
+sapply(SWM_hhpop_age_muni, function(x) sum(is.na(x)))
+
+write_xlsx(
+  SWM_hhpop_age_muni,
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",run,"/hhpop_age_muni_2010_2030_tbl.xlsx")
+)
+
+#===============================================================================
+#Table 7: Household Population Under 18
+SWM_hhpop_children_muni <- SWM_hh  %>%
+  mutate(
+    person_flag = 1
+  ) %>% 
+  filter(
+    age < 18
+    #child == 1
+  ) %>% 
+  #Include 
+  select(
+    muni_name,
+    year,
+    person_flag
+  ) %>% 
+  group_by(
+    muni_name,
+    year
+  ) %>% 
+  summarise(
+    persons = sum(person_flag)
+  ) %>% 
+  ungroup(
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2010" ~ "HHPop_2010",
+      year == "2019" ~ "HHPop_2020",
+      year == "2029" ~ "HHPop_2030"
+    )
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = persons
+  ) %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  )%>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    HHPop_2010,
+    HHPop_2020,
+    HHPop_2030
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    Muni = muni_name,
+    Muni_ID = muni_id
+  )
+
+sapply(SWM_hhpop_children_muni, function(x) sum(is.na(x)))
+
+write_xlsx(
+  SWM_hhpop_children_muni,
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",run,"/hhpop_children_muni_2010_2030_tbl.xlsx")
+)
+
+rm(SWM_hh,SWM_hh_2010,SWM_hh_2019,SWM_hh_2029)
+```
+Statewide Model Household Analysis: RPA/MPO/Municipality Feedback Tables 2040-2050
+```{r}
+root <- "K:/DataServices/Projects/Current_Projects/LandUseAllocationModel/Data/Analysis/UrbanSim_Validation/UrbanSim_Outputs/"
+
+#run <- "run_131"
+run <- "state_run_97"
+
+SWM_hh <- data.frame()
+
+SWM_hh_2039 <- readRDS(paste0(root, run, "/urbansim_",run,"_microhouseholds_2039_pop_corrected_v3.rds")) %>%
+  mutate(year = 2039) %>% 
+  select(
+    -c(
+      age1,age2,age3,age4,age5,age6,age7,age8,
+      age9,age10,age11,age12,age13,age14,
+      age15,age16,age17,age18,sporder,delete,addflag,
+      bl10_id,block_id
+    )
+  )
+SWM_hh_2049 <- readRDS(paste0(root, run, "/urbansim_",run,"_microhouseholds_2049_pop_corrected_v3.rds")) %>%
+  mutate(year = 2049) %>% 
+  select(
+    -c(
+      age1,age2,age3,age4,age5,age6,age7,age8,
+      age9,age10,age11,age12,age13,age14,
+      age15,age16,age17,age18,sporder,delete,addflag,
+      bl10_id,block_id
+    )
+  )
+
+SWM_hh <- bind_rows(SWM_hh_2039,SWM_hh_2049)
+rm(SWM_hh_2039,SWM_hh_2049)
+#Tables for Municipal + RPA review 
+#Table 1: Household Type
+#===============================================================================
+#Total households in a municipality by year
+SWM_hh_total_muni <- SWM_hh  %>% 
+  filter(
+    person_num == 1
+  ) %>% 
+  #Include 
+  select(
+    muni_name,
+    year,
+    person_num
+  ) %>% 
+  group_by(
+    muni_name,
+    year
+  ) %>% 
+  summarise(
+    households = sum(person_num)
+  ) %>% 
+  ungroup(
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2039" ~ "Households_2040",
+      year == "2049" ~ "Households_2050"
+    )
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = households
+  ) %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  ) %>%
+  mutate(
+    `Household Type` = "Total Households"
+  ) %>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    `Household Type`,
+    Households_2040,
+    Households_2050
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    Muni = muni_name,
+    Muni_ID = muni_id
+  )
+
+SWM_hhtype_muni <- SWM_hh %>% 
+  filter(
+    person_num == 1
+  ) %>%  
+  select(
+    muni_name,
+    year,
+    HHtype,
+    person_num
+  ) %>% 
+  group_by(
+    muni_name,
+    HHtype,
+    year
+  ) %>% 
+  summarise(
+    households = sum(person_num)
+  ) %>% 
+  ungroup(
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2039" ~ "Households_2040",
+      year == "2049" ~ "Households_2050"
+    )
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = households
+  ) %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  ) %>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    HHtype,
+    Households_2040,
+    Households_2050
+  ) %>%
+  mutate(
+    HHtype = case_when(
+      HHtype == "1" ~ "HH with Children",
+      HHtype == "3" ~ "2+ Adults with No Children",
+      HHtype == "5" ~ " Living Alone"
+    )
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    Muni = muni_name,
+    Muni_ID = muni_id,
+    `Household Type` = HHtype
+  )
+
+
+SWM_hhtype_muni <- rbind(SWM_hhtype_muni, SWM_hh_total_muni)
+
+sapply(SWM_hhtype_muni, function(x) sum(is.na(x)))
+
+write_xlsx(
+  SWM_hhtype_muni,
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",run,"/hhtype_muni_2040_2050_tbl.xlsx")
+)
+
+#Table 2: Householder Age
+#===================================================
+
+SWM_hh_age_muni <- SWM_hh %>% 
+  filter(
+    person_num == 1
+  ) %>%  
+  select(
+    muni_name,
+    year,
+    ageHHder,
+    person_num
+  ) %>% 
+  mutate(
+    hher_age_grp = case_when(
+      ageHHder %in% 15:34 ~ "15-34",
+      ageHHder %in% 35:44 ~ "35-44",
+      ageHHder %in% 45:64 ~ "45-64",
+      ageHHder %in% 65:74 ~ "65-74",
+      ageHHder >= 75 ~ "75p"
+    )
+  ) %>% 
+  group_by(
+    muni_name,
+    hher_age_grp,
+    year
+  ) %>% 
+  summarise(
+    households = sum(person_num)
+  ) %>% 
+  ungroup(
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2039" ~ "Households_2040",
+      year == "2049" ~ "Households_2050"
+    )
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = households
+  ) %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  ) %>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    hher_age_grp,
+    Households_2040,
+    Households_2050
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    Muni = muni_name,
+    Muni_ID = muni_id,
+    `Household Type` = hher_age_grp
+  )
+
+SWM_hh_age_muni <- rbind(SWM_hh_age_muni, SWM_hh_total_muni) %>% 
+  dplyr::rename(
+    `Householder Age Group` = `Household Type`
+  ) %>% 
+  na.omit()
+
+sapply(SWM_hh_age_muni, function(x) sum(is.na(x)))
+
+write_xlsx(
+  SWM_hh_age_muni,
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",run,"/hh_age_muni_2040_2050_tbl.xlsx")
+)
+
+#===============================================================================
+#Table 3: Households by Household Income Goup
+
+SWM_hh_income_muni <- SWM_hh   %>% 
+  filter(
+    person_num == 1
+  ) %>%  
+  select(
+    muni_name,
+    year,
+    income_grp,
+    person_num
+  ) %>% 
+  group_by(
+    muni_name,
+    income_grp,
+    year
+  ) %>% 
+  summarise(
+    households = sum(person_num)
+  ) %>% 
+  ungroup(
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2039" ~ "Households_2040",
+      year == "2049" ~ "Households_2050"
+    )
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = households
+  ) %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  ) %>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    income_grp,
+    Households_2040,
+    Households_2050
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    Muni = muni_name,
+    Muni_ID = muni_id,
+    `Household Income Group` = income_grp
+  )
+
+sapply(SWM_hh_income_muni, function(x) sum(is.na(x)))
+
+write_xlsx(
+  SWM_hh_income_muni,
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",run,"/hh_income_muni_2040_2050_tbl.xlsx")
+)
+
+#===============================================================================
+#Table 5: Household Population
+SWM_hhpop_total_muni <- SWM_hh  %>%
+  mutate(
+    person_flag = 1
+  ) %>% 
+  #Include 
+  select(
+    muni_name,
+    year,
+    person_flag
+  ) %>% 
+  group_by(
+    muni_name,
+    year
+  ) %>% 
+  summarise(
+    persons = sum(person_flag)
+  ) %>% 
+  ungroup(
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2039" ~ "HHPop_2040",
+      year == "2049" ~ "HHPop_2050"
+    )
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = persons
+  ) %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  ) %>%
+  mutate(
+    `Household Population` = "Total Household Populuation"
+  ) %>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    `Household Population`,
+    HHPop_2040,
+    HHPop_2050
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    Muni = muni_name,
+    Muni_ID = muni_id
+  )
+
+sapply(SWM_hhpop_total_muni, function(x) sum(is.na(x)))
+
+write_xlsx(
+  SWM_hhpop_total_muni,
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",run,"/hhpop_total_muni_2040_2050_tbl.xlsx")
+)
+
+#===============================================================================
+#Table 6: Household Population by Age
+
+SWM_hhpop_age_muni <- SWM_hh %>% 
+  mutate(
+    person_flag = 1,
+    age_group2 = case_when(
+      age >= 0 & age <= 4 ~ "0-04",
+      age >= 5 & age <= 9 ~ "05-09",
+      age >= 10 & age <= 14 ~ "10-14",
+      age >= 15 & age <= 19 ~ "15-19", 
+      age >= 20 & age <= 24 ~ "20-24",
+      age >= 25 & age <= 29 ~ "25-29",
+      age >= 30 & age <= 34 ~ "30-34",
+      age >= 35 & age <= 39 ~ "35-39",
+      age >= 40 & age <= 44 ~ "40-44",
+      age >= 45 & age <= 49 ~ "45-49",
+      age >= 50 & age <= 54 ~ "50-54",
+      age >= 55 & age <= 59 ~ "55-59",
+      age >= 60 & age <= 64 ~ "60-64",
+      age >= 65 & age <= 69 ~ "65-69",
+      age >= 70 & age <= 74 ~ "70-74",
+      age >= 75 & age <= 79 ~ "75-79",
+      age >= 80 & age <= 84 ~ "80-84",
+      age >= 85 ~ "85p",
+    )
+  ) %>% 
+  #Include 
+  select(
+    muni_name,
+    year,
+    age_group2,
+    person_flag
+  ) %>% 
+  group_by(
+    muni_name,
+    year,
+    age_group2
+  ) %>% 
+  summarise(
+    persons = sum(person_flag)
+  ) %>% 
+  ungroup(
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2039" ~ "HHPop_2040",
+      year == "2049" ~ "HHPop_2050"
+    )
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = persons
+  ) %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  )%>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    age_group2,
+    HHPop_2040,
+    HHPop_2050
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    Muni = muni_name,
+    Muni_ID = muni_id,
+    `Household Population` = age_group2
+  )
+
+SWM_hhpop_age_muni <- rbind(SWM_hhpop_age_muni, SWM_hhpop_total_muni) %>% 
+  dplyr::rename(
+    `Household Population Age Group` = `Household Population`
+  ) %>% 
+  na.omit()
+
+sapply(SWM_hhpop_age_muni, function(x) sum(is.na(x)))
+
+write_xlsx(
+  SWM_hhpop_age_muni,
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",run,"/hhpop_age_muni_2040_2050_tbl.xlsx")
+)
+
+#===============================================================================
+#Table 7: Household Population Under 18
+SWM_hhpop_children_muni <- SWM_hh  %>%
+  mutate(
+    person_flag = 1
+  ) %>% 
+  filter(
+    age < 18
+    #child == 1
+  ) %>% 
+  #Include 
+  select(
+    muni_name,
+    year,
+    person_flag
+  ) %>% 
+  group_by(
+    muni_name,
+    year
+  ) %>% 
+  summarise(
+    persons = sum(person_flag)
+  ) %>% 
+  ungroup(
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2039" ~ "HHPop_2040",
+      year == "2049" ~ "HHPop_2050"
+    )
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = persons
+  ) %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  )%>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    HHPop_2040,
+    HHPop_2050
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    Muni = muni_name,
+    Muni_ID = muni_id
+  )
+
+sapply(SWM_hhpop_children_muni, function(x) sum(is.na(x)))
+
+write_xlsx(
+  SWM_hhpop_children_muni,
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",run,"/hhpop_children_muni_2040_2050_tbl.xlsx")
+)
+
+rm(SWM_hh)
+```
+
+
+```{r}
+y <- read_excel(
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",run,"/hhpop_children_muni_2010_2030_tbl.xlsx"),
+  sheet = 1)
+
+sapply(y, function(x) sum(is.na(x)))
+
+z <- read_excel(
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",run,"/hhpop_children_muni_2040_2050_tbl.xlsx"),
+  sheet = 1)
+
+sapply(z, function(x) sum(is.na(x)))
+
+yz <- full_join(y,z, by = c("RPA","MPO","Muni","Muni_ID")) %>% 
+  mutate_all(~replace(.,is.na(.),0))
+
+sapply(yz, function(x) sum(is.na(x)))
+
+write_xlsx(
+  yz,
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",run,"/hhpop_children_muni_2010_2050_tbl.xlsx")
+)
+```
+Get Block Groups Squared
+```{r}
+# Block / Muni crosswalk
+xw <-
+  read_excel('K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/state_run_97/Block Group Summaries/muni20_blockgroup10_crosswalk.xlsx') %>% 
+  select(GEOID, GEOID_1) %>% 
+  rename('bg10_id' = 'GEOID',
+         'cosub_cn20' = 'GEOID_1') %>% 
+  mutate(bg10_id = as.character(bg10_id),
+         cosub_cn20 = as.character(cosub_cn20)) %>% 
+  filter(!is.na(cosub_cn20))
+muni20 <-
+  mapcdatakeys::all_muni_data_keys %>% 
+  select(muni_id, muni_name, rpa_acr, mpo, cosub_cn20) %>% 
+  mutate(cosub_cn20 = as.character(cosub_cn20)
+  )
+bg.xw <- left_join(xw, muni20, by = 'cosub_cn20')
+bg.muni <-
+  bg.xw %>% 
+  filter(!is.na(cosub_cn20)) %>% 
+  select(bg10_id, muni_id, muni_name, mpo) %>% 
+  unique()
+```
+
+Statewide Model Household and Population Analysis: Block Group Feedback Tables 2010-2030
+```{r}
+root <- "K:/DataServices/Projects/Current_Projects/LandUseAllocationModel/Data/Analysis/UrbanSim_Validation/UrbanSim_Outputs/"
+
+#run <- "run_131"
+run <- "state_run_97"
+
+SWM_hh <- data.frame()
+
+SWM_hh_2010 <- readRDS(paste0(root, run, "/urbansim_",run,"_microhouseholds_2010_pop_corrected_v3.rds")) %>%
+  mutate(year = 2010, bl10_id = as.character(bl10_id)) %>% 
+  select(
+    -c(
+      age1,age2,age3,age4,age5,age6,age7,age8,
+      age9,age10,age11,age12,age13,age14,
+      age15,age16,age17,age18,sporder,delete,addflag,
+      block_id
+    )
+  ) %>% 
+  left_join(
+    keys_4,
+    by = c("bl10_id")
+  )
+SWM_hh_2019 <- readRDS(paste0(root, run, "/urbansim_",run,"_microhouseholds_2019_pop_corrected_v3.rds")) %>%
+  mutate(year = 2019, bl10_id = as.character(bl10_id)) %>% 
+  select(
+    -c(
+      age1,age2,age3,age4,age5,age6,age7,age8,
+      age9,age10,age11,age12,age13,age14,
+      age15,age16,age17,age18,sporder,delete,addflag,
+      block_id
+    )
+  ) %>% 
+  left_join(
+    keys_4,
+    by = c("bl10_id")
+  )
+
+SWM_hh_2029 <- readRDS(paste0(root, run, "/urbansim_",run,"_microhouseholds_2029_pop_corrected_v3.rds")) %>% 
+  mutate(year = 2029, bl10_id = as.character(bl10_id)) %>% 
+  select(
+    -c(
+      age1,age2,age3,age4,age5,age6,age7,age8,
+      age9,age10,age11,age12,age13,age14,
+      age15,age16,age17,age18,sporder,delete,addflag,
+      block_id
+    )
+  ) %>% 
+  left_join(
+    keys_4,
+    by = c("bl10_id")
+  )
+
+SWM_hh_2039 <- readRDS(paste0(root, run, "/urbansim_",run,"_microhouseholds_2039_pop_corrected_v3.rds")) %>%
+  mutate(year = 2039, bl10_id = as.character(bl10_id)) %>% 
+  select(
+    -c(
+      age1,age2,age3,age4,age5,age6,age7,age8,
+      age9,age10,age11,age12,age13,age14,
+      age15,age16,age17,age18,sporder,delete,addflag,
+      block_id
+    )
+  ) %>% 
+  left_join(
+    keys_4,
+    by = c("bl10_id")
+  )
+
+SWM_hh_2049 <- readRDS(paste0(root, run, "/urbansim_",run,"_microhouseholds_2049_pop_corrected_v3.rds")) %>%
+  mutate(year = 2049, bl10_id = as.character(bl10_id)) %>% 
+  select(
+    -c(
+      age1,age2,age3,age4,age5,age6,age7,age8,
+      age9,age10,age11,age12,age13,age14,
+      age15,age16,age17,age18,sporder,delete,addflag,
+      block_id
+    )
+  ) %>% 
+  left_join(
+    keys_4,
+    by = c("bl10_id")
+  )
+rm(SWM_hh_2010)
+#===============================================================================
+#Total households in a municipality by year
+SWM_hh_total_bg <- SWM_hh_2049  %>% 
+  filter(
+    person_num == 1
+  ) %>% 
+  #Include 
+  select(
+    bg10_id,
+    year,
+    person_num
+  ) %>% 
+  group_by(
+    bg10_id,
+    year
+  ) %>% 
+  summarise(
+    households = sum(person_num)
+  ) %>% 
+  ungroup(
+  ) %>% 
+  mutate(
+    year = case_when(
+      #year == "2010" ~ "Households_2010"#,
+      #year == "2019" ~ "Households_2020"#,
+      #year == "2029" ~ "Households_2030"#,
+      #year == "2039" ~ "Households_2040"#,
+      year == "2049" ~ "Households_2050"
+    )
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = households
+  ) %>%
+  mutate(
+    `Household Type` = "Total Households"
+  ) %>%
+  inner_join(
+    bg.xw,
+    by = c("bg10_id")
+  ) %>% 
+  select(
+    -cosub_cn20
+  ) %>% 
+  relocate(
+    bg10_id,
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    `Household Type`,
+    #Households_2010#,
+    #Households_2020#,
+    #Households_2030#,
+    #Households_2040#,
+    Households_2050
+  ) %>% 
+  dplyr::rename(
+    Block_Group_2010 = bg10_id,
+    RPA = rpa_acr,
+    MPO = mpo,
+    Muni = muni_name,
+    Muni_ID = muni_id
+  )
+
+write_xlsx(
+  SWM_hh_total_bg,
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",run,"/Block Group Summaries/hh_total_bg_2049_v1.xlsx")
+)
+#===============================================================================
+#Table 2: Household Population
+SWM_hhpop_total_bg <- SWM_hh_2049  %>%
+  mutate(
+    person_flag = 1
+  ) %>% 
+  #Include 
+  select(
+    bg10_id,
+    year,
+    person_flag
+  ) %>% 
+  group_by(
+    bg10_id,
+    year
+  ) %>% 
+  summarise(
+    persons = sum(person_flag)
+  ) %>% 
+  ungroup(
+  )  %>% 
+  mutate(
+    year = case_when(
+      #year == "2010" ~ "HHPop_2010"#,
+      #year == "2019" ~ "HHPop_2020"#,
+      #year == "2029" ~ "HHPop_2030"#,
+      #year == "2039" ~ "HHPop_2040"#,
+      year == "2049" ~ "HHPop_2050"
+    )
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = persons
+  ) %>%
+  inner_join(
+    bg.xw,
+    by = c("bg10_id")
+  ) %>% 
+  select(
+    -cosub_cn20
+  ) %>%
+  mutate(
+    `Household Population` = "Total Household Populuation"
+  ) %>% 
+  relocate(
+    bg10_id,
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    `Household Population`,
+    #HHPop_2010#,
+    #HHPop_2020,
+    #HHPop_2030#,
+    #HHPop_2040#,
+    HHPop_2050
+  ) %>% 
+  dplyr::rename(
+    Block_Group_2010 = bg10_id,
+    RPA = rpa_acr,
+    MPO = mpo,
+    Muni = muni_name,
+    Muni_ID = muni_id
+  )
+
+sapply(SWM_hhpop_total_bg, function(x) sum(is.na(x)))
+
+write_xlsx(
+  SWM_hhpop_total_bg,
+    paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",run,"/Block Group Summaries/hhpop_total_bg_2049_v1.xlsx")
+)
+```
+```{r}
+SWM_hh_total_bg <- read_excel(
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",run,"/Block Group Summaries/hh_total_bg_2010_v1.xlsx")
+)
+for (yr in c(2019,2029,2039,2049)) {
+  tmp <- read_excel(paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",run,"/Block Group Summaries/hh_total_bg_",yr,"_v1.xlsx"))
+  SWM_hh_total_bg <- full_join(
+    SWM_hh_total_bg,
+    tmp,
+    by = c("Block_Group_2010","RPA","MPO","Muni","Muni_ID","Household Type")
+  ) %>% 
+    replace(is.na(.),0)
+  rm(tmp)
+}
+
+write_xlsx(
+  SWM_hh_total_bg,
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",run,"/Block Group Summaries/hh_total_bg_2010_2049_v1.xlsx")
+)
+
+SWM_hhpop_total_bg <- read_excel(
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",run,"/Block Group Summaries/hhpop_total_bg_2010_v1.xlsx")
+)
+for (yr in c(2019,2029,2039,2049)) {
+  tmp <- read_excel(paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",run,"/Block Group Summaries/hhpop_total_bg_",yr,"_v1.xlsx"))
+  SWM_hhpop_total_bg <- full_join(
+    SWM_hhpop_total_bg,
+    tmp,
+    by = c("Block_Group_2010","RPA","MPO","Muni","Muni_ID","Household Population")
+  ) %>% 
+    replace(is.na(.),0)
+  rm(tmp)
+}
+
+print(length(unique(SWM_hh_total_bg$muni_id)))
+
+write_xlsx(
+  SWM_hhpop_total_bg,
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",run,"/Block Group Summaries/hhpop_total_bg_2010_2049_v1.xlsx")
+)
+```
+
+Tables for Mapping 2020-2050 Percent Differences
+```{r}
+#Table: Household Population
+SWM_hhpop_total_muni <- SWM_hh  %>%
+  mutate(
+    person_flag = 1
+  ) %>% 
+  #Include 
+  select(
+    muni_name,
+    year,
+    person_flag
+  ) %>% 
+  group_by(
+    muni_name,
+    year
+  ) %>% 
+  summarise(
+    persons = sum(person_flag)
+  ) %>% 
+  ungroup(
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2019" ~ "HHPop_2020",
+      year == "2049" ~ "HHPop_2050"
+    )
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = persons
+  ) %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  ) %>%
+  mutate(
+    `Household Population` = "Total Household Populuation"
+  ) %>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    `Household Population`,
+    HHPop_2020,
+    HHPop_2050
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    Muni = muni_name,
+    Muni_ID = muni_id
+  ) %>% 
+  mutate(
+    pct_diff_20_50 = ((HHPop_2050-HHPop_2020)/HHPop_2020)*100
+  )
+#Household Type
+SWM_hhtype_muni <- SWM_hh %>% 
+  filter(
+    person_num == 1
+  ) %>%  
+  select(
+    muni_name,
+    year,
+    person_num
+  ) %>% 
+  group_by(
+    muni_name,
+    year
+  ) %>% 
+  summarise(
+    households = sum(person_num)
+  ) %>% 
+  ungroup(
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2019" ~ "Households_2020",
+      year == "2049" ~ "Households_2050"
+    )
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = households
+  ) %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  ) %>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    Households_2020,
+    Households_2050
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    Muni = muni_name,
+    Muni_ID = muni_id,
+  ) %>% 
+  mutate(
+    pct_diff_20_50 = ((Households_2050-Households_2020)/Households_2020)*100,
+    lvl_diff_20_50 = Households_2050 - Households_2020
+  )
+print(sum(SWM_hhtype_muni$Households_2020))
+#Workers
+SWM_workers <- SWM_hh %>% 
+  filter(
+    person_num == 1
+  )  %>%  
+  select(
+    muni_name,
+    year,
+    workers
+  ) %>% 
+  group_by(
+    muni_name,
+    year
+  ) %>% 
+  summarise(
+    workers = sum(workers)
+  ) %>% 
+  ungroup(
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2019" ~ "Workers_2020",
+      year == "2049" ~ "Workers_2050"
+    )
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = workers
+  ) %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  ) %>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    Workers_2020,
+    Workers_2050
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    Muni = muni_name,
+    Muni_ID = muni_id,
+  ) %>% 
+  mutate(
+    pct_diff_20_50 = ((Workers_2050-Workers_2020)/Workers_2020)*100
+  )
+
+print(sum(SWM_workers$Workers_2050))
+
+```
+
+Statewide Model Household Analysis: Tables - Household Population Comparisons
+```{r}
+#Table 1: Household Type
+#===============================================================================
+SWM_hh_type_muni <- SWM_hh_full  %>% 
+  select(
+    muni_name,
+    year,
+    hhtype,
+    households
+  ) %>% 
+  group_by(
+    muni_name,
+    hhtype,
+    year
+  ) %>% 
+  summarise(
+    households = sum(households)
+  ) %>% 
+  ungroup(
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2010" ~ "Households_2010",
+      year == "2019" ~ "Households_2020"
+    )
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = households
+  ) %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  ) %>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    hhtype,
+    Households_2010,
+    Households_2020
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    HHtype = hhtype
+  )
+
+
+# Households by type and ageCAT5
+
+keys_hhtype <- mapcdatakeys::all_muni_data_keys
+keys_hhtype <- keys_hhtype %>% 
+  select(
+    muni_id,
+    muni_name,
+    cosub_5y10
+  ) %>% 
+  mutate(
+    cosub_5y10 = as.character(cosub_5y10)
+  )
+
+#
+
+vars2010 <- load_variables(2010, 'sf1')
+vars2010$name_2 <- str_extract(vars2010$name, "P021")
+vars2010_list <- vars2010 %>% 
+  filter(
+    name_2 == "P021"
+  )
+
+var_list <- c(vars2010_list$name)
+
+census_api_key("d590f657a113f2f78b5a422462ea00745e79111c")
+
+hh_type <- 
+  get_decennial(
+    year = 2010,
+    state = "MA",
+    geography = "county subdivision",
+    variables = var_list
+  ) %>% 
+  mutate(
+    ageCAT5 = case_when(
+      variable == "P021002" ~ 1,
+      variable == "P021003" ~ 1,
+      variable == "P021004" ~ 1,
+      variable == "P021005" ~ 1,
+      variable == "P021006" ~ 1,
+      variable == "P021007" ~ 1,
+      variable == "P021008" ~ 1,
+      variable == "P021009" ~ 1,
+      variable == "P021010" ~ 1,
+      variable == "P021011" ~ 1,
+      variable == "P021012" ~ 1,
+      variable == "P021013" ~ 1,
+      variable == "P021014" ~ 1,
+      variable == "P021015" ~ 1,
+      variable == "P021016" ~ 1,
+      variable == "P021017" ~ 2,
+      variable == "P021018" ~ 2,
+      variable == "P021019" ~ 2,
+      variable == "P021020" ~ 2,
+      variable == "P021021" ~ 2,
+      variable == "P021022" ~ 2,
+      variable == "P021023" ~ 2,
+      variable == "P021024" ~ 2,
+      variable == "P021025" ~ 2,
+      variable == "P021026" ~ 2,
+      variable == "P021027" ~ 2,
+      variable == "P021028" ~ 2,
+      variable == "P021029" ~ 2,
+      variable == "P021030" ~ 2,
+      variable == "P021031" ~ 2,
+    ),
+    HHtype = case_when(
+      variable == "P021005" ~ 1,
+      variable == "P021009" ~ 1,
+      variable == "P021012" ~ 1,
+      variable == "P021020" ~ 1,
+      variable == "P021024" ~ 1,
+      variable == "P021027" ~ 1,
+      variable == "P021006" ~ 3,
+      variable == "P021021" ~ 3,
+      variable == "P021016" ~ 3,
+      variable == "P021031" ~ 3,
+      variable == "P021010" ~ 3,
+      variable == "P021013" ~ 3,
+      variable == "P021025" ~ 3,
+      variable == "P021028" ~ 3,
+      variable == "P021015" ~ 5,
+      variable == "P021030" ~ 5,
+    )
+  )
+
+#Table 2: Householder Age
+#===================================================
+
+SWM_hh_age_muni <- SWM_hh_full  %>% 
+  select(
+    muni_name,
+    year,
+    age,
+    households
+  ) %>% 
+  group_by(
+    muni_name,
+    age,
+    year
+  ) %>% 
+  summarise(
+    households = sum(households)
+  ) %>% 
+  ungroup(
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2010" ~ "Households_2010",
+      year == "2019" ~ "Households_2020"
+    )
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = households
+  ) %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  ) %>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    age,
+    Households_2010,
+    Households_2020
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    Municipality = muni_name,
+    Municipality_ID = muni_id,
+    `Householder Age` = age
+  )
+
+SWM_hh_age_MPO <- SWM_hh_full  %>% 
+  select(
+    mpo,
+    year,
+    age,
+    households
+  ) %>% 
+  group_by(
+    mpo,
+    age,
+    year
+  ) %>% 
+  summarise(
+    households = sum(households)
+  ) %>% 
+  ungroup(
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2010" ~ "Households_2010",
+      year == "2019" ~ "Households_2020"
+    )
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = households
+  ) %>% 
+  relocate(
+    mpo,
+    age,
+    Households_2010,
+    Households_2020
+  ) %>% 
+  dplyr::rename(
+    MPO = mpo,
+    `Householder Age` = age
+  )
+
+#=============================
+#Pull in 2010 SF-1 to compare to
+hha.vars <- vars2010 %>% 
+  filter(
+    concept=='TENURE BY AGE OF HOUSEHOLDER'
+  ) %>% 
+  select(
+    name
+  ) %>% 
+  mutate(
+    name = as.character(name)
+  ) %>% 
+  pull(
+    name
+  )
+  
+hha.labels <- vars2010 %>% 
+  filter(
+    concept=='TENURE BY AGE OF HOUSEHOLDER'
+  ) %>% 
+  select(
+    name,
+    label
+  ) %>% 
+  mutate(
+    label = gsub("Total!!Owner occupied!!","", label),
+    label = gsub("Total!!Renter occupied!!","", label),
+    label = gsub(" ", "_", label)
+  )
+  
+hh.age <-
+  get_decennial(
+    year = 2010,
+    state = 'MA',
+    geography = 'county subdivision',
+    variables = hha.vars
+  )
+    
+hha <- hh.age %>%
+  filter(GEOID %in% munis$GEOID) %>% 
+  right_join(hha.labels,by = c('variable'="name")) %>% 
+  mutate(
+    ageCAT4 = case_when(
+      label %in% c('Householder_15_to_24_years','Householder_25_to_34_years') ~ '15-34',
+      label %in% c('Householder_35_to_44_years','Householder_45_to_54_years') ~ '35-54',
+      label %in% c('Householder_55_to_59_years','Householder_60_to_64_years') ~ '55-64',
+      label %in% c('Householder_65_to_74_years','Householder_75_to_84_years') ~ '65-84',
+      label %in% c('Householder_85_years_and_over') ~ '85+'
+    )
+  ) %>%
+  group_by(GEOID,ageCAT4) %>% 
+  summarise(hh = sum(value)) %>% 
+  filter(!is.na(ageCAT4)) %>% 
+  right_join(munis,by = 'GEOID') %>% 
+  mutate(muni_id = as.character(muni_id))
+
+Comp_HHAge_2010_muni <- SWM_hh_age_muni %>% 
+  left_join(
+    hha,
+    by = c('Municipality_ID' = 'muni_id','Householder Age' = 'ageCAT4')
+  ) %>% 
+  select(
+    -c(
+      Households_2020,
+      GEOID
+    )
+  ) %>% 
+  dplyr::rename(
+    muni = Municipality,
+    muni_id = Municipality_ID,
+    SF1_Households_2010 = hh,
+    H5_Households_2010 = Households_2010
+  ) %>%
+  mutate(
+    H5_Households_2010 = if_else(is.na(H5_Households_2010),0,H5_Households_2010),
+    SF1_Households_2010 = if_else(is.na(SF1_Households_2010),0,SF1_Households_2010),
+    diff = H5_Households_2010 - SF1_Households_2010
+  )
+
+write.csv(
+  Comp_HHAge_2010_muni,
+  paste0("//Data-001/DS-Projects/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",SWM_run,"/HHAge_comparison_H5_SF1_muni.csv"),
+  row.names = FALSE
+)
+
+Comp_HHAge_2010_MPO <- Comp_HHAge_2010_muni %>% 
+  group_by(
+    MPO,
+    `Householder Age`
+  ) %>% 
+  summarise(
+    SF1_Households_2010 = sum(SF1_Households_2010),
+    H5_Households_2010 = sum(H5_Households_2010)
+  ) %>% 
+  mutate(
+    diff = H5_Households_2010 - SF1_Households_2010
+  )
+
+write.csv(
+  Comp_HHAge_2010_MPO,
+  paste0("//Data-001/DS-Projects/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",SWM_run,"/HHAge_comparison_H5_SF1_MPO.csv"),
+  row.names = FALSE
+)
+
+#===============================================================================
+#Households by Household Income Goup
+
+SWM_hh_income_muni <- SWM_hh_full  %>% 
+  select(
+    muni_name,
+    year,
+    income_grp,
+    households
+  ) %>%  
+  group_by(
+    muni_name,
+    income_grp,
+    year
+  ) %>% 
+  summarise(
+    households = sum(households)
+  ) %>% 
+  ungroup(
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2010" ~ "Households_2010",
+      year == "2019" ~ "Households_2020"
+    )
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = households
+  ) %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  ) %>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    income_grp,
+    Households_2010,
+    Households_2020
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    Municipality = muni_name,
+    Municipality_ID = muni_id,
+    `Household Income Group` = income_grp
+  )
+
+sapply(SWM_hh_income_muni, function(x) sum(is.na(x)))
+
+SWM_hh_income_MPO <- SWM_hh_full  %>% 
+  select(
+    mpo,
+    year,
+    income_grp,
+    households
+  ) %>%  
+  group_by(
+    mpo,
+    income_grp,
+    year
+  ) %>% 
+  summarise(
+    households = sum(households)
+  ) %>% 
+  ungroup(
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2010" ~ "Households_2010",
+      year == "2019" ~ "Households_2020"
+    )
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = households
+  ) %>% 
+  relocate(
+    mpo,
+    income_grp,
+    Households_2010,
+    Households_2020
+  ) %>% 
+  dplyr::rename(
+    MPO = mpo,
+    `Household Income Group` = income_grp
+  )
+
+SWM_hh_income_MPO2 <- SWM_hh_full %>% 
+  select(
+    mpo,
+    year,
+    income_grp2,
+    households
+  ) %>%
+  group_by(
+    mpo,
+    income_grp2,
+    year
+  ) %>% 
+  summarise(
+    households = sum(households)
+  ) %>% 
+  ungroup(
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2010" ~ "Households_2010",
+      year == "2019" ~ "Households_2020"
+    )
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = households
+  ) %>% 
+  relocate(
+    mpo,
+    income_grp2,
+    Households_2010,
+    Households_2020
+  ) %>% 
+  dplyr::rename(
+    MPO = mpo,
+    `Household Income Group` = income_grp2
+  )
+
+```
+Statewide Model Household Analysis: Additional Tables
+```{r}
+#The full table of households is too large to manipulate in excel
+#===============================================================================
+#Table 1: Households: Income Group x Community Type
+#Households by Household Income Goup
+
+SWM_hh_income_cmtyp08 <- SWM_hh_full  %>% 
+  select(
+    mpo,
+    cmtyp08,
+    year,
+    income_grp,
+    households
+  ) %>% 
+  group_by(
+    mpo,
+    cmtyp08,
+    income_grp,
+    year
+  ) %>% 
+  summarise(
+    households = sum(households)
+  ) %>% 
+  ungroup(
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2010" ~ "Households_2010",
+      year == "2019" ~ "Households_2020",
+      year == "2029" ~ "Households_2030",
+      year == "2039" ~ "Households_2040",
+      year == "2049" ~ "Households_2050"
+    )
+  ) %>% 
+  pivot_wider(
+   names_from = year,
+   values_from = households
+  ) %>%
+  rowwise() %>% 
+  mutate(
+    p_diff_2050 = round((((Households_2050/Households_2020)-1)*100), 1)
+  ) %>% 
+  #left_join(
+    #keys_2,
+    #by = c("muni_name")
+  #) %>% 
+  #select(
+   # -c(
+    #  muni_name,
+     # muni_id,
+      #cmsbt08
+    #)
+  #) %>% 
+  relocate(
+    #rpa_acr,
+    mpo,
+    cmtyp08,
+    income_grp,
+    Households_2010,
+    Households_2020,
+    Households_2030,
+    Households_2040,
+    Households_2050,
+    p_diff_2050
+  ) %>% 
+  dplyr::rename(
+    #RPA = rpa_acr,
+    MPO = mpo,
+    `Community Type` = cmtyp08,
+    `Household Income Group` = income_grp
+  ) %>% 
+  na.omit(
+  )
+
+sapply(SWM_hh_income_cmtyp08, function(x) sum(is.na(x)))
+
+write_xlsx(
+  SWM_hh_income_cmtyp08,
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",SWM_run,"/hh_income_cmtyp08_tbl.xlsx")
+)
+
+#===============================================================================
+#Table 2: Household Income x Household Type
+
+SWM_hh_income_hhtype <- SWM_hh_full  %>% 
+  select(
+    mpo,
+    hhtype,
+    year,
+    income_grp,
+    households
+  ) %>% 
+  group_by(
+    mpo,
+    hhtype,
+    income_grp,
+    year
+  ) %>% 
+  summarise(
+    households = sum(households)
+  ) %>% 
+  ungroup(
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2010" ~ "Households_2010",
+      year == "2019" ~ "Households_2020",
+      year == "2029" ~ "Households_2030",
+      year == "2039" ~ "Households_2040",
+      year == "2049" ~ "Households_2050"
+    ),
+    hhtype = case_when(
+      hhtype == "1" ~ "",
+      hhtype == "3" ~ "",
+      hhtype == "5" ~ ""
+    )
+  ) %>% 
+  pivot_wider(
+   names_from = year,
+   values_from = households
+  ) %>%
+  rowwise() %>% 
+  mutate(
+    p_diff_2050 = round((((Households_2050/Households_2020)-1)*100), 1)
+  ) %>% 
+  #left_join(
+    #keys_2,
+    #by = c("muni_name")
+  #) %>% 
+  #select(
+   # -c(
+    #  muni_name,
+     # muni_id,
+      #cmsbt08
+    #)
+  #) %>% 
+  relocate(
+    #rpa_acr,
+    mpo,
+    hhtype,
+    income_grp,
+    Households_2010,
+    Households_2020,
+    Households_2030,
+    Households_2040,
+    Households_2050,
+    p_diff_2050
+  ) %>% 
+  dplyr::rename(
+    #RPA = rpa_acr,
+    MPO = mpo,
+    `Household Type` = hhtype,
+    `Household Income Group` = income_grp
+  ) %>% 
+  na.omit(
+  )
+
+sapply(SWM_hh_income_hhtype, function(x) sum(is.na(x)))
+
+write_xlsx(
+  SWM_hh_income_hhtype,
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",SWM_run,"/hh_income_hhtype_tbl.xlsx")
+)
+
+#===============================================================================
+#Table 3: Household Income x Age of Householder
+SWM_hh_income_age <- SWM_hh_full  %>% 
+  select(
+    mpo,
+    age_group1,
+    year,
+    income_grp,
+    households
+  ) %>% 
+  group_by(
+    mpo,
+    age_group1,
+    income_grp,
+    year
+  ) %>% 
+  summarise(
+    households = sum(households)
+  ) %>% 
+  ungroup(
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2010" ~ "Households_2010",
+      year == "2019" ~ "Households_2020",
+      year == "2029" ~ "Households_2030",
+      year == "2039" ~ "Households_2040",
+      year == "2049" ~ "Households_2050"
+    )
+  ) %>% 
+  pivot_wider(
+   names_from = year,
+   values_from = households
+  ) %>%
+  rowwise() %>% 
+  mutate(
+    p_diff_2050 = round((((Households_2050/Households_2020)-1)*100), 1)
+  ) %>% 
+  #left_join(
+    #keys_2,
+    #by = c("muni_name")
+  #) %>% 
+  #select(
+   # -c(
+    #  muni_name,
+     # muni_id,
+      #cmsbt08
+    #)
+  #) %>% 
+  relocate(
+    #rpa_acr,
+    mpo,
+    age_group1,
+    income_grp,
+    Households_2010,
+    Households_2020,
+    Households_2030,
+    Households_2040,
+    Households_2050,
+    p_diff_2050
+  ) %>% 
+  dplyr::rename(
+    #RPA = rpa_acr,
+    MPO = mpo,
+    `Age Group` = age_group1,
+    `Household Income Group` = income_grp
+  ) %>% 
+  na.omit(
+  )
+
+sapply(SWM_hh_income_age, function(x) sum(is.na(x)))
+
+write_xlsx(
+  SWM_hh_income_age,
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",SWM_run,"/hh_income_age_tbl.xlsx")
+)
+
+```
+
+Household Analysis: Maps
+TODO:
+Duxbury -> OCPC and MAPC
+```{r}
+########## Spatial data for mapping ###### 
+######################################### 
+# Need to use 2020 census for munis because mapc datakeys has GEOIDs for 2020 munis
+sfm <-
+  get_decennial(
+    year = 2020,
+    state = 'MA',
+    geography = 'county subdivision',
+    variables = 'H1_001N',
+    geometry = T
+  )
+
+#sfm <- sfm %>% st_transform(st_crs(4326))
+
+#RPA Polygon
+rpa_shp <- st_read(
+  "K:/DataServices/Datasets/Boundaries/Spatial/RPAS_POLY.shp"
+)
+
+rpa_shp <- rpa_shp %>% st_transform(st_crs(4326))
+
+setDT(sfm)
+setkey(sfm,GEOID)
+
+#Get GEOID for each muni
+g <- mapcdatakeys::all_muni_data_keys %>% 
+  select(
+    muni_name,
+    cosub_5y20,
+    mapc,
+    mpo
+  )
+
+#Merge GEOID back to muni for specified 
+
+SWM_hhpop_total_muni_g <- left_join(SWM_hhpop_total_muni, g, by = c("Muni" = "muni_name")) %>% 
+  dplyr::rename(
+    GEOID = cosub_5y20
+  )
+
+#setkey(muni_Total,GEOID)
+###
+
+sf_muni <- left_join(SWM_hhpop_total_muni_g, sfm, by = c("GEOID"))
+
+#sf_muni <- sf_muni %>% 
+  #filter(
+   # mpo != "MAPC"
+  #) %>% 
+  #filter(
+    #`Household Income Group` == ">225000"
+  #)
+  #merge(muni_Total,sfm,all=T)
+
+sf_muni <- st_as_sf(sf_muni)
+#sf_muni <- sf_muni %>% st_transform(st_crs(4362))
+
+### --- Palette for UrbanSim-Census percent difference --- ###
+#bins_pct_diff<-
+  #c(Inf,25,10,5,2.5,0.5, -0.5,-2.5,-5,-10, -25, -Inf)
+bins_pct_diff<-
+  c(Inf,25,15,10,7.5,5,2.5,0)
+#pal_pct_diff <-
+#  colorBin(c("red", "white", "blue"),
+#           bins = bins_pct_diff,
+#           na.color = "#808080")
+
+pal_pct_diff <-
+  colorBin(c("white", "blue"),
+           bins = bins_pct_diff,
+           na.color = "#808080")
+
+# Palette for UrbanSim-Census unit difference
+bins_unit_diff<-
+  c(-Inf, -5000, -2500, -1000, -500, -250, -1, 1, 250, 500, 1000, 2500, 5000, Inf)
+pal_unit_diff <-
+  colorBin(c("blue", "white", "red"),
+           bins = bins_unit_diff,
+           na.color = "#808080")
+
+# Palette for UrbanSim-Census houeshold difference
+#bins_hh_diff <-
+#  c(Inf, 3000, 2000, 1000, 500, 250, 1, -1, -250, -500, -1000, -2000, -3000, -Inf)
+#pal_hh_diff <-
+#  colorBin(c("red", "white", "blue"),
+#           bins = bins_hh_diff,
+#           na.color = "#808080")
+bins_hh_diff<-
+  c(Inf, 3000, 2000, 1500, 1000, 500, 250, 100, 0)
+pal_hh_diff <-
+  colorBin(c("white", "blue"),
+           bins = bins_hh_diff,
+           na.color = "#808080")
+
+#Generates leaflet mappings 
+unit_2020_diff <- sf_muni %>%
+  st_transform(st_crs(4326)) %>%
+  leaflet() %>%
+  addProviderTiles(provider = "CartoDB.Positron") %>%
+  addPolygons(
+    popup = ~ paste(
+      "Muni: ",
+      sf_muni$Muni,
+      "<br>",
+      "UrbanSim: ",
+      sf_muni$pct_diff_20_50
+    ),
+    fillOpacity = 0.6,
+    fillColor = ~ pal_pct_diff(sf_muni$pct_diff_20_50),#
+    weight = 1,
+    stroke=T,
+    col='black',
+    group = "Difference"
+  ) %>% 
+  #addPolygons(
+    #data = rpa_shp$geometry,
+    #fillOpacity = 0.0,
+    #fillColor = NULL,
+    #weight = 4.0,
+    #stroke=T,
+    #col='black',
+  #) %>% 
+  addLegend(
+    position = "bottomleft",
+    pal = pal_pct_diff,#
+    values = ~ bins_pct_diff,
+    title = paste(
+      "Percent Change <br> Population in Households, 2020-2050 <br>"
+    ),
+    opacity = 1,
+    group = "Difference",
+    className = "info legend Difference"
+  ) %>% 
+  leaflet.extras::setMapWidgetStyle(list(background = "white"))
+#library(leaflet.extras)
+unit_2020_diff
+ ################################## 
+```
+Statewide Model Household Analysis: Charts
+```{r}
+```
+MAPC Model Household Analysis: Charts
+```{r}
+```
+
+POPULATION
+
+TODO: 
+1. STATEWIDE/MAPC Model Differentiation
+  - Mapping
+2. Clean up file paths
+3. Add in QA/QC Checks
+4. Statewide + MAPC Charts
+5. Functions for analysis
+
+Statewide Model Population Processing
+```{r}
+###Set the year list and main directory
+#rm(pop,pop_cleaned,pop_cleaned_geo,pop_full)
+
+#Create the empty dataframe to which each decade of processed data will be appended
+SWM_pop_full <- NULL
+
+#Year list: will remain the same for the most part
+#SWM_years = c("2010","2019", "2029", "2039", "2049")
+SWM_years = c("2010","2019")
+
+#Run #: Change when processing new/different runs
+SWM_run = "state_run_84"
+
+#Set directory
+#In-Office
+dir <- paste0("K:/DataServices/Projects/Current_Projects/LandUseAllocationModel/Data/Analysis/UrbanSim_Validation/UrbanSim_Outputs/", SWM_run)
+
+#Remote
+#setwd()
+
+
+for (yr in SWM_years) {
+  
+  pop <- fread(paste0(dir,"/urbansim_",SWM_run,"_microhouseholds_",yr, ".csv"))
+  
+  pop_cleaned <- pop %>% 
+    mutate(
+      #Count variable
+      pop_flag = 1,
+      #Defining and assigning variable that indiciates whether the person is a child
+      child = case_when(
+        age <= 18 ~ 1,
+        age > 18 ~ 0
+      ),
+      #Convert household and geographic indictators to characters
+      serialno = as.character(serialno),
+      block_id = as.character(block_id),
+      blockgroup_id = as.character(blockgroup_id),
+      year = yr,
+      year = as.character(year)
+    ) %>% 
+    select(
+      serialno,
+      hid,
+      block_id,
+      age,
+      child,
+      pop_flag,
+      year
+    )
+  
+  #Test whether were in the right ballpark for population
+  test_1 <- pop_cleaned %>% 
+    summarise(
+      population = sum(pop_flag)
+    )
+  
+  #PL-94 puts MA Population at 7,029,917
+  #SWM should be close to 1.0 here
+  #MAPCM should be a bit under .4887 (GQ have been removed, remember)
+  #Anticipated that the MAPCM share grows in the projection periods
+  print(test_1$population/7029917)
+  
+  #If this is the case! Wooohoo! Lets Proceed to geographic aggregations
+
+  pop_cleaned_geo <- left_join(pop_cleaned, keys, by = c("block_id" = "bl10_id"))
+
+  #Lets also test the municipal aggregations
+  test_geo <- pop_cleaned_geo %>% 
+    group_by(muni_name) %>% 
+    summarise(
+      population = sum(pop_flag)
+    )
+  #Im just eyeballing this now, but TODO: add in PL-94 muni level data to check, +/- 5% threshold
+
+  #Now append this to hh_full
+  SWM_pop_full <- SWM_pop_full %>% rbind(pop_cleaned_geo)
+  
+}
+
+```
+MAPC Model Population Processing
+```{r}
+###Set the year list and main directory
+#rm(pop,pop_cleaned,pop_cleaned_geo,pop_full)
+
+#Create the empty dataframe to which each decade of processed data will be appended
+MAPCM_pop_full <- data.frame()
+
+#Year list: will remain the same for the most part
+#MAPCM_years = c("2010","2019", "2029", "2039", "2049")
+MAPCM_years = c("2010","2019")
+
+#Run #: Change when processing new/different runs
+MAPCM_run = "run_117"
+
+#Set directory
+#In-Office
+dir <- paste0("K:/DataServices/Projects/Current_Projects/LandUseAllocationModel/Data/Analysis/UrbanSim_Validation/UrbanSim_Outputs/", MAPCM_run)
+
+#Remote
+#setwd()
+
+
+for (yr in MAPCM_years) {
+  
+  pop <- fread(paste0(dir,"/urbansim_",MAPCM_run,"_microhouseholds_",yr, ".csv"))
+  
+  pop_cleaned <- pop %>% 
+    mutate(
+      #Count variable
+      pop_flag = 1,
+      #Defining and assigning variable that indiciates whether the person is a child
+      child = case_when(
+        age <= 18 ~ 1,
+        age > 18 ~ 0
+      ),
+      #Convert household and geographic indictators to characters
+      serialno = as.character(serialno),
+      block_id = as.character(block_id),
+      blockgroup_id = as.character(blockgroup_id),
+      year = yr,
+      year = as.character(year)
+    ) %>% 
+    select(
+      serialno,
+      hid,
+      block_id,
+      age,
+      child,
+      pop_flag,
+      year
+    )
+  
+  #Test whether were in the right ballpark for population
+  test_1 <- pop_cleaned %>% 
+    summarise(
+      population = sum(pop_flag)
+    )
+  
+  #PL-94 puts MA Population at 7,029,917
+  #SWM should be close to 1.0 here
+  #MAPCM should be a bit under .4887 (GQ have been removed, remember)
+  #Anticipated that the MAPCM share grows in the projection periods
+  print(test_1$population/7029917)
+  
+  #If this is the case! Wooohoo! Lets Proceed to geographic aggregations
+
+  pop_cleaned_geo <- left_join(pop_cleaned, keys, by = c("block_id" = "bl10_id"))
+
+  #Lets also test the municipal aggregations
+  test_geo <- pop_cleaned_geo %>% 
+    group_by(muni_name) %>% 
+    summarise(
+      population = sum(pop_flag)
+    )
+  #Im just eyeballing this now, but TODO: add in PL-94 muni level data to check, +/- 5% threshold
+
+  #Now append this to hh_full
+  MAPCM_pop_full <- MAPCM_pop_full %>% rbind(pop_cleaned_geo)
+  
+}
+
+```
+Statewide Model Population Analysis: Tables
+```{r}
+#Tables of Population by Municipality
+#Table 1: Total Population by Municipality
+total_population_tbl_muni <- SWM_pop_full %>% 
+  mutate(
+    year = case_when(
+      year == "2010" ~ "HHPop_2010",
+      year == "2019" ~ "HHPop_2020",
+      year == "2029" ~ "HHPop_2030",
+      year == "2039" ~ "HHPop_2040",
+      year == "2049" ~ "HHPop_2050"
+    )
+  ) %>% 
+  group_by(
+    muni_name,
+    year
+  ) %>% 
+  summarise(
+    household_population = sum(pop_flag)
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = household_population
+  ) %>% 
+  mutate_all(
+    ~base::ifelse(is.na(.), 0, .)
+  ) %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  ) %>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    HHPop_2010,
+    HHPop_2020,
+    HHPop_2030,
+    HHPop_2040,
+    HHPop_2050
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    Muni_Name = muni_name,
+    Muni_ID = muni_id
+  )
+
+#Table 2: Total Population by Age by Municipality
+total_population_by_age_tbl_muni <- SWM_pop_full %>% 
+  mutate(
+    year = case_when(
+      year == "2010" ~ "HHPop_2010",
+      year == "2019" ~ "HHPop_2020",
+      year == "2029" ~ "HHPop_2030",
+      year == "2039" ~ "HHPop_2040",
+      year == "2049" ~ "HHPop_2050"
+    ),
+    age_group2 = case_when(
+      age >= 0 & age <= 4 ~ "0-04",
+      age >= 5 & age <= 9 ~ "05-09",
+      age >= 10 & age <= 14 ~ "10-14",
+      age >= 15 & age <= 19 ~ "15-19", 
+      age >= 20 & age <= 24 ~ "20-24",
+      age >= 25 & age <= 29 ~ "25-29",
+      age >= 30 & age <= 34 ~ "30-34",
+      age >= 35 & age <= 39 ~ "35-39",
+      age >= 40 & age <= 44 ~ "40-44",
+      age >= 45 & age <= 49 ~ "45-49",
+      age >= 50 & age <= 54 ~ "50-54",
+      age >= 55 & age <= 59 ~ "55-59",
+      age >= 60 & age <= 64 ~ "60-64",
+      age >= 65 & age <= 69 ~ "65-69",
+      age >= 70 & age <= 74 ~ "70-74",
+      age >= 75 & age <= 79 ~ "75-79",
+      age >= 80 & age <= 84 ~ "80-84",
+      age >= 85 ~ "85p",
+    )
+  ) %>% 
+  group_by(
+    muni_name,
+    year,
+    age_group2
+  ) %>% 
+  summarise(
+    household_population = sum(pop_flag)
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = household_population
+  ) %>% 
+  mutate_all(
+    ~base::ifelse(is.na(.), 0, .)
+  ) %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  ) %>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    age_group2,
+    HHPop_2010,
+    HHPop_2020,
+    HHPop_2030,
+    HHPop_2040,
+    HHPop_2050
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    Muni_name = muni_name,
+    Muni_ID = muni_id,
+    `Age Group` = age_group2
+  )
+
+
+#Table 3: Total Population Age 18 or under by Municipality
+population_under18_tbl_muni <- SWM_pop_full %>% 
+  mutate(
+    year = case_when(
+      year == "2010" ~ "HHPop_2010",
+      year == "2019" ~ "HHPop_2020",
+      year == "2029" ~ "HHPop_2030",
+      year == "2039" ~ "HHPop_2040",
+      year == "2049" ~ "HHPop_2050"
+    )
+  ) %>% 
+  filter(
+    child == 1
+  ) %>% 
+  group_by(
+    muni_name,
+    year
+  ) %>% 
+  summarise(
+    household_population = sum(pop_flag)
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = household_population
+  ) %>% 
+  mutate_all(
+    ~base::ifelse(is.na(.), 0, .)
+  ) %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  ) %>% 
+  mutate(
+    `Age Group` = "0-18"
+  ) %>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    `Age Group`,
+    HHPop_2010,
+    HHPop_2020,
+    HHPop_2030,
+    HHPop_2040,
+    HHPop_2050
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    Muni_name = muni_name,
+    Muni_ID = muni_id
+  )
+
+#===============================================================================
+#Export these table to .xlsx
+
+write_xlsx(
+  total_population_tbl_muni,
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",SWM_run,"/Total_Population_muni_tbl.xlsx")
+)
+
+write_xlsx(
+  total_population_by_age_tbl_muni,
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",SWM_run,"/Total_Population_Age_muni_tbl.xlsx")
+)
+
+write_xlsx(
+  population_under18_tbl_muni,
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",SWM_run,"/Population_18under_muni_tbl.xlsx")
+)
+
+#===============================================================================
+#Remove table dataframes for space and to avoid confusion w/ MAPCM Model analysis
+rm(
+  total_population_tbl_muni,
+  total_population_by_age_tbl_muni,
+  population_under18_tbl_muni
+)
+
+```
+
+Statewide Model Population Analysis: Tables - Household Population Comparisons
+```{r}
+#Tables of Population by Municipality
+#Table 1: Total Population by Municipality
+total_population_tbl_muni <- SWM_pop_full %>% 
+  mutate(
+    year = case_when(
+      year == "2010" ~ "HHPop_2010",
+      year == "2019" ~ "HHPop_2020"
+    )
+  ) %>% 
+  group_by(
+    muni_name,
+    year
+  ) %>% 
+  summarise(
+    household_population = sum(pop_flag)
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = household_population
+  ) %>% 
+  mutate_all(
+    ~base::ifelse(is.na(.), 0, .)
+  ) %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  ) %>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    HHPop_2010,
+    HHPop_2020
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    Muni_Name = muni_name,
+    Muni_ID = muni_id
+  )
+
+#Table 2: Total Population by Age by MPO
+total_population_by_age_tbl_MPO <- SWM_pop_full %>% 
+  mutate(
+    year = case_when(
+      year == "2010" ~ "HHPop_2010",
+      year == "2019" ~ "HHPop_2020"
+    ),
+    age_group2 = case_when(
+      age >= 0 & age <= 4 ~ "0-04",
+      age >= 5 & age <= 9 ~ "05-09",
+      age >= 10 & age <= 14 ~ "10-14",
+      age >= 15 & age <= 19 ~ "15-19", 
+      age >= 20 & age <= 24 ~ "20-24",
+      age >= 25 & age <= 29 ~ "25-29",
+      age >= 30 & age <= 34 ~ "30-34",
+      age >= 35 & age <= 39 ~ "35-39",
+      age >= 40 & age <= 44 ~ "40-44",
+      age >= 45 & age <= 49 ~ "45-49",
+      age >= 50 & age <= 54 ~ "50-54",
+      age >= 55 & age <= 59 ~ "55-59",
+      age >= 60 & age <= 64 ~ "60-64",
+      age >= 65 & age <= 69 ~ "65-69",
+      age >= 70 & age <= 74 ~ "70-74",
+      age >= 75 & age <= 79 ~ "75-79",
+      age >= 80 & age <= 84 ~ "80-84",
+      age >= 85 ~ "85+",
+    )
+  ) %>% 
+  group_by(
+    muni_name,
+    year,
+    age_group2
+  ) %>% 
+  summarise(
+    household_population = sum(pop_flag)
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = household_population
+  ) %>% 
+  mutate_all(
+    ~base::ifelse(is.na(.), 0, .)
+  ) %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  ) %>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    age_group2,
+    HHPop_2010,
+    HHPop_2020
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    Muni_name = muni_name,
+    Muni_ID = muni_id,
+    `Age Group` = age_group2
+  ) %>% 
+  group_by(
+    MPO,
+    `Age Group`
+  ) %>% 
+  summarise(
+    HHPop_2010 = sum(HHPop_2010),
+    HHPop_2020 = sum(HHPop_2020)
+  ) %>% 
+  na.omit()
+
+#===============================================================================
+#SWM Validation
+#Compare Output 2010 Data to Decennial 2010 SF-1 and UMDI HH Pop
+umdi_hhpop <- read_excel("//Data-001/DS-Projects/Projects/Current_Projects/Projections/Data/Tabular/tProjections 2022 v2050/Inputs/UMDI_HHPop.xlsx")
+
+umdi_hhpop <- umdi_hhpop %>% 
+  group_by(
+    MPO,
+    `Age Group`
+  ) %>% 
+  summarise(
+    HHPop_2010 = round(sum(HHPop_2010),0),
+    HHPop_2020 = round(sum(HHPop_2020),0)
+  ) %>% 
+  na.omit() %>% 
+  mutate(
+    `Age Group` = case_when(
+      `Age Group` == 1 ~ "0-04",
+      `Age Group` == 2 ~ "05-09",
+      `Age Group` == 3 ~ "10-14",
+      `Age Group` == 4 ~ "15-19",
+      `Age Group` == 5 ~ "20-24",
+      `Age Group` == 6 ~ "25-29",
+      `Age Group` == 7 ~ "30-34",
+      `Age Group` == 8 ~ "35-39",
+      `Age Group` == 9 ~ "40-44",
+      `Age Group` == 10 ~ "45-49",
+      `Age Group` == 11 ~ "50-54",
+      `Age Group` == 12 ~ "55-59",
+      `Age Group` == 13 ~ "60-64",
+      `Age Group` == 14 ~ "65-69",
+      `Age Group` == 15 ~ "70-74",
+      `Age Group` == 16 ~ "75-79",
+      `Age Group` == 17 ~ "80-84",
+      `Age Group` == 18 ~ "85+"
+    )
+  ) %>% 
+  dplyr::rename(
+    umdi_HHPop_2010 = HHPop_2010,
+    umdi_HHPop_2020 = HHPop_2020
+  )
+
+UMDI_Comp_tbl <- total_population_by_age_tbl_MPO %>% 
+  left_join(umdi_hhpop, by = c("MPO", "Age Group")) %>% 
+  mutate(
+    diff_2010 = HHPop_2010 - umdi_HHPop_2010,
+    diff_2020 = HHPop_2020 - umdi_HHPop_2020
+  )
+
+write.csv(UMDI_Comp_tbl,
+          paste0("//Data-001/DS-Projects/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",SWM_run,"/hhpop_comparison_H5_UMDI_MPO.csv"),
+          row.names = F)
+
+
+### Set Census API  Key + Load full set of SF-1 Variables
+library(data.table)
+census_api_key("d590f657a113f2f78b5a422462ea00745e79111c")
+
+munis <- mapcdatakeys::all_muni_data_keys %>% 
+  select(
+    muni_id,cosub_cn10
+  ) %>% 
+  mutate(
+    GEOID = as.character(cosub_cn10)
+  ) %>% 
+  select(
+    GEOID,
+    muni_id
+  )
+
+vars2010 <- load_variables(2010, 'sf1')
+
+pa.vars <- vars2010 %>% 
+  filter(
+    concept=='SEX BY AGE FOR THE POPULATION IN HOUSEHOLDS'
+  ) %>% 
+  select(
+    name
+  ) %>% 
+  mutate(
+    name = as.character(name)
+  ) %>% 
+  pull(
+    name
+  )
+
+
+pa.labels <- vars2010 %>% 
+  filter(
+    concept=='SEX BY AGE FOR THE POPULATION IN HOUSEHOLDS'
+  ) %>% 
+  select(
+    name,
+    label
+  ) %>% 
+  mutate(
+    label = gsub("Total!!Male!!","", label),
+    label = gsub("Total!!Female!!","", label),
+    label = gsub(" ", "_", label),
+    label = paste0("pop_", label)
+  )
+
+pop.age <-
+  get_decennial(
+    year = 2010,
+    state = 'MA',
+    geography = 'county subdivision',
+    variables = pa.vars
+  )
+pop <- pop.age %>%
+  filter(GEOID %in% munis$GEOID) %>% 
+  right_join(pa.labels,by = c('variable'="name")) %>% 
+  group_by(GEOID,label) %>% 
+  summarise(pop = sum(value)) %>% 
+  mutate(
+    ageCAT6 = case_when(
+      label == 'pop_Under_5_years' ~ 'x == 1',
+      label == "pop_5_to_9_years" ~ 'x == 2',
+      label == "pop_10_to_14_years" ~ 'x == 3',
+      label %in% c("pop_15_to_17_years","pop_18_and_19_years") ~ 'x == 4',
+      label %in% c("pop_20_years","pop_21_years","pop_22_to_24_years") ~ 'x == 5',
+      label == "pop_25_to_29_years" ~ 'x == 6',
+      label == "pop_30_to_34_years" ~ 'x == 7',
+      label == "pop_35_to_39_years" ~ 'x == 8',
+      label == "pop_40_to_44_years" ~ 'x == 9',
+      label == "pop_45_to_49_years" ~ 'x == 10',
+      label == "pop_50_to_54_years" ~ 'x == 11',
+      label == "pop_55_to_59_years" ~ 'x == 12',
+      label %in% c("pop_60_and_61_years","pop_62_to_64_years") ~ 'x == 13',
+      label %in% c("pop_65_and_66_years","pop_67_to_69_years") ~ 'x == 14',
+      label == "pop_70_to_74_years" ~ 'x == 15',
+      label == "pop_75_to_79_years" ~ 'x == 16',
+      label == "pop_80_to_84_years" ~ 'x == 17',
+      label == "pop_85_years_and_over" ~ 'x == 18'
+      )
+  ) %>% 
+  filter(!is.na(ageCAT6)) %>% 
+  right_join(munis,by = 'GEOID') %>% 
+  group_by(muni_id) %>% 
+  summarise(TARGET = sum(pop)) %>% 
+  mutate(muni_id = as.character(muni_id))
+
+Comp_2010_muni <- total_population_tbl_muni %>% 
+  select(
+    -c(
+      HHPop_2020
+    )
+  ) %>% 
+  left_join(
+    pop,
+    by = c("Muni_ID"="muni_id")
+  ) %>% 
+  dplyr::rename(
+    sf1_2010 = TARGET
+  ) %>% 
+  mutate(
+    diff = HHPop_2010 - sf1_2010
+  )
+
+print(sum(Comp_2010_muni$diff))
+
+total_population_tbl_mpo <- total_population_tbl_muni %>% 
+  group_by(
+    RPA
+  ) %>% 
+  summarise(
+    HHPop_2010 = sum(HHPop_2010)
+  )
+
+```
+
+MAPC Model Population Analysis: Tables
+```{r}
+#Tables of Population by Municipality
+#Table 1: Total Population by Municipality
+total_population_tbl_muni <- MAPCM_pop_full %>% 
+  mutate(
+    year = case_when(
+      year == "2010" ~ "HHPop_2010",
+      year == "2019" ~ "HHPop_2020",
+      #year == "2029" ~ "HHPop_2030",
+      #year == "2039" ~ "HHPop_2040",
+      #year == "2049" ~ "HHPop_2050"
+    )
+  ) %>% 
+  group_by(
+    muni_name,
+    year
+  ) %>% 
+  summarise(
+    household_population = sum(pop_flag)
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = household_population
+  ) %>% 
+  mutate_all(
+    ~base::ifelse(is.na(.), 0, .)
+  ) %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  ) %>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    HHPop_2010,
+    HHPop_2020#,
+    #HHPop_2030,
+    #HHPop_2040,
+    #HHPop_2050
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    Muni_Name = muni_name,
+    Muni_ID = muni_id
+  )
+
+#Table 2: Total Population by Age by Municipality
+total_population_by_age_tbl_muni <- MAPCM_pop_full %>% 
+  mutate(
+    year = case_when(
+      year == "2010" ~ "HHPop_2010",
+      year == "2019" ~ "HHPop_2020"#,
+      #year == "2029" ~ "HHPop_2030",
+      #year == "2039" ~ "HHPop_2040",
+      #year == "2049" ~ "HHPop_2050"
+    ),
+    age_group2 = case_when(
+      age >= 0 & age <= 4 ~ "0-04",
+      age >= 5 & age <= 9 ~ "05-09",
+      age >= 10 & age <= 14 ~ "10-14",
+      age >= 15 & age <= 19 ~ "15-19", 
+      age >= 20 & age <= 24 ~ "20-24",
+      age >= 25 & age <= 29 ~ "25-29",
+      age >= 30 & age <= 34 ~ "30-34",
+      age >= 35 & age <= 39 ~ "35-39",
+      age >= 40 & age <= 44 ~ "40-44",
+      age >= 45 & age <= 49 ~ "45-49",
+      age >= 50 & age <= 54 ~ "50-54",
+      age >= 55 & age <= 59 ~ "55-59",
+      age >= 60 & age <= 64 ~ "60-64",
+      age >= 65 & age <= 69 ~ "65-69",
+      age >= 70 & age <= 74 ~ "70-74",
+      age >= 75 & age <= 79 ~ "75-79",
+      age >= 80 & age <= 84 ~ "80-84",
+      age >= 85 ~ "85+",
+    )
+  ) %>% 
+  group_by(
+    muni_name,
+    year,
+    age_group2
+  ) %>% 
+  summarise(
+    household_population = sum(pop_flag)
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = household_population
+  ) %>% 
+  mutate_all(
+    ~base::ifelse(is.na(.), 0, .)
+  ) %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  ) %>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    age_group2,
+    HHPop_2010,
+    HHPop_2020#,
+    #HHPop_2030,
+    #HHPop_2040,
+    #HHPop_2050
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    Muni_name = muni_name,
+    Muni_ID = muni_id,
+    `Age Group` = age_group2
+  )
+
+
+#Table 3: Total Population Age 18 or under by Municipality
+population_under18_tbl_muni <- MAPCM_pop_full %>% 
+  mutate(
+    year = case_when(
+      year == "2010" ~ "HHPop_2010",
+      year == "2019" ~ "HHPop_2020"#,
+      #year == "2029" ~ "HHPop_2030",
+      #year == "2039" ~ "HHPop_2040",
+      #year == "2049" ~ "HHPop_2050"
+    )
+  ) %>% 
+  filter(
+    child == 1
+  ) %>% 
+  group_by(
+    muni_name,
+    year
+  ) %>% 
+  summarise(
+    household_population = sum(pop_flag)
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = household_population
+  ) %>% 
+  mutate_all(
+    ~base::ifelse(is.na(.), 0, .)
+  ) %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  ) %>% 
+  mutate(
+    `Age Group` = "0-18"
+  ) %>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    `Age Group`,
+    HHPop_2010,
+    HHPop_2020,
+    HHPop_2030,
+    HHPop_2040,
+    HHPop_2050
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    Muni_name = muni_name,
+    Muni_ID = muni_id
+  )
+
+#===============================================================================
+#MAPCM Validation
+
+#Compare Output 2010 Data to Decennial 2010 SF-1 and UMDI HH Pop
+umdi_hhpop <- read_excel("//Data-001/DS-Projects/Projects/Current_Projects/Projections/Data/Tabular/tProjections 2022 v2050/Inputs/UMDI_HHPop.xlsx")
+
+umdi_hhpop <- umdi_hhpop %>% 
+  group_by(
+    MPO,
+    `Age Group`
+  ) %>% 
+  summarise(
+    HHPop_2010 = round(sum(HHPop_2010),0),
+    HHPop_2020 = round(sum(HHPop_2020),0)
+  ) %>% 
+  select(
+    -HHPop_2010
+  ) %>% 
+  filter(
+    MPO == "MAPC"
+  ) %>% 
+  na.omit() %>% 
+  mutate(
+    `Age Group` = case_when(
+      `Age Group` == 1 ~ "0-04",
+      `Age Group` == 2 ~ "05-09",
+      `Age Group` == 3 ~ "10-14",
+      `Age Group` == 4 ~ "15-19",
+      `Age Group` == 5 ~ "20-24",
+      `Age Group` == 6 ~ "25-29",
+      `Age Group` == 7 ~ "30-34",
+      `Age Group` == 8 ~ "35-39",
+      `Age Group` == 9 ~ "40-44",
+      `Age Group` == 10 ~ "45-49",
+      `Age Group` == 11 ~ "50-54",
+      `Age Group` == 12 ~ "55-59",
+      `Age Group` == 13 ~ "60-64",
+      `Age Group` == 14 ~ "65-69",
+      `Age Group` == 15 ~ "70-74",
+      `Age Group` == 16 ~ "75-79",
+      `Age Group` == 17 ~ "80-84",
+      `Age Group` == 18 ~ "85+"
+    )
+  ) %>% 
+  dplyr::rename(
+    umdi_HHPop_2020 = HHPop_2020
+  )
+
+total_population_by_age_tbl_mpo <- total_population_by_age_tbl_muni %>% 
+  group_by(
+    MPO,
+    `Age Group`
+  ) %>% 
+  summarise(
+    HHPop_2020 = sum(HHPop_2020)
+  ) %>% 
+  filter(MPO == "MAPC") %>% 
+  left_join(umdi_hhpop, by = c("MPO", "Age Group")) %>% 
+  mutate(
+    diff = HHPop_2020 - umdi_HHPop_2020
+  )
+
+print(sum(total_population_by_age_tbl_mpo$diff))
+
+write.csv(total_population_by_age_tbl_mpo,
+          "//Data-001/DS-Projects/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/MAPC/run_117/hhpop2020_comparison_H5_UMDI_MPO.csv",
+          row.names = F)
+
+### Set Census API  Key + Load full set of SF-1 Variables
+library(data.table)
+census_api_key("d590f657a113f2f78b5a422462ea00745e79111c")
+
+munis <- mapcdatakeys::all_muni_data_keys %>% 
+  select(
+    muni_id,cosub_cn10
+  ) %>% 
+  mutate(
+    GEOID = as.character(cosub_cn10)
+  ) %>% 
+  select(
+    GEOID,
+    muni_id
+  )
+
+vars2010 <- load_variables(2010, 'sf1')
+
+pa.vars <- vars2010 %>% 
+  filter(
+    concept=='SEX BY AGE FOR THE POPULATION IN HOUSEHOLDS'
+  ) %>% 
+  select(
+    name
+  ) %>% 
+  mutate(
+    name = as.character(name)
+  ) %>% 
+  pull(
+    name
+  )
+
+
+pa.labels <- vars2010 %>% 
+  filter(
+    concept=='SEX BY AGE FOR THE POPULATION IN HOUSEHOLDS'
+  ) %>% 
+  select(
+    name,
+    label
+  ) %>% 
+  mutate(
+    label = gsub("Total!!Male!!","", label),
+    label = gsub("Total!!Female!!","", label),
+    label = gsub(" ", "_", label),
+    label = paste0("pop_", label)
+  )
+
+pop.age <-
+  get_decennial(
+    year = 2010,
+    state = 'MA',
+    geography = 'county subdivision',
+    variables = pa.vars
+  )
+pop <- pop.age %>%
+  filter(GEOID %in% munis$GEOID) %>% 
+  right_join(pa.labels,by = c('variable'="name")) %>% 
+  group_by(GEOID,label) %>% 
+  summarise(pop = sum(value)) %>% 
+  mutate(
+    ageCAT6 = case_when(
+      label == 'pop_Under_5_years' ~ 'x == 1',
+      label == "pop_5_to_9_years" ~ 'x == 2',
+      label == "pop_10_to_14_years" ~ 'x == 3',
+      label %in% c("pop_15_to_17_years","pop_18_and_19_years") ~ 'x == 4',
+      label %in% c("pop_20_years","pop_21_years","pop_22_to_24_years") ~ 'x == 5',
+      label == "pop_25_to_29_years" ~ 'x == 6',
+      label == "pop_30_to_34_years" ~ 'x == 7',
+      label == "pop_35_to_39_years" ~ 'x == 8',
+      label == "pop_40_to_44_years" ~ 'x == 9',
+      label == "pop_45_to_49_years" ~ 'x == 10',
+      label == "pop_50_to_54_years" ~ 'x == 11',
+      label == "pop_55_to_59_years" ~ 'x == 12',
+      label %in% c("pop_60_and_61_years","pop_62_to_64_years") ~ 'x == 13',
+      label %in% c("pop_65_and_66_years","pop_67_to_69_years") ~ 'x == 14',
+      label == "pop_70_to_74_years" ~ 'x == 15',
+      label == "pop_75_to_79_years" ~ 'x == 16',
+      label == "pop_80_to_84_years" ~ 'x == 17',
+      label == "pop_85_years_and_over" ~ 'x == 18'
+      )
+  ) %>% 
+  filter(!is.na(ageCAT6)) %>% 
+  right_join(munis,by = 'GEOID') %>% 
+  group_by(muni_id) %>% 
+  summarise(TARGET = sum(pop)) %>% 
+  mutate(muni_id = as.character(muni_id))
+
+Comp_2010_muni <- total_population_tbl_muni %>% 
+  select(
+    -c(
+      HHPop_2020
+    )
+  ) %>% 
+  left_join(
+    pop,
+    by = c("Muni_ID"="muni_id")
+  ) %>% 
+  dplyr::rename(
+    sf1_2010 = TARGET
+  ) %>% 
+  mutate(
+    diff = HHPop_2010 - sf1_2010
+  )
+
+print(sum(Comp_2010_muni$diff))
+
+total_population_tbl_mpo <- total_population_tbl_muni %>% 
+  group_by(
+    RPA
+  ) %>% 
+  summarise(
+    HHPop_2010 = sum(HHPop_2010)
+  )
+
+write.csv(Comp_2010,
+          "//Data-001/DS-Projects/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/MAPC/run_117/hhpop_comparison_H5_SF12010.csv",
+          row.names = F)
+
+#===============================================================================
+
+#Compare Output Data for all years to UMDI Household Population Data
+
+#===============================================================================
+#Export tables to .xlsx
+write_xlsx(
+  total_population_tbl_muni,
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/MAPC/",MAPCM_run,"/total_population_tbl_muni.xlsx")
+)
+
+write_xlsx(
+  total_population_by_age_tbl_muni,
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/MAPC/",MAPCM_run,"/Total_Population_Age_muni_tbl.xlsx")
+)
+
+write_xlsx(
+  population_under18_tbl_muni,
+  "K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/MAPC/",MAPCM_run,"/Population_<=18_muni_tbl.xlsx",
+  row.names = FALSE
+)
+
+#===============================================================================
+#Remove tables to save space and avoid confusion with SWM analysis
+rm(
+  total_population_tbl_muni,
+  total_population_by_age_tbl_muni,
+  population_under18_tbl_muni
+)
+
+```
+Population Analysis: Maps
+```{r}
+#Maps of Population by Municipality
+
+#Total Population Map
+########## Spatial data for mapping ###### 
+######################################### 
+
+# Need to use 2020 census for munis because mapc datakeys has GEOIDs for 2020 munis
+sfm <-
+  get_decennial(
+    year = 2020,
+    state = 'MA',
+    geography = 'county subdivision',
+    variables = 'H1_001N',
+    geometry = T
+  )
+
+#RPAs
+
+rpa_shp <- st_read(
+  "//data-001/public/DataServices/Datasets/Boundaries/Spatial/RPAS_POLY.shp"
+)
+
+setDT(sfm)
+setkey(sfm,GEOID)
+
+#Get GEOID for each muni
+g <- mapcdatakeys::all_muni_data_keys %>% 
+  select(
+    muni_name,
+    cosub_5y20,
+    mapc
+  )
+
+##################################################################
+##################################################################
+
+#Merge GEOID back to muni for specified 
+
+total_population_tbl_g <- left_join(total_population_tbl, g, by = c("muni_name")) %>% 
+  dplyr::rename(
+    GEOID = cosub_5y20
+  )
+
+#setkey(muni_Total,GEOID)
+###
+
+sf_muni <- left_join(total_population_tbl_g, sfm, by = c("GEOID"))
+
+sf_muni <- st_as_sf(sf_muni)
+
+# fwrite(u20,paste0(run,'_muni_2020_validation.csv'))
+# st_write(sf_muni,paste0(run,'_muni_2020_validation'),driver='ESRI Shapefile')
+# Palette for UrbanSim-Census percent difference
+
+#output.units <- paste0(output,'/Units/')
+#dir.create(output.units,showWarnings = F)
+#output.hh <- paste0(output,'/HH/')
+#dir.create(output.hh,showWarnings = F)
+
+# Palette for UrbanSim-Census percent difference
+bins_pct_diff<-
+  c(Inf,25,10,5,1,0.5,-0.5,-1,-5,-10,-25,-Inf)
+pal_pct_diff <-
+  colorBin(c("red", "white", "blue"),
+           bins = bins_pct_diff,
+           na.color = "#808080")
+
+# Palette for UrbanSim-Census unit difference
+bins_unit_diff<-
+  c(-Inf, -5000, -2500, -1000, -500, -250, -1, 1, 250, 500, 1000, 2500, 5000, Inf)
+pal_unit_diff <-
+  colorBin(c("blue", "white", "red"),
+           bins = bins_unit_diff,
+           na.color = "#808080")
+
+# Palette for UrbanSim-Census houeshold difference
+bins_hh_diff<-
+  c(-Inf, -3000, -2000, -1000, -500, -250, -1, 1, 250, 500, 1000, 2000, 3000, Inf)
+pal_hh_diff <-
+  colorBin(c("blue", "white", "red"),
+           bins = bins_hh_diff,
+           na.color = "#808080")
+
+
+household_pop_delta_2010_2050_map <- sf_muni %>%
+  st_transform(st_crs(4326)) %>%
+  leaflet() %>%
+  addProviderTiles(provider = "CartoDB.Positron") %>%
+  addPolygons(
+    popup = ~ paste(
+      "Muni: ",
+      sf_muni$muni_name,
+      "<br>",
+      "UrbanSim: ",
+      sf_muni$p_diff_1050
+    ),
+    fillOpacity = 0.6,
+    fillColor = ~ pal_pct_diff(sf_muni$p_diff_1050),#
+    weight = 1,
+    stroke=T,
+    col='black',
+    group = "Difference"
+  ) %>%
+  addLegend(
+    position = "bottomleft",
+    pal = pal_pct_diff,#
+    values = ~ bins_pct_diff,
+    title = paste(
+      "Percent Change <br> Total Household Population 2010-2050 <br>"
+    ),
+    opacity = 1,
+    group = "Difference",
+    className = "info legend Difference"
+  )
+###############################################################################
+###############################################################################
+#Merge GEOID back to muni for specified 
+
+population_under18_tbl_g <- left_join(population_under18_tbl, g, by = c("muni_name")) %>% 
+  dplyr::rename(
+    GEOID = cosub_5y20
+  )
+
+#setkey(muni_Total,GEOID)
+###
+
+sf_muni <- left_join(population_under18_tbl_g, sfm, by = c("GEOID"))
+
+sf_muni <- st_as_sf(sf_muni)
+
+# fwrite(u20,paste0(run,'_muni_2020_validation.csv'))
+# st_write(sf_muni,paste0(run,'_muni_2020_validation'),driver='ESRI Shapefile')
+# Palette for UrbanSim-Census percent difference
+bins_pct_diff<-
+  c(Inf,25,10,5,1,0.5,-0.5,-1,-5,-10,-25,-Inf)
+pal_pct_diff <-
+  colorBin(c("red", "white", "blue"),
+           bins = bins_pct_diff,
+           na.color = "#808080")
+
+# Palette for UrbanSim-Census unit difference
+bins_unit_diff<-
+  c(-Inf, -5000, -2500, -1000, -500, -250, -1, 1, 250, 500, 1000, 2500, 5000, Inf)
+pal_unit_diff <-
+  colorBin(c("blue", "white", "red"),
+           bins = bins_unit_diff,
+           na.color = "#808080")
+
+# Palette for UrbanSim-Census houeshold difference
+bins_hh_diff<-
+  c(-Inf, -3000, -2000, -1000, -500, -250, -1, 1, 250, 500, 1000, 2000, 3000, Inf)
+pal_hh_diff <-
+  colorBin(c("blue", "white", "red"),
+           bins = bins_hh_diff,
+           na.color = "#808080")
+
+#output.units <- paste0(output,'/Units/')
+#dir.create(output.units,showWarnings = F)
+#output.hh <- paste0(output,'/HH/')
+#dir.create(output.hh,showWarnings = F)
+
+pop_under18_delta_2010_2050_map <- sf_muni %>%
+  st_transform(st_crs(4326)) %>%
+  leaflet() %>%
+  addProviderTiles(provider = "CartoDB.Positron") %>%
+  addPolygons(
+    popup = ~ paste(
+      "Muni: ",
+      sf_muni$muni_name,
+      "<br>",
+      "UrbanSim: ",
+      sf_muni$p_diff_1050
+    ),
+    fillOpacity = 0.6,
+    fillColor = ~ pal_pct_diff(sf_muni$p_diff_1050),#
+    weight = 1,
+    stroke=T,
+    col='black',
+    group = "Difference"
+  ) %>%
+  addLegend(
+    position = "bottomleft",
+    pal = pal_pct_diff,#
+    values = ~ bins_pct_diff,
+    title = paste(
+      "Percent Change <br> Total Child Population 2010-2050 <br>"
+    ),
+    opacity = 1,
+    group = "Difference",
+    className = "info legend Difference"
+  )
+```
+Statewide Population Analysis: Charts
+```{r}
+```
+MAPC Model Population Analysis: Charts
+```{r}
+```
+
+
+EMPLOYMENT
+
+TODO: 
+1. Statewide + MAPC Mapping
+2. Statewide + MAPC Charts
+3. Add in QA/QC checks
+4. Functions for analysis
+
+Statewide Model Employment Processing
+```{r}
+#Load Statewide Model and MAPC Model Jobs Data
+#Keep the main datasets long
+#Create more easily understood tables wide
+
+#First, load the SuperNAICS descriptions xwalk
+supernaics_desc <- read_excel(
+  "K:/DataServices/Projects/Current_Projects/Projections/Data/Tabular/tProjections 2022 v2050/Inputs/superNAICS_descriptions.xlsx") %>% 
+  mutate(
+    superNAICS = as.character(superNAICS)
+  )
+
+#SWM
+SWM_jobs <- data.frame()
+
+SWM_run <- "state_run_97"
+#SWM_run <- "run_131"
+
+SWM_years <- c(2010,2019,2029,2039,2049)
+
+SWM_dir <- paste0("K:/DataServices/Projects/Current_Projects/LandUseAllocationModel/Data/Analysis/UrbanSim_Validation/UrbanSim_Outputs/",SWM_run)
+
+for (yr in SWM_years) {
+  
+  #Load jobs data
+  jobs <- read.csv(paste0(SWM_dir,"/",yr,"/jobs.csv"))
+  
+  jobs_cleaned <- jobs %>%
+    #Convert column's data type to character
+    mutate(
+      block_id = as.character(block_id),
+      aggr_sector_id = as.character(aggr_sector_id)
+    ) %>% 
+    #Create a flag to aggregate
+    mutate(
+      job_flag = 1
+    ) %>% 
+    #Aggregate number of jobs by Census block and SuperNAICS industry
+    group_by(
+      block_id,
+      aggr_sector_id
+    ) %>% 
+    summarise(
+      jobs = sum(job_flag)
+    ) %>% 
+    ungroup() %>% 
+    #Add in SuperNAICS Description
+    left_join(
+      supernaics_desc,
+      by = c("aggr_sector_id" = "superNAICS")
+    ) %>% 
+    mutate(
+      year = yr
+    ) %>%
+    #Move around columns
+    relocate(
+      block_id,
+      aggr_sector_id,
+      sector_description,
+      jobs,
+      year
+    )
+  
+  jobs_cleaned_geo <- left_join(jobs_cleaned, keys_4, by = c("block_id" = "bl10_id")) %>% 
+    left_join(bg.xw, by = c("bg10_id")) %>% 
+    select(
+      -cosub_cn20
+    )
+  
+  SWM_jobs <- SWM_jobs %>% rbind(jobs_cleaned_geo)
+}
+
+#===============================================================================
+#Editing block missing from mapcdatakeys bl10_id.
+#Take out once mapcdatakeys has been fixed to include missing block
+SWM_jobs <- SWM_jobs %>% 
+  mutate(
+    muni_name = case_when(
+      block_id == "250250606001015" ~ "Boston",
+      block_id != "250250606001015" ~ muni_name
+    ),
+     muni_id = case_when(
+      block_id == "250250606001015" ~ 35,
+      block_id != "250250606001015" ~ muni_id
+    ),
+     rpa_acr = case_when(
+      block_id == "250250606001015" ~ "MAPC",
+      block_id != "250250606001015" ~ rpa_acr
+    ),
+     mpo = case_when(
+      block_id == "250250606001015" ~ "MAPC",
+      block_id != "250250606001015" ~ mpo
+    ),
+  )
+#===============================================================================
+#Write the full jobs data set to .csv
+write.csv(
+  SWM_jobs,
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/", SWM_run, "/urbansim_", SWM_run, "_jobs_REVIEW_v1.csv"),
+  row.names = FALSE
+)
+
+#===============================================================================
+#Remove files to save space
+rm(
+  supernaics_desc
+)
+```
+MAPC Model Employment Processing
+```{r}
+#MAPCM
+supernaics_desc <- read_excel(
+  "//Data-001/DS-Projects/Projects/Current_Projects/Projections/Data/Tabular/tProjections 2022 v2050/Inputs/superNAICS_descriptions.xlsx") %>% 
+  mutate(
+    superNAICS = as.character(superNAICS)
+  )
+
+MAPCM_jobs <- NULL
+
+MAPCM_run <- "run_112"
+
+MAPCM_years <- c("2010", "2019", "2029", "2039", "2049")
+
+MAPCM_dir <- paste0("//data-001/public/DataServices/Projects/Current_Projects/LandUseAllocationModel/Data/Analysis/UrbanSim_Validation/UrbanSim_Outputs/",MAPCM_run)
+
+for (yr in MAPCM_years) {
+  
+  #Load jobs data
+  jobs <- read.csv(paste0(MAPCM_dir,"/",yr,"/jobs.csv"))
+  
+  jobs_cleaned <- jobs %>%
+    #Convert column's data type to character
+    mutate(
+      block_id = as.character(block_id),
+      aggr_sector_id = as.character(aggr_sector_id)
+    ) %>% 
+    #Create a flag to aggregate
+    mutate(
+      job_flag = 1
+    ) %>% 
+    #Aggregate number of jobs by Census block and SuperNAICS industry
+    group_by(
+      block_id,
+      aggr_sector_id
+    ) %>% 
+    summarise(
+      jobs = sum(job_flag)
+    ) %>% 
+    ungroup() %>% 
+    #Add in SuperNAICS Description
+    left_join(
+      supernaics_desc,
+      by = c("aggr_sector_id" = "superNAICS")
+    ) %>% 
+    mutate(
+      year = yr
+    ) %>%
+    #Move around columns
+    relocate(
+      block_id,
+      aggr_sector_id,
+      sector_description,
+      jobs,
+      year
+    )
+  
+  jobs_cleaned_geo <- left_join(jobs_cleaned, keys, by = c("block_id" = "bl10_id"))
+  
+  MAPCM_jobs <- MAPCM_jobs %>% rbind(jobs_cleaned_geo)
+} 
+
+#===============================================================================
+write.csv(
+  MAPCM_jobs,
+  paste0("//data-001/public/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/MAPC/", MAPCM_run, "/urbansim_", MAPCM_run, "_jobs_REVIEW_v1.csv"),
+  row.names = FALSE
+)
+
+#===============================================================================
+#Remove irrelevant files to save space
+rm(
+  supernaics_desc
+)
+
+```
+Statewide Model Employment Analysis: Tables
+```{r}
+#===============================================================================
+#Employment Tables
+
+SWM_jobs_Muni_Total <- SWM_jobs %>% 
+  group_by(
+    year,
+    muni_name,
+    muni_id
+  ) %>% 
+  summarise(
+    jobs = sum(jobs)
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2010" ~ "2010",
+      year == "2019" ~ "2020",
+      year == "2029" ~ "2030",
+      year == "2039" ~ "2040",
+      year == "2049" ~ "2050"
+    )
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = jobs
+  ) %>% 
+  dplyr::rename(
+    Employment_2010 = `2010`,
+    Employment_2020 = `2020`,
+    Employment_2030 = `2030`,
+    Employment_2040 = `2040`,
+    Employment_2050 = `2050`
+  ) %>% 
+  mutate(
+    Employment_2010 = ifelse(is.na(Employment_2010), 0, Employment_2010),
+    Employment_2020 = ifelse(is.na(Employment_2020), 0, Employment_2020),
+    Employment_2030 = ifelse(is.na(Employment_2030), 0, Employment_2030),
+    Employment_2040 = ifelse(is.na(Employment_2040), 0, Employment_2040),
+    Employment_2050 = ifelse(is.na(Employment_2050), 0, Employment_2050)
+  ) %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name", "muni_id")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  ) %>%
+  mutate(
+    aggr_sector_id = "Total Employment",
+    sector_description = "Total Employment"
+  ) %>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    aggr_sector_id,
+    sector_description,
+    Employment_2010,
+    Employment_2020,
+    Employment_2030,
+    Employment_2040,
+    Employment_2050
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    muni = muni_name,
+    muni_ID = muni_id,
+    SuperSector_ID = aggr_sector_id,
+    SuperSector = sector_description
+  ) #%>% 
+  #mutate(
+    #pct_diff_20_50 = (Employment_2050-Employment_2020)/Employment_2020*100
+  #)
+
+SWM_jobs_Muni_Subsectors <- SWM_jobs %>% 
+  group_by(
+    year,
+    muni_name,
+    aggr_sector_id,
+    sector_description
+  ) %>% 
+  summarise(
+    jobs = sum(jobs)
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2010" ~ "2010",
+      year == "2019" ~ "2020",
+      year == "2029" ~ "2030",
+      year == "2039" ~ "2040",
+      year == "2049" ~ "2050"
+    )
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = jobs
+  ) %>% 
+  dplyr::rename(
+    Employment_2010 = `2010`,
+    Employment_2020 = `2020`,
+    Employment_2030 = `2030`,
+    Employment_2040 = `2040`,
+    Employment_2050 = `2050`
+  ) %>% 
+  mutate(
+    Employment_2010 = ifelse(is.na(Employment_2010), 0, Employment_2010),
+    Employment_2020 = ifelse(is.na(Employment_2020), 0, Employment_2020),
+    Employment_2030 = ifelse(is.na(Employment_2030), 0, Employment_2030),
+    Employment_2040 = ifelse(is.na(Employment_2040), 0, Employment_2040),
+    Employment_2050 = ifelse(is.na(Employment_2050), 0, Employment_2050)
+  )  %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  )%>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    aggr_sector_id,
+    sector_description,
+    Employment_2010,
+    Employment_2020,
+    Employment_2030,
+    Employment_2040,
+    Employment_2050
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    muni = muni_name,
+    muni_ID = muni_id,
+    SuperSector_ID = aggr_sector_id,
+    SuperSector = sector_description
+  )
+
+SWM_jobs_total <- rbind(SWM_jobs_Muni_Subsectors, SWM_jobs_Muni_Total)
+
+write.csv(
+  SWM_jobs_total,
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/", SWM_run, "/SWM_", SWM_run, "_jobs_total.csv"),
+  row.names = FALSE
+)
+
+#===============================================================================
+#Employment by Block Group 
+
+SWM_jobs_Block_Group_Total <- SWM_jobs %>% 
+  group_by(
+    year,
+    bg10_id
+  ) %>% 
+  summarise(
+    jobs = sum(jobs)
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2010" ~ "2010",
+      year == "2019" ~ "2020",
+      year == "2029" ~ "2030",
+      year == "2039" ~ "2040",
+      year == "2049" ~ "2050"
+    )
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = jobs
+  ) %>% 
+  dplyr::rename(
+    Employment_2010 = `2010`,
+    Employment_2020 = `2020`,
+    Employment_2030 = `2030`,
+    Employment_2040 = `2040`,
+    Employment_2050 = `2050`
+  ) %>% 
+  mutate(
+    Employment_2010 = ifelse(is.na(Employment_2010), 0, Employment_2010),
+    Employment_2020 = ifelse(is.na(Employment_2020), 0, Employment_2020),
+    Employment_2030 = ifelse(is.na(Employment_2030), 0, Employment_2030),
+    Employment_2040 = ifelse(is.na(Employment_2040), 0, Employment_2040),
+    Employment_2050 = ifelse(is.na(Employment_2050), 0, Employment_2050)
+  ) %>%
+  inner_join(
+    bg.xw,
+    by = c("bg10_id")
+  ) %>% 
+  select(
+    -cosub_cn20
+  ) %>%
+  mutate(
+    aggr_sector_id = "Total Employment",
+    sector_description = "Total Employment"
+  ) %>% 
+  relocate(
+    bg10_id,
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    aggr_sector_id,
+    sector_description,
+    Employment_2010,
+    Employment_2020,
+    Employment_2030,
+    Employment_2040,
+    Employment_2050
+  ) %>%
+  select(
+    -c(
+      sector_description
+    )
+  ) %>% 
+  dplyr::rename(
+    Block_Group = bg10_id,
+    RPA = rpa_acr,
+    MPO = mpo,
+    Muni = muni_name,
+    Muni_ID = muni_id,
+    Total_Employment = aggr_sector_id
+  )
+
+#===============================================================================
+#Construct block group data for Tyringham
+Block_Group <- c("250039332001")
+RPA <- c("BRPC")
+MPO <- c("BRPC")
+Muni <- c("Tyringham")
+Muni_ID <- c(302)
+Total_Employment <- c("Total_Employment")
+Employment_2010 <- c(5)
+Employment_2020 <- c(5)
+Employment_2030 <- c(5)
+Employment_2040 <- c(5)
+Employment_2050 <- c(5)
+
+tyringham <- data.frame(
+  Block_Group,
+  RPA,
+  MPO,
+  Muni,
+  Muni_ID,
+  Total_Employment,
+  Employment_2010,
+  Employment_2020,
+  Employment_2030,
+  Employment_2040,
+  Employment_2050
+)
+
+SWM_jobs_Block_Group_Total <- bind_rows(SWM_jobs_Block_Group_Total, tyringham)
+
+rm(
+   Block_Group,
+  RPA,
+  MPO,
+  Muni,
+  Muni_ID,
+  Total_Employment,
+  Employment_2010,
+  Employment_2020,
+  Employment_2030,
+  Employment_2040,
+  Employment_2050 
+)
+
+write_xlsx(
+  SWM_jobs_Block_Group_Total,
+  paste0("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/",SWM_run,"/Block Group Summaries/",SWM_run,"_blockgroup_summary_employment_2010_2049_v1.xlsx")
+)
+
+#===============================================================================
+#Check Total employment by MPO
+Employment_Check_MPO <- SWM_jobs_Muni_Total %>% 
+  group_by(
+    MPO
+  ) %>% 
+  summarise(
+    t_emp_10 = sum(Employment_2010),
+    t_emp_20 = sum(Employment_2020),
+    t_emp_30 = sum(Employment_2030),
+    t_emp_40 = sum(Employment_2040),
+    t_emp_50 = sum(Employment_2050),
+  ) %>% 
+  ungroup()
+```
+MAPC Model Employment Analysis: Tables
+```{r}
+#MAPC
+#TODO: Join remove SW MAPC and insert MAPC Model MAPC.
+
+MAPCM_jobs_Muni_Total <- MAPCM_jobs %>% 
+  group_by(
+    year,
+    muni_name,
+    muni_id
+  ) %>% 
+  summarise(
+    jobs = sum(jobs)
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2010" ~ "2010",
+      year == "2019" ~ "2020",
+      year == "2029" ~ "2030",
+      year == "2039" ~ "2040",
+      year == "2049" ~ "2050"
+    )
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = jobs
+  ) %>% 
+  dplyr::rename(
+    Employment_2010 = `2010`,
+    Employment_2020 = `2020`,
+    Employment_2030 = `2030`,
+    Employment_2040 = `2040`,
+    Employment_2050 = `2050`
+  ) %>% 
+  mutate(
+    Employment_2010 = ifelse(is.na(Employment_2010), 0, Employment_2010),
+    Employment_2020 = ifelse(is.na(Employment_2020), 0, Employment_2020),
+    Employment_2030 = ifelse(is.na(Employment_2030), 0, Employment_2030),
+    Employment_2040 = ifelse(is.na(Employment_2040), 0, Employment_2040),
+    Employment_2050 = ifelse(is.na(Employment_2050), 0, Employment_2050)
+  ) %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name", "muni_id")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  ) %>%
+  mutate(
+    aggr_sector_id = "Total Employment",
+    sector_description = "Total Employment"
+  ) %>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    aggr_sector_id,
+    sector_description,
+    Employment_2010,
+    Employment_2020,
+    Employment_2030,
+    Employment_2040,
+    Employment_2050
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    muni = muni_name,
+    muni_ID = muni_id,
+    SuperSector_ID = aggr_sector_id,
+    SuperSector = sector_description
+  )
+
+MAPCM_jobs_Muni_Subsectors <- MAPCM_jobs %>% 
+  group_by(
+    year,
+    muni_name,
+    aggr_sector_id,
+    sector_description
+  ) %>% 
+  summarise(
+    jobs = sum(jobs)
+  ) %>% 
+  mutate(
+    year = case_when(
+      year == "2010" ~ "2010",
+      year == "2019" ~ "2020",
+      year == "2029" ~ "2030",
+      year == "2039" ~ "2040",
+      year == "2049" ~ "2050"
+    )
+  ) %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = jobs
+  ) %>% 
+  dplyr::rename(
+    Employment_2010 = `2010`,
+    Employment_2020 = `2020`,
+    Employment_2030 = `2030`,
+    Employment_2040 = `2040`,
+    Employment_2050 = `2050`
+  ) %>% 
+  mutate(
+    Employment_2010 = ifelse(is.na(Employment_2010), 0, Employment_2010),
+    Employment_2020 = ifelse(is.na(Employment_2020), 0, Employment_2020),
+    Employment_2030 = ifelse(is.na(Employment_2030), 0, Employment_2030),
+    Employment_2040 = ifelse(is.na(Employment_2040), 0, Employment_2040),
+    Employment_2050 = ifelse(is.na(Employment_2050), 0, Employment_2050)
+  )  %>% 
+  left_join(
+    keys_2,
+    by = c("muni_name")
+  ) %>% 
+  select(
+    -c(
+      cmtyp08,
+      cmsbt08
+    )
+  )%>% 
+  relocate(
+    rpa_acr,
+    mpo,
+    muni_name,
+    muni_id,
+    aggr_sector_id,
+    sector_description,
+    Employment_2010,
+    Employment_2020,
+    Employment_2030,
+    Employment_2040,
+    Employment_2050
+  ) %>% 
+  dplyr::rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    muni = muni_name,
+    muni_ID = muni_id,
+    SuperSector_ID = aggr_sector_id,
+    SuperSector = sector_description
+  )
+
+MAPCM_jobs_total <- rbind(MAPCM_jobs_Muni_Subsectors, MAPCM_jobs_Muni_Total)
+
+write.csv(
+  MAPCM_jobs_total,
+  paste0("//data-001/public/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/MAPC/", MAPCM_run, "/MAPCM", MAPCM_run, "_jobs_total.csv"),
+  row.names = FALSE
+)
+```
+Statewide Model Employment Analysis: Maps
+```{r}
+```
+MAPC Model Employment Analysis: Maps
+```{r}
+```
+Statewide Model Employment Analysis: Charts
+```{r}
+```
+MAPC Model Employment Analysis: Charts
+```{r}
+```
+
+GENERAL QA
+```{r}
+hh_comp <- read_excel("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/state_run_97/HH_comparison_2010_2020.xlsx")
+
+m <- mean(hh_comp$`Diff 2020`)
+N <- length(hh_comp$`Diff 2020`)
+
+hh_comp <- hh_comp %>% 
+  rowwise() %>% 
+  mutate(
+    `Diff 2010` = HH_2010 - `Decennial 2010`,
+    `Diff 2020` = HH_2020 - `Decennial 2020`,
+    diff_2020_deviation = sqrt(((`Diff 2020`- m)^2)/N)
+  )
+
+p_1 <- hh_comp %>% 
+  ggplot(
+    aes(x = `Diff 2010`)
+  ) +
+  geom_histogram(
+    binwidth = 10
+  )+
+  labs(
+    title = "Difference in Households between UrbanSim 2010 Outputs and Census 2010",
+    x = "Difference in Households",
+    y = "Number of Municipalities"
+  )+
+  theme_bw()
+
+p_1
+
+p_2 <- hh_comp %>% 
+  ggplot(
+    aes(x = `Diff 2020`)
+  )+
+  geom_histogram(
+    binwidth = 25
+  )+
+  xlim(
+    -1700,4000
+  )+
+  labs(
+    title = "Difference in Households between UrbanSim 2020 Outputs and Census 2020",
+    x = "Difference in Households",
+    y = "Number of Municipalities"
+  )+
+  theme_bw()
+
+p_2
+
+######==========================================================================
+pop_comp <- read_excel("K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/state_run_97/HHPop_comparison_2010_2020.xlsx")
+
+p_3 <- pop_comp %>% 
+  ggplot(
+    aes(x = `Diff 2010`)
+  ) +
+  geom_histogram(
+    binwidth = 25
+  )+
+  labs(
+    title = "Difference in Population in Households between /n UrbanSim 2010 Outputs and Census 2010",
+    x = "Difference in Population in Households",
+    y = "Number of Municipalities"
+  )+
+  theme_bw()
+
+p_3
+
+
+p_4 <- pop_comp %>% 
+  ggplot(
+    aes(x = `Diff 2020`)
+  )+
+  geom_histogram(
+    binwidth = 50
+  )+
+  #xlim(
+    #-12000,35000
+ # )+
+  labs(
+    title = "Difference in Population in Households between UrbanSim 2020 Outputs and/n Census 2020",
+    x = "Difference in Household Population",
+    y = "Number of Municipalities"
+  )+
+  theme_bw()
+
+p_4
+#2010 Population in Households data
+#Load SF-1 Data - Pop by Age
+#sf1_pop <-
+#  get_decennial(
+#    year = 2010,
+#    state = 'MA',
+#    geography = 'county subdivision',
+#    variables = 'P001001'
+#  ) %>%
+#  mutate(
+#    variable = case_when(
+#      variable == 'P001001' ~ "sf1_totpop"),
+#    GEOID = as.numeric(GEOID)
+# ) %>% 
+#  inner_join(mapcdatakeys::all_muni_data_keys, by=c('GEOID' ='cosub_cn10')) %>% 
+#  select(muni_id,value) %>% 
+#  rename(sf1_totpop = value)
+
+#Load SF-1 Data - Pop by Age GQ
+#sf1_gq <-
+#  get_decennial(
+#    year = 2010,
+#    state = 'MA',
+#    geography = 'county subdivision',
+#    variables = 'P029026'
+#  ) %>%
+#  mutate(
+#    variable = case_when(
+#      variable == 'P029026' ~ "sf1_gqpop"),
+#    GEOID = as.numeric(GEOID)
+#  ) %>% 
+#  inner_join(mapcdatakeys::all_muni_data_keys, by=c('GEOID' ='cosub_cn10')) %>% 
+#  select(muni_id,value) %>% 
+#  rename(sf1_gqpop = value)
+
+#sf1_hhpop <- left_join(sf1_pop, sf1_gq, by = c("muni_id")) %>% 
+#  mutate(
+#    sf1_hhpop = sf1_totpop - sf1_gqpop
+#  )
+
+#write.csv(
+#  sf1_hhpop,
+#  "K:/DataServices/Projects/Current_Projects/Projections/Data/UrbanSim Outputs/Statewide/state_run_97/hhpop_2010.csv",
+#  row.names = FALSE
+#)
+```
