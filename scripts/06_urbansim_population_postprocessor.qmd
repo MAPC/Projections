@@ -23,10 +23,19 @@ r2 <- 'S:/Network Shares/K Drive/DataServices/Projects/Current_Projects/Projecti
 comp.path <- paste0(root,'Run_Comparisons/')
 
 
-# LRTP 2023 with zoning constraint fix and I-90 NO Build adjustments
-MAPCM_run='run_196'
-SWM_run='state_run_97'
-ctps_run='run_97-196'
+# LRTP 2023 with zoning constraint fix and I-90 NO Build adjustments ----- ~~~!!!~~~ The ROW zoning constraint fix did not work, and there are still HH in the ROW blocks for this run!
+# MAPCM_run='run_196'
+# SWM_run='state_run_97'
+# ctps_run='run_97-196'
+
+# LRTP 2023 revision 2025-08-20 
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Zoning hard constraint fix + I-90 NO Build +
+# TDM19 skims + ROW Adjustment Fix
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# MAPCM_run='run_207'
+# SWM_run='state_run_97'
+# ctps_run='run_97-207'
 
 ### TDM23.2.0 Run Codes (LRTP HH/emp + tdm23 skims + I-90 Build adjustments)
 # MAPCM_run='run_198'
@@ -44,13 +53,36 @@ ctps_run='run_97-196'
 # ctps_run='run_118-198'
 
 ### LRTP 2023 Run Codes == (TDM 23.1.0 land use) - NO zoning constraint fix, so there are erroneous employment numbers in Boston, Chelsea, Revere, Somerville, etc.):
-
 # MAPCM_run = 'run_139'
 # SWM_run = 'state_run_97'
 
+# REVISED TDM23.2.0 for Chandler 2019 (STOPS project)
+MAPCM_run='run_209'
+SWM_run='state_run_113'
+ctps_run='run_113-209'
+years=2019
+
+# # REVISED TDM23.2.0 for Chandler 2024 (STOPS project)
+# MAPCM_run='run_209'
+# SWM_run='state_run_118'
+# ctps_run='run_118-209'
+# years=2023
+# 
+# # REVISED TDM23.2.0 for Chandler 2044 (STOPS project)
+# MAPCM_run='run_210'
+# SWM_run='state_run_117'
+# ctps_run='run_117-210'
+# years=2044
+# 
+# # REVISED TDM23.2.0 for Chandler 2049 (STOPS project)
+# MAPCM_run='run_210'
+# SWM_run='state_run_113'
+# ctps_run='run_113-210'
+# years=2049
+
 # set run for script
-# run = MAPCM_run
-run = SWM_run
+run = MAPCM_run
+#run = SWM_run
 
 sun <- function(x){
   sort(unique(x))}
@@ -72,8 +104,8 @@ blks <-
   mapcdatakeys::geog_xw_2010 |> left_join(munis, by = 'muni_id') |> select(bl10_id, muni_id, muni_name, rpa_acr, mpo) |> setDT()
 
 
-years <- c(2049)
-#years <- c(2029, 2039, 2049)
+#years <- c(2049)
+#years <- c(2019, 2029, 2039)
 
 # library(reticulate)
 knitr::opts_knit$set(root.dir = root)
