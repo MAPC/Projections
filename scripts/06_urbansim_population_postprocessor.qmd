@@ -38,9 +38,9 @@ comp.path <- paste0(root,'Run_Comparisons/')
 # ctps_run='run_97-207'
 
 ### TDM23.2.0 Run Codes (LRTP HH/emp + tdm23 skims + I-90 Build adjustments)
-# MAPCM_run='run_198'
-# SWM_run='state_run_113'
-# ctps_run='run_113-198'
+MAPCM_run='run_198'
+SWM_run='state_run_113'
+ctps_run='run_113-198'
 
 # TDM23.2.0 for Chandler 2045 (STOPS project)
 #MAPCM_run='run_205'
@@ -57,10 +57,10 @@ comp.path <- paste0(root,'Run_Comparisons/')
 # SWM_run = 'state_run_97'
 
 # REVISED TDM23.2.0 for Chandler 2019 (STOPS project)
-MAPCM_run='run_209'
-SWM_run='state_run_113'
-ctps_run='run_113-209'
-years=2019
+# MAPCM_run='run_209'
+# SWM_run='state_run_113'
+# ctps_run='run_113-209'
+# years=2019
 
 # # REVISED TDM23.2.0 for Chandler 2024 (STOPS project)
 # MAPCM_run='run_209'
@@ -1838,7 +1838,7 @@ comp <- keys_blocks |>
 comp[is.na(comp)] <- 0
 
 # Massbuilds
-m4 <- fread('massbuilds-20230401.csv')
+m4 <- fread(paste0('massbuilds-20230401.csv'))
 m4 <- m4[,.(id,loc_id,status,longitude,latitude,year_compl,hu,commsf,ret_sqft,ofcmd_sqft,indmf_sqft,whs_sqft,rnd_sqft,ei_sqft,other_sqft,hotel_sqft,gqpop)]
 setnames(m4,'id','identification')
 setkey(m4,identification)
@@ -1855,7 +1855,7 @@ mb <- fread('all_devprojects_4_4_2025.csv') |>
   select(-hu,-gqpop) |> 
   setDT()
 
-fwrite(mb,'lrtp_all_developments_summary.csv')
+fwrite(mb,paste0(root,dir,'lrtp_all_developments_summary.csv'))
 cs <- names(mb)[c(4,5,11:19)]
 mb.blk <- mb[,lapply(.SD,sum,na.rm=T),block_id,.SDcols=c(cs)]
 setnames(mb.blk,'block_id','bl10_id')
@@ -1864,9 +1864,90 @@ setkey(mb.blk,bl10_id)
 comp2 <- mb.blk[comp]
 comp2[is.na(comp2)] <- 0
 
-fwrite(mb.blk,'lrtp_massbuilds_block_2020_2030.csv')
-fwrite(comp2,paste0('lrtp_2030_compare.csv'))
+fwrite(mb.blk,paste0(root,dir,'lrtp_massbuilds_block_2020_2030.csv'))
+fwrite(comp2,paste0(root,dir,'lrtp_2030_compare.csv'))
 
+```
+
+# 3.6.3 - Custom exports - Fenway TAP
+
+
+```{r}
+
+d2 <- paste0(r2,'Associated_Projects/Fenway_TAP_data_request/')
+
+tzs <- c(26,87,92,93,108,109,253,254,255,256,257,258,259,260,261,262,263,264,265,266,267,268,269,270,271,272,273,274,275,276,277,278,279,280,281,282,284,285,288,289,293,729,735)
+
+t19 <- fread(paste0(d2,'results_mapc_run_198_zone_indicators_2019.csv')) |> 
+  select(zone_id,
+         total_households,
+         total_residential_units,
+         sum_residential_unit_capacity,
+         sum_vacant_residential_units,
+         total_jobs,
+         sum_employment_capacity) |> 
+  filter(zone_id %in% tzs) |> 
+  mutate(sum_residential_unit_capacity=round(sum_residential_unit_capacity)) |> 
+  setDT()
+  setnames(t19, paste0(names(t19),'_2019'))
+  t19[,taz_id:=zone_id_2019][,zone_id_2019:=NULL] 
+
+
+t30 <- fread(paste0(d2,'results_mapc_run_198_zone_indicators_2029.csv')) |> 
+  select(zone_id,
+         total_households,
+         total_residential_units,
+         sum_residential_unit_capacity,
+         sum_vacant_residential_units,
+         total_jobs,
+         sum_employment_capacity) |> 
+  filter(zone_id %in% tzs) |> 
+  mutate(sum_residential_unit_capacity=round(sum_residential_unit_capacity)) |> 
+  setDT()
+  setnames(t30,paste0(names(t30),'_2030'))
+  t30[,taz_id:=zone_id_2030][,zone_id_2030:=NULL] 
+  
+m4 <- fread(paste0(d2,'massbuilds20230401_taz_inter.csv')) |> 
+  select(taz_id,id,loc_id,status,longitude,latitude,year_compl,hu,commsf,ret_sqft,ofcmd_sqft,indmf_sqft,whs_sqft,rnd_sqft,ei_sqft,other_sqft,hotel_sqft,gqpop) |> 
+  setDT()
+
+setnames(m4,'id','identification')
+setkey(m4,identification)
+# 
+# taz.assign <- fread(paste0(r2,'Associated_Projects/taz_2010block_assignment_20230314.csv'))
+
+mb <- fread(paste0(d2,'all_devprojects_4_4_2025.csv')) |> 
+  group_by(identification,name) |> 
+  summarise(
+    res_units = sum(residential_units,na.rm=T),
+    emp_cap = sum(employment_capacity,na.rm=T)
+    ) |>
+  ungroup() |> 
+  left_join(m4, by='identification') |> 
+  filter(year_compl %in% 2021:2029 & taz_id %in% tzs) |> 
+  select(-hu,-gqpop) |> 
+  setDT()
+cs <- c('res_units','emp_cap','commsf','ret_sqft','ofcmd_sqft','indmf_sqft','whs_sqft','rnd_sqft','ei_sqft','other_sqft','hotel_sqft')
+
+mb.taz <- mb[,lapply(.SD,sum,na.rm=T),taz_id,.SDcols=c(cs)]
+fwrite(mb.taz,paste0(d2,'fenway_massbuilds_taz_2019_2030.csv'))
+
+setkey(t19,taz_id)
+setkey(t30,taz_id)
+setkey(mb.taz, taz_id)
+dt <- mb.taz[t19][t30]
+dt[is.na(dt)] <- 0
+  fwrite(dt,paste0(d2,'fenway_2019_2030_taz_comparison.csv'))
+
+
+#   df <- list()
+# for (yr in 2019:2029){
+#   i=2030-yr
+#   df[[i]] <- fread(paste0('results_mapc_run_198_muni_indicators_',yr,'.csv')) |>
+#     summarize(total_emp = sum(total_jobs)) |> 
+#     mutate(year=yr)
+# }
+  
 ```
 
 # 3.7 - Project-scale land use adjustments
