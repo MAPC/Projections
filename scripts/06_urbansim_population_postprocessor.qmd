@@ -13,6 +13,7 @@ library(tidycensus)
 library(mapcdatakeys)
 library(tidyverse)
 library(imputeTS)
+library(collapse)
 
 # root <- 'K:/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/UrbanSim_Outputs/'
 root <- 'S:/Network Shares/K Drive/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/UrbanSim_Outputs/'
@@ -38,9 +39,11 @@ comp.path <- paste0(root,'Run_Comparisons/')
 # ctps_run='run_97-207'
 
 ### TDM23.2.0 Run Codes (LRTP HH/emp + tdm23 skims + I-90 Build adjustments)
-MAPCM_run='run_198'
-SWM_run='state_run_113'
-ctps_run='run_113-198'
+## ~~~!!!~~~ The ROW zoning constraint fix did not work, and there are still HH in the ROW blocks for this run!
+##
+# MAPCM_run='run_198'
+# SWM_run='state_run_113'
+# ctps_run='run_113-198'
 
 # TDM23.2.0 for Chandler 2045 (STOPS project)
 #MAPCM_run='run_205'
@@ -79,6 +82,18 @@ ctps_run='run_113-198'
 # SWM_run='state_run_113'
 # ctps_run='run_113-210'
 # years=2049
+
+# # REVISED TDM23.2.0 for Projections Website
+# MAPCM_run='run_210'
+# SWM_run='state_run_113'
+# ctps_run='run_113-210'
+# years=c(2029,2039,2049)
+
+# # REVISED TDM23.2.0 for Projections Website
+MAPCM_run='run_209'
+SWM_run='state_run_113'
+ctps_run='run_113-209'
+years=2019
 
 # set run for script
 run = MAPCM_run
@@ -1264,8 +1279,8 @@ if (run == MAPCM_run) {
 
 dir <- 'Microsim_outputs'
 
-for (yr in c(2023)) {
-#for (yr in c(2029,2039,2049)){
+for (yr in c(2019)) {
+# for (yr in c(2029,2039,2049)){
   myear = yr
   syear = yr
   
@@ -1871,7 +1886,6 @@ fwrite(comp2,paste0(root,dir,'lrtp_2030_compare.csv'))
 
 # 3.6.3 - Custom exports - Fenway TAP
 
-
 ```{r}
 
 d2 <- paste0(r2,'Associated_Projects/Fenway_TAP_data_request/')
@@ -1954,59 +1968,113 @@ dt[is.na(dt)] <- 0
 
 ```{r}
 
-#
-yr <- 2049
-stamp <- gsub('-', '', lubridate::today())
-project <- 'Western_Ave'
+# Set project name (name of project folder in Current_Projects/Projections/Projections_2023/Associated_Projects)
+
+project <- 'Fenway_TAP_data_request'
 proj.dir <- paste0(r2,'Associated_Projects/', project, '/')
 
-urbsim_runs <- 'run113-198_'
+# Project target file from consultant
+targets.raw <- readxl::read_xlsx(paste0(proj.dir,'MAPC_LandUse_Adjustment_FTAP 2030_091924.xlsx'))
+
+#target year
+yr <- 2029
+
+# export timestamp
+stamp <- gsub('-', '', lubridate::today())
+
+# UrbanSim run codes for TDM23.2.0
+mrun <- 'run_198'
+srun <- 'state_run_113'
+
+# Select whether project is in MAPC or not
+run <- mrun
+
+urbsim_runs <- 'run_113-198_'
+
+# TAZ crosswalks for TDM23
 
 taz.assign <- fread(paste0(r2,'Associated_Projects/taz_2010block_assignment_20230314.csv'))
 taz.alloc <- fread(paste0(r2,'Associated_Projects/taz_2010block_allocation_20230314.csv'))
 
 # Load TDM23.2.0 land use for year in question
-pop <- fread(paste0(proj.dir,'ma_population_',urbsim_runs,yr,'_v20250212.csv'))
-emp <- fread(paste0(proj.dir,'ma_employment_',urbsim_runs,yr,'_v20250212.csv'))
+rundate <- ifelse(yr %in% c(2019,2049), '20250212', '20250507')
 
+pop <- fread(paste0(root,'Microsim_outputs/ma_population_',urbsim_runs,yr,'_v',rundate,'.csv'))
+emp <- fread(paste0(root,'Microsim_outputs/ma_employment_',urbsim_runs,yr,'_v',rundate,'.csv'))
 pop.blk <- pop[person_num==1,.N,block_id]
 
-# Per consultant, new 2050 target households for study area are:
-# TAZ 222 = +226
-# TAZ 239 = +105
-# TAZ 241 = +407
-#
-# Employment changes:
-# TAZ 239 -> +37 sector 6, +3072 sector 9
-# TAZ 241 -> +55 sector 6, +2144 sector 9
-# TAZ 242 -> +71 sector 6, +2002 sector 9
 
-# Ideal format of update from consultant should look like this:
-# taz_id | hh | emp | emp1 | emp2 | emp3 | emp4 | emp5 | emp6 | emp7 | emp8 | emp9 | emp10 
-# Where the columns contain integer values of the number of ADDITIONAL households/jobs to ADD to the land use outputs. Negative values are appropriate if reductions in households/jobs are requested. Values for emp1, emp2, etc. can be left blank if no information on sector-level changes to employment is available.
+# If employment adjustments are missing sector level data, then the existing distributions of sector-level data are used, unless the zone has zero existing employment. 
+# ~~~~~~~~~~ !!! If the latter is the case, the consultant MUST specify sector-level distributions. !!! ~~~~~~~~~~~~~~~~~~
 
-#targets <- fread(paste0(r2, 'taz_household_employment_adjustment_targets.csv'))
+targets <- fread(paste0(proj.dir,'results_mapc_',run,'_zone_indicators_',yr,'.csv')) |> 
+  select(zone_id,
+         sum_jobs_aggr_sector_1,
+         sum_jobs_aggr_sector_2,
+         sum_jobs_aggr_sector_3,
+         sum_jobs_aggr_sector_4,
+         sum_jobs_aggr_sector_5,
+         sum_jobs_aggr_sector_6,
+         sum_jobs_aggr_sector_7,
+         sum_jobs_aggr_sector_8,
+         sum_jobs_aggr_sector_9,
+         sum_jobs_aggr_sector_10,
+         total_jobs) |> 
+  rename(taz_id=zone_id) |> 
+  right_join(targets.raw, by='taz_id') |> 
+  mutate(emp1 = round(sum_jobs_aggr_sector_1 / total_jobs * emp_tot),
+         emp2 = round(sum_jobs_aggr_sector_2 / total_jobs * emp_tot),
+         emp3 = round(sum_jobs_aggr_sector_3 / total_jobs * emp_tot),
+         emp4 = round(sum_jobs_aggr_sector_4 / total_jobs * emp_tot),
+         emp5 = round(sum_jobs_aggr_sector_5 / total_jobs * emp_tot),
+         emp6 = round(sum_jobs_aggr_sector_6 / total_jobs * emp_tot),
+         emp7 = round(sum_jobs_aggr_sector_7 / total_jobs * emp_tot),
+         emp8 = round(sum_jobs_aggr_sector_8 / total_jobs * emp_tot),
+         emp9 = round(sum_jobs_aggr_sector_9 / total_jobs * emp_tot),
+         emp10 = round(sum_jobs_aggr_sector_10 / total_jobs * emp_tot),
+         emp_chk = emp1+emp2+emp3+emp4+emp5+emp6+emp7+emp8+emp9+emp10,
+         emp_adj = emp_tot - emp_chk) |> 
+  setDT()
 
-targets <- data.table(
-  year = rep(yr, 6),
-  taz_id = c(222, 238, 239, 240, 241, 242),
-  hh = c(470, 42, 962, 152, 702, 0),
-  emp_tot = c(0, 0, 4340, 0, 3219, 3030),
-  emp1 = c(0, 0, 0, 0, 0, 0),
-  emp2 = c(0, 0, 0, 0, 0, 0),
-  emp3 = c(0, 0, 0, 0, 0, 0),
-  emp4 = c(0, 0, 0, 0, 0, 0),
-  emp5 = c(0, 0, 0, 0, 0, 0),
-  emp6 = c(0, 0, 52, 0, 81, 104),
-  emp7 = c(0, 0, 0, 0, 0, 0),
-  emp8 = c(0, 0, 0, 0, 0, 0),
-  emp9 = c(0, 0, 4288, 0, 3138, 2926),
-  emp10 = c(0, 0, 0, 0, 0, 0)
-)
-targets[,negs:=min(emp_tot,emp1,emp2,emp3,emp4,emp5,emp6,emp7,emp8,emp9,emp10),taz_id]
+targets[emp_tot > 0 & emp_chk == 0, emp8 := emp_tot]
+targets[, emp_chk := emp1 + emp2 + emp3 + emp4 + emp5 + emp6 + emp7 + emp8 + emp9 + emp10]
+targets[, emp_adj := emp_tot - emp_chk]
+
+# Fix rounding errors
+# Adjust employment in the largest target employment sector up or down 
+
+col.chk <- .c(emp1, emp2, emp3, emp4, emp5, emp6, emp7, emp8, emp9, emp10)
+
+ecols <- colnames(targets) %in% col.chk
+
+targets$maxcol <- colnames(targets)[ecols][apply(targets[, ..col.chk], 1, which.max)]
+
+for (j in 1:nrow(targets)) {
+  rev <- targets$maxcol[j]
+  targets[j, eval(rev) := get(eval(maxcol)) + emp_adj]
+}
+
+targets <- targets |> 
+  select(taz_id,
+         year,
+         hh,
+         emp_tot,
+         emp1,
+         emp2,
+         emp3,
+         emp4,
+         emp5,
+         emp6,
+         emp7,
+         emp8,
+         emp9,
+         emp10) |> 
+  setDT()
+
+# tlist <- fread(paste0(r2,'Associated_Projects/Western_Ave/Western_Ave_TAZ_sample_list.csv')) |> pull()
 
 # Subset of TAZ from which replication samples will be taken
-tlist <- c(222, 238, 239, 240, 241, 242, 243, 244, 245, 246)
+tlist <- unique(targets$taz)
 blist <- taz.alloc[taz_id %in% tlist, block_id]
 pop.sub <- pop[block_id %in% blist]
 
@@ -2058,8 +2126,8 @@ emp.adj <- emp |>
   left_join(targets, by='taz_id')
 
 el <- data.table()
+
 for(tz in targets$taz_id){
-  if (targets[taz_id == tz,negs]==0){
   x <- emp.adj[taz_id == tz & area_fct==1][1]|> 
     mutate(
       total_jobs = total_jobs + emp_tot,
@@ -2076,7 +2144,7 @@ for(tz in targets$taz_id){
     )
   el <- rbind(el,x)
   }
-}
+
 e2 <- emp[!block_id %in% el$block_id]
 
 ns <- names(emp)

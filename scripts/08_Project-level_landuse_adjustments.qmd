@@ -1,0 +1,331 @@
+---
+title: "Project-Scale Land Use Adjustments"
+author: "Conor Gately"
+format: html
+editor: visual
+---
+
+# 1 - Setup
+
+```{r, setup, include=FALSE}
+
+library(data.table)
+library(tidycensus)
+library(mapcdatakeys)
+library(tidyverse)
+library(imputeTS)
+library(collapse)
+
+# root <- 'K:/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/UrbanSim_Outputs/'
+root <- 'S:/Network Shares/K Drive/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/UrbanSim_Outputs/'
+
+r2 <- 'S:/Network Shares/K Drive/DataServices/Projects/Current_Projects/Projections/Projections_2023/'
+
+
+
+# # REVISED TDM23.2.0 for Projections Website (pre-2025 years)
+MAPCM_run='run_209'
+SWM_run='state_run_113'
+ctps_run='run_113-209'
+years=2019
+
+# REVISED TDM23.2.0 for Projections Website (post-2025 years)
+# MAPCM_run='run_210'
+# SWM_run='state_run_113'
+# ctps_run='run_113-210'
+# years=c(2029,2039,2049)
+
+sun <- function(x){
+  sort(unique(x))}
+lun <- function(x){
+  length(unique(x))}
+sna <- function(x){
+  sort(names(x))}
+
+# List of RPA names
+mpos <- unlist(c(mapcdatakeys::all_muni_data_keys |> select(mpo) |> unique()))
+
+# Munis by RPA/MPO
+munis <-
+  mapcdatakeys::all_muni_data_keys |> select(muni_id, rpa_acr, mpo) |> setDT()
+
+nonmapc <- munis[mpo!='MAPC']
+# 2010 Blocks / Munis / RPA / MPO
+blks <-
+  mapcdatakeys::geog_xw_2010 |> left_join(munis, by = 'muni_id') |> select(bl10_id, muni_id, muni_name, rpa_acr, mpo) |> setDT()
+
+knitr::opts_knit$set(root.dir = root)
+
+```
+
+# 2 - Project-scale land use adjustments
+
+```{r}
+
+# Set project name (name of project folder in Current_Projects/Projections/Projections_2023/Associated_Projects)
+
+project <- 'Fenway_TAP_data_request'
+proj.dir <- paste0(r2,'Associated_Projects/', project, '/')
+
+# Project target file from consultant
+targets.raw <- readxl::read_xlsx(paste0(proj.dir,'MAPC_LandUse_Adjustment_FTAP 2030_091924.xlsx'))
+
+#target year
+yr <- 2029
+
+# export timestamp
+stamp <- gsub('-', '', lubridate::today())
+
+# UrbanSim run codes for TDM23.2.0
+mrun <- 'run_198'
+srun <- 'state_run_113'
+
+# Select whether project is in MAPC or not
+run <- mrun
+
+urbsim_runs <- 'run_113-198_'
+
+# TAZ crosswalks for TDM23
+
+taz.assign <- fread(paste0(r2,'Associated_Projects/taz_2010block_assignment_20230314.csv'))
+taz.alloc <- fread(paste0(r2,'Associated_Projects/taz_2010block_allocation_20230314.csv'))
+
+# Load TDM23.2.0 land use for year in question
+rundate <- ifelse(yr %in% c(2019,2049), '20250212', '20250507')
+
+pop <- fread(paste0(root,'Microsim_outputs/ma_population_',urbsim_runs,yr,'_v',rundate,'.csv'))
+emp <- fread(paste0(root,'Microsim_outputs/ma_employment_',urbsim_runs,yr,'_v',rundate,'.csv'))
+pop.blk <- pop[person_num==1,.N,block_id]
+
+
+# If employment adjustments are missing sector level data, then the existing distributions of sector-level data are used, unless the zone has zero existing employment. 
+# ~~~~~~~~~~ !!! If the latter is the case, the consultant MUST specify sector-level distributions. !!! ~~~~~~~~~~~~~~~~~~
+
+targets <- fread(paste0(proj.dir,'results_mapc_',run,'_zone_indicators_',yr,'.csv')) |> 
+  select(zone_id,
+         sum_jobs_aggr_sector_1,
+         sum_jobs_aggr_sector_2,
+         sum_jobs_aggr_sector_3,
+         sum_jobs_aggr_sector_4,
+         sum_jobs_aggr_sector_5,
+         sum_jobs_aggr_sector_6,
+         sum_jobs_aggr_sector_7,
+         sum_jobs_aggr_sector_8,
+         sum_jobs_aggr_sector_9,
+         sum_jobs_aggr_sector_10,
+         total_jobs) |> 
+  rename(taz_id=zone_id) |> 
+  right_join(targets.raw, by='taz_id') |> 
+  mutate(emp1 = round(sum_jobs_aggr_sector_1 / total_jobs * emp_tot),
+         emp2 = round(sum_jobs_aggr_sector_2 / total_jobs * emp_tot),
+         emp3 = round(sum_jobs_aggr_sector_3 / total_jobs * emp_tot),
+         emp4 = round(sum_jobs_aggr_sector_4 / total_jobs * emp_tot),
+         emp5 = round(sum_jobs_aggr_sector_5 / total_jobs * emp_tot),
+         emp6 = round(sum_jobs_aggr_sector_6 / total_jobs * emp_tot),
+         emp7 = round(sum_jobs_aggr_sector_7 / total_jobs * emp_tot),
+         emp8 = round(sum_jobs_aggr_sector_8 / total_jobs * emp_tot),
+         emp9 = round(sum_jobs_aggr_sector_9 / total_jobs * emp_tot),
+         emp10 = round(sum_jobs_aggr_sector_10 / total_jobs * emp_tot),
+         emp_chk = emp1+emp2+emp3+emp4+emp5+emp6+emp7+emp8+emp9+emp10,
+         emp_adj = emp_tot - emp_chk) |> 
+  setDT()
+
+targets[emp_tot > 0 & emp_chk == 0, emp8 := emp_tot]
+targets[, emp_chk := emp1 + emp2 + emp3 + emp4 + emp5 + emp6 + emp7 + emp8 + emp9 + emp10]
+targets[, emp_adj := emp_tot - emp_chk]
+
+# Fix rounding errors
+# Adjust employment in the largest target employment sector up or down 
+
+col.chk <- .c(emp1, emp2, emp3, emp4, emp5, emp6, emp7, emp8, emp9, emp10)
+
+ecols <- colnames(targets) %in% col.chk
+
+targets$maxcol <- colnames(targets)[ecols][apply(targets[, ..col.chk], 1, which.max)]
+
+for (j in 1:nrow(targets)) {
+  rev <- targets$maxcol[j]
+  targets[j, eval(rev) := get(eval(maxcol)) + emp_adj]
+}
+
+targets <- targets |> 
+  select(taz_id,
+         year,
+         hh,
+         emp_tot,
+         emp1,
+         emp2,
+         emp3,
+         emp4,
+         emp5,
+         emp6,
+         emp7,
+         emp8,
+         emp9,
+         emp10) |> 
+  setDT()
+
+# tlist <- fread(paste0(r2,'Associated_Projects/Western_Ave/Western_Ave_TAZ_sample_list.csv')) |> pull()
+
+# Subset of TAZ from which replication samples will be taken
+tlist <- unique(targets$taz)
+blist <- taz.alloc[taz_id %in% tlist, block_id]
+pop.sub <- pop[block_id %in% blist]
+
+# Sample HH to add on
+add.hid <- data.table()
+sub.hid <- data.table()
+for (taz in targets$taz_id) {
+  if (targets[taz_id == taz, hh] > 0){
+  x <- data.table(hid = sample(pop.sub$hid, targets[taz_id == taz, hh], replace = TRUE), new_block_id = sample(taz.alloc[taz_id == taz & area_fct==1, block_id], targets[taz_id == taz, hh], replace = TRUE))
+  add.hid <- rbind(x, add.hid)
+  }
+  if (targets[taz_id == taz, hh] < 0){
+  y <- sample(pop.sub[person_num==1, hid], targets[taz_id == taz, abs(hh)], replace = FALSE)
+  sub.hid <- rbind(y, sub.hid)
+  }
+}
+if(dim(sub.hid)[1] > 0){
+  pop.sub <- pop.sub[!hid %in% sub.hid$x]
+}
+
+setorder(add.hid, hid)
+add.hid[, cnt := rowid(hid)]
+
+# Join full household/person records to replicated hids
+add.pop <- add.hid |>
+  left_join(pop.sub, by = 'hid', relationship = 'many-to-many')
+
+# Append to original household table and recode hid value for replicated households
+new.pop <- rbind(pop, add.pop, fill = TRUE) |> 
+  mutate(
+    hid = case_when(
+      !is.na(cnt) ~ paste0(hid, '_', cnt),
+      .default = hid
+      ),
+    block_id = case_when(
+      !is.na(new_block_id) ~ new_block_id,
+      .default = block_id
+      )
+    ) |> 
+  select(-cnt, -new_block_id)
+
+bpop <- new.pop[person_num==1,.N,block_id]
+
+# Adjust employment in first block listed for each TAZ with a 100% area overlap
+# Adjust total households column in employment file as needed as well
+
+emp.adj <- emp |>
+  left_join(taz.alloc, by='block_id') |> 
+  left_join(targets, by='taz_id')
+
+el <- data.table()
+
+for(tz in targets$taz_id){
+  x <- emp.adj[taz_id == tz & area_fct==1][1]|> 
+    mutate(
+      total_jobs = total_jobs + emp_tot,
+      `1_constr` = `1_constr` + emp1,
+      `2_eduhlth` = `2_eduhlth` + emp2,
+      `3_finance` = `3_finance` + emp3,
+      `4_public` = `4_public` + emp4,
+      `5_info` = `5_info` + emp5,
+      `6_ret_leis` = `6_ret_leis` + emp6,
+      `7_manu` = `7_manu` + emp7,
+      `8_other` = `8_other` + emp8,
+      `9_profbus` = `9_profbus` + emp9,
+      `10_ttu` = `10_ttu` + emp10
+    )
+  el <- rbind(el,x)
+  }
+
+e2 <- emp[!block_id %in% el$block_id]
+
+ns <- names(emp)
+new.emp <- el |> 
+  select(all_of(ns)) |> 
+  rbind(e2) |> 
+  left_join(bpop, by='block_id') |> 
+  mutate(total_households = case_when(
+    !is.na(N) ~ N,
+    .default=total_households)) |> 
+  select(-N)
+    
+chk <- taz.alloc |> 
+  left_join(new.emp, by='block_id') |> 
+  left_join(bpop, by='block_id') |> 
+  mutate(jobs = total_jobs * area_fct,
+         hhds = N * area_fct) |> 
+  group_by(taz_id) |> 
+  summarize(emp.taz=round(sum(jobs, na.rm=T)),
+            hh.taz=round(sum(hhds, na.rm=T))) |> 
+  ungroup() |> 
+  right_join(targets, by='taz_id')
+
+chk2 <- taz.assign |> 
+  left_join(new.emp, by='block_id') |> 
+  left_join(bpop, by='block_id') |> 
+  group_by(taz_id) |> 
+  summarize(emp.taz=round(sum(total_jobs, na.rm=T)),
+            hh.taz=round(sum(N, na.rm=T))) |> 
+  ungroup() |> 
+  right_join(targets, by='taz_id')
+
+og.alloc <- taz.alloc |> 
+  left_join(emp, by='block_id') |> 
+  left_join(pop.blk, by='block_id') |> 
+  mutate(jobs = total_jobs * area_fct,
+         hhds = N * area_fct) |> 
+  group_by(taz_id) |> 
+  summarize(tdm23.emp.taz=round(sum(jobs, na.rm=T)),
+            tdm23.hh.taz=round(sum(hhds, na.rm=T))) |> 
+  right_join(chk, by='taz_id') |> 
+  mutate(hh.chk=tdm23.hh.taz + hh,
+         emp.chk=tdm23.emp.taz+emp_tot) |> 
+  relocate(emp.chk,hh.chk, .before=year) |> 
+  setDT()
+
+og.assign <- taz.assign |> 
+  left_join(emp, by='block_id') |> 
+  left_join(pop.blk, by='block_id') |> 
+  group_by(taz_id) |> 
+  summarize(tdm23.emp.taz=round(sum(total_jobs, na.rm=T)),
+            tdm23.hh.taz=round(sum(total_households, na.rm=T))) |> 
+  ungroup() |> 
+  right_join(chk2, by='taz_id') |> 
+  mutate(hh.chk=tdm23.hh.taz + hh,
+         emp.chk=tdm23.emp.taz+emp_tot) |> 
+  relocate(emp.chk,hh.chk, .before=year) |> 
+  setDT()
+
+fwrite(og.assign,paste0(proj.dir,'QA_taz_assign.csv'))
+fwrite(og.alloc,paste0(proj.dir,'QA_taz_alloc.csv'))
+
+new.pop[,block_id:=as.character(block_id)]
+new.emp[,block_id:=as.character(block_id)]
+
+# Export
+fwrite(new.pop,
+  paste0(
+    proj.dir,
+    'ma_population_',urbsim_runs,
+    yr,
+    '_v',
+    stamp,
+    '_adjusted_',project,'_Project.csv'
+  )
+)
+# Export
+fwrite(new.emp,
+  paste0(
+    proj.dir,
+    'ma_employment_',urbsim_runs,
+    yr,
+    '_v',
+    stamp,
+    '_adjusted_',project,'_Project.csv'
+  )
+)
+
+
+```
