@@ -1,0 +1,648 @@
+---
+title: "UrbanSim Data Processing for Website"
+format: html
+editor: visual
+---
+
+
+# 1 - Setup
+
+```{r, setup, include=FALSE}
+
+pacman::p_load(
+  writexl,
+  sf,
+  data.table,
+  tidycensus,
+  mapcdatakeys,
+  tidyverse,
+  imputeTS,
+  collapse
+)
+
+# root <- 'K:/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/'
+root <- 'S:/Network Shares/K Drive/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/'
+
+inpath <- paste0(root,'03_UrbanSim/UrbanSim_Outputs/Microsim_outputs')
+
+outpath <- paste0(root,'04_Allocation_Results/Revised_Allocation_Sept2025/Tabular/')
+
+sp.path <- paste0(root,'04_Allocation_Results/Revised_Allocation_Sept2025/Spatial/Projections_2023_revised_webmap/') 
+  
+years <- c(2019,2029,2039,2049)
+
+
+# # REVISED UrbanSim / TDM23.2.0 data for Projections Website
+# MAPCM_run='run_209'
+# SWM_run='state_run_113'
+# ctps_run='run_113-209'
+# years=2019
+
+# # REVISED TDM23.2.0 for Projections Website
+# MAPCM_run='run_210'
+# SWM_run='state_run_113'
+# ctps_run='run_113-210'
+# years=c(2029,2039,2049)
+
+sun <- function(x){
+  sort(unique(x))}
+lun <- function(x){
+  length(unique(x))}
+sna <- function(x){
+  sort(names(x))}
+
+# List of RPA names
+mpos <- unlist(c(mapcdatakeys::all_muni_data_keys |> 
+                   select(mpo) |> 
+                   unique()))
+
+# Munis by RPA/MPO
+munis <-
+  mapcdatakeys::all_muni_data_keys |> 
+  select(muni_id, rpa_acr, mpo) |> 
+  setDT()
+
+nonmapc <- munis[mpo!='MAPC']
+
+#Full list of 2010 Blocks
+  keys_blocks <- mapcdatakeys::geog_xw_2010 |>
+    select(bl10_id, muni_name) |>
+    mutate(across(where(is.double), as.character)) |>
+    left_join(mapcdatakeys::all_muni_data_keys, by = c("muni_name")) |>
+    select(c(bl10_id, muni_name, mpo, rpa_acr))
+  
+  #Rebel towns block list
+  rt_bl10 <- keys_blocks |>
+    filter(muni_name %in% c("Duxbury", "Hanover", "Pembroke", "Stoughton")) |>
+    pull(bl10_id)
+  
+  #MAPC 97 town Block List
+  mapc97_bl10 <- keys_blocks |>
+    filter(mpo == "MAPC") |>
+    pull(bl10_id)
+
+knitr::opts_knit$set(root.dir = root)
+
+``` 
+
+# 2 - Compile Raw Data
+
+```{r}
+
+#2019
+fread(paste0(
+  inpath,
+  '/urbansim_complete_population_run_113-209_2019.csv'
+)) |> 
+  mutate(year=2019) |> 
+  fwrite(paste0(outpath, 'urbansim_complete_microsim_population_website_revised_2019.csv'))
+
+fread(paste0(root, '03_UrbanSim/UrbanSim_Outputs/state_run_113/2019/jobs.csv')) |> fwrite(paste0(outpath,'swm_urbansim_employment_2019.csv'))
+
+fread(paste0(root, '03_UrbanSim/UrbanSim_Outputs/run_209/2019/jobs.csv')) |> fwrite(paste0(outpath,'mapcm_urbansim_employment_2019.csv'))
+
+#2029
+fread(paste0(
+  inpath,
+  '/urbansim_complete_population_run_113-210_2029.csv'
+)) |> 
+  mutate(year=2029) |> 
+  fwrite(paste0(outpath, 'urbansim_complete_microsim_population_website_revised_2029.csv'))
+
+fread(paste0(root, '03_UrbanSim/UrbanSim_Outputs/state_run_113/2029/jobs.csv')) |> fwrite(paste0(outpath,'swm_urbansim_employment_2029.csv'))
+
+fread(paste0(root, '03_UrbanSim/UrbanSim_Outputs/run_210/2029/jobs.csv')) |> fwrite(paste0(outpath,'mapcm_urbansim_employment_2029.csv'))
+
+# 2039
+fread(paste0(
+  inpath,
+  '/urbansim_complete_population_run_113-210_2039.csv'
+)) |> 
+  mutate(year=2039) |> 
+  fwrite(paste0(outpath, 'urbansim_complete_microsim_population_website_revised_2039.csv'))
+
+fread(paste0(root, '03_UrbanSim/UrbanSim_Outputs/state_run_113/2039/jobs.csv')) |> fwrite(paste0(outpath,'swm_urbansim_employment_2039.csv'))
+
+fread(paste0(root, '03_UrbanSim/UrbanSim_Outputs/run_210/2039/jobs.csv')) |> fwrite(paste0(outpath,'mapcm_urbansim_employment_2039.csv'))
+
+# 2049
+fread(paste0(
+  inpath,
+  '/urbansim_complete_population_run_113-210_2049.csv'
+)) |> 
+  mutate(year=2049) |> 
+  fwrite(paste0(outpath, 'urbansim_complete_microsim_population_website_revised_2049.csv'))
+
+fread(paste0(root, '03_UrbanSim/UrbanSim_Outputs/state_run_113/2049/jobs.csv')) |> fwrite(paste0(outpath,'swm_urbansim_employment_2049.csv'))
+
+fread(paste0(root, '03_UrbanSim/UrbanSim_Outputs/run_210/2049/jobs.csv')) |> fwrite(paste0(outpath,'mapcm_urbansim_employment_2049.csv'))
+
+
+
+```
+
+# 3 - Table Export for Website
+
+```{r}
+
+ 
+for (yr in years){
+  
+new <- fread(paste0(
+  outpath,
+  'urbansim_complete_microsim_population_website_revised_',
+  yr,
+  '.csv'
+))
+
+semp <- fread(paste0(outpath,'swm_urbansim_employment_',yr,'.csv'))
+memp <- fread(paste0(outpath,'mapcm_urbansim_employment_',yr,'.csv'))
+
+# Population in Households
+
+hhpop <- new |>
+  mutate(pop = 1) |>
+  group_by(rpa_acr, mpo, muni_name, muni_id) |>
+  summarise(HHPop = sum(pop)) |>
+  setnames(c('RPA', 'MPO', 'Muni', 'Muni_ID', paste0('HHPop_', yr + 1)))
+
+fwrite(
+  hhpop,
+  paste0(
+    outpath,
+    'muni_HHpop_',
+    yr + 1,
+    '.csv'
+  )
+)
+
+# Population in Households by Age
+
+age.grp <- data.table(
+  ageCAT6 = seq(1, 18),
+  age_group = c(
+    '0-04',
+    '05-09',
+    '10-14',
+    '15-19',
+    '20-24',
+    '25-29',
+    '30-34',
+    '35-39',
+    '40-44',
+    '45-49',
+    '50-54',
+    '55-59',
+    '60-64',
+    '65-69',
+    '70-74',
+    '75-79',
+    '80-84',
+    '85p'
+  )
+)
+
+hhpop.age <- new |>
+  mutate(pop = 1) |>
+  group_by(rpa_acr, mpo, muni_name, muni_id, ageCAT6) |>
+  summarise(HHPop = sum(pop)) |>
+  ungroup() |>
+  left_join(age.grp, by = 'ageCAT6') |>
+  select(-ageCAT6) |>
+  relocate(age_group, .before = HHPop) |>
+  setorder(muni_id, age_group) |>
+  setnames(c(
+    'RPA',
+    'MPO',
+    'Muni',
+    'Muni_ID',
+    'Household Population Age Group',
+    paste0('HHPop_', yr + 1)
+  ))
+
+fwrite(
+  hhpop.age,
+  paste0(
+    outpath,
+    'muni_HHpop_age_',
+    yr + 1,
+    '.csv'
+  )
+)
+
+# Population in Households under the age of 18
+
+u18 <- new |>
+  filter(AGEP < 18) |>
+  mutate(pop = 1) |>
+  group_by(rpa_acr, mpo, muni_name, muni_id) |>
+  summarise(HHPop = sum(pop)) |>
+  setnames(c('RPA', 'MPO', 'Muni', 'Muni_ID', paste0('HHPop_', yr + 1)))
+
+fwrite(
+  u18,
+  paste0(
+    outpath,
+    'muni_HHpop_u18_',
+    yr + 1,
+    '.csv'
+  )
+)
+
+# Households by household type
+
+hht <- data.table(
+  HHT = c(1, 3, 5),
+  type = c('HH with Children', '2+ Adults with No Children', 'Living Alone')
+)
+
+hh.type <- new |>
+  filter(sporder == 1) |>
+  mutate(hh = 1) |>
+  group_by(rpa_acr, mpo, muni_name, muni_id, HHT) |>
+  summarise(Households = sum(hh)) |>
+  left_join(hht, by = 'HHT') |>
+  setorder(muni_id, HHT) |>
+  relocate(type, .before = Households) |>
+  setnames(c(
+    'RPA',
+    'MPO',
+    'Muni',
+    'Muni_ID',
+    'HHT',
+    'Household Type',
+    paste0('Households_', yr + 1)
+  ))
+
+hhtot <- new |>
+  filter(sporder == 1) |>
+  mutate(hh = 1) |>
+  group_by(rpa_acr, mpo, muni_name, muni_id) |>
+  summarise(Households = sum(hh)) |>
+  mutate(HHT = 6, type = 'Total Households') |>
+  relocate(Households, .after = type) |>
+  setnames(c(
+    'RPA',
+    'MPO',
+    'Muni',
+    'Muni_ID',
+    'HHT',
+    'Household Type',
+    paste0('Households_', yr + 1)
+  )) |>
+  ungroup()
+
+hh.type.exp <- rbind(hh.type, hhtot) |>
+  setorder(Muni_ID, HHT)
+
+fwrite(
+  hh.type.exp,
+  paste0(
+    outpath,
+    'muni_HHType_',
+    yr + 1,
+    '.csv'
+  )
+)
+
+# Households by age of householder
+
+hhd.age <- new |>
+  filter(sporder == 1) |>
+  mutate(
+    hh = 1,
+    age.grp = case_when(
+      ageHHder %in% 15:34 ~ '15-34',
+      ageHHder %in% 35:44 ~ '35-44',
+      ageHHder %in% 45:64 ~ '45-64',
+      ageHHder %in% 65:74 ~ '65-74',
+      ageHHder >= 75 ~ '75p'
+    )
+  ) |>
+  group_by(rpa_acr, mpo, muni_name, muni_id, age.grp) |>
+  summarise(Households = sum(hh)) |>
+  setnames(c(
+    'RPA',
+    'MPO',
+    'Muni',
+    'Muni_ID',
+    'Householder Age Group',
+    paste0('Households_', yr + 1)
+  )) |>
+  ungroup()
+
+hhdtot <- hhtot |>
+  select(-HHT) |>
+  rename('Householder Age Group' = 'Household Type')
+
+hhd.age.exp <- rbind(hhd.age, hhdtot) |>
+  setorder(Muni_ID, `Householder Age Group`)
+
+fwrite(
+  hhd.age.exp,
+  paste0(
+    outpath,
+    'muni_HHDer_age_',
+    yr + 1,
+    '.csv'
+  )
+)
+
+# Households my household income
+
+hinc <- new |>
+  filter(sporder == 1) |>
+  mutate(hh = 1) |>
+  group_by(rpa_acr, mpo, muni_name, muni_id, income_grp) |>
+  summarise(Households = sum(hh)) |>
+  setnames(c(
+    'RPA',
+    'MPO',
+    'Muni',
+    'Muni_ID',
+    'Household Income Group',
+    paste0('Households_', yr + 1)
+  )) |>
+  ungroup()
+
+fwrite(
+  hinc,
+  paste0(
+    outpath,
+    'muni_HH_income_',
+    yr + 1,
+    '.csv'
+  )
+)
+
+# Employment by super sector
+
+semp[, jobs := .N, .(block_id, aggr_sector_id)]
+semp <- unique(semp)
+memp[, jobs := .N, .(block_id, aggr_sector_id)]
+memp <- unique(memp)
+semp <- semp[!block_id %in% mapc97_bl10]
+memp <- memp[!block_id %in% rt_bl10]
+lemp <- rbind(semp, memp)
+setorder(lemp, block_id, aggr_sector_id)
+lemp[, bl10_id := as.character(block_id)]
+wemp <- lemp |> left_join(keys_blocks, by = 'bl10_id') |>
+  select(-block_id) |> 
+  filter(!is.na(muni_name))
+
+sects <- data.table(
+  aggr_sector_id = seq(1, 10),
+  SuperSector = c(
+    'Construction',
+    'Education and Health Services',
+    'Financial Activities',
+    'Government',
+    'Information',
+    'Leisure and Hospitality',
+    'Manufacturing',
+    'Mining and Logging / Other Services',
+    'Professional and Business Services',
+    'Trade, Transportation, Utilities'
+  )
+)
+
+muni.emp <- wemp |>
+  group_by(muni_name, mpo, rpa_acr, aggr_sector_id) |>
+  summarize(jobs = sum(jobs)) |>
+  mutate(year = yr + 1) |>
+  left_join(sects, by = 'aggr_sector_id')
+
+fwrite(
+  muni.emp,
+  paste0(
+    outpath,
+    'muni_employment_',
+    yr + 1,
+    '.csv'
+  )
+)
+
+}
+
+# Compile all years and export as EXCEL
+  
+f1 <- list.files(path = outpath, pattern = 'muni_HHpop_2', full.names = T)
+
+f2 <- list.files(path = outpath, pattern = 'muni_HHpop_age', full.names = T)
+                 
+f3 <- list.files(path = outpath, pattern = 'muni_HHpop_u18', full.names = T)
+
+f4 <- list.files(path = outpath, pattern = 'muni_HHType', full.names = T) 
+
+f5 <- list.files(path = outpath, pattern = 'muni_HHDer', full.names = T)                 
+f6 <- list.files(path = outpath, pattern = 'muni_HH_income', full.names = T)
+
+f7 <- list.files(path = outpath, pattern = 'muni_employment', full.names = T)
+
+
+l1 <- lapply(f1, fread)
+d1 <- l1[[1]] |> 
+  left_join(l1[[2]], by=c('RPA','MPO','Muni','Muni_ID')) |>
+  left_join(l1[[3]], by=c('RPA','MPO','Muni','Muni_ID')) |> 
+  left_join(l1[[4]], by=c('RPA','MPO','Muni','Muni_ID'))
+
+l2 <- lapply(f2, fread)
+d2 <- l2[[1]] |> 
+  left_join(l2[[2]], by=c('RPA','MPO','Muni','Muni_ID','Household Population Age Group')) |>
+  left_join(l2[[3]], by=c('RPA','MPO','Muni','Muni_ID','Household Population Age Group')) |> 
+  left_join(l2[[4]], by=c('RPA','MPO','Muni','Muni_ID','Household Population Age Group'))
+
+l3 <- lapply(f3, fread)
+d3 <- l3[[1]] |> 
+  left_join(l3[[2]], by=c('RPA','MPO','Muni','Muni_ID')) |>
+  left_join(l3[[3]], by=c('RPA','MPO','Muni','Muni_ID')) |> 
+  left_join(l3[[4]], by=c('RPA','MPO','Muni','Muni_ID'))
+
+l4 <- lapply(f4, fread)
+d4 <- l4[[1]] |> 
+  left_join(l4[[2]], by=c('RPA','MPO','Muni','Muni_ID','HHT','Household Type')) |>
+  left_join(l4[[3]], by=c('RPA','MPO','Muni','Muni_ID','HHT','Household Type')) |>
+  left_join(l4[[4]], by=c('RPA','MPO','Muni','Muni_ID','HHT','Household Type')) |> 
+  setorder(Muni_ID,HHT) |> 
+  select(-HHT)
+
+l5 <- lapply(f5, fread)
+d5 <- l5[[1]] |> 
+  left_join(l5[[2]], by=c('RPA','MPO','Muni','Muni_ID','Householder Age Group')) |>
+  left_join(l5[[3]], by=c('RPA','MPO','Muni','Muni_ID','Householder Age Group')) |>
+  left_join(l5[[4]], by=c('RPA','MPO','Muni','Muni_ID','Householder Age Group'))
+
+l6 <- lapply(f6, fread)
+d6 <- l6[[1]] |> 
+  left_join(l6[[2]], by=c('RPA','MPO','Muni','Muni_ID','Household Income Group')) |>
+  left_join(l6[[3]], by=c('RPA','MPO','Muni','Muni_ID','Household Income Group')) |>
+  left_join(l6[[4]], by=c('RPA','MPO','Muni','Muni_ID','Household Income Group')) |> 
+  mutate(inc = case_when(
+    `Household Income Group` == '<=35000' ~ 1,
+    `Household Income Group` == '35000-75000' ~ 2,
+    `Household Income Group` == '75000-125000' ~ 3,
+    `Household Income Group` == '125000-225000' ~ 4,
+    `Household Income Group` == '>225000' ~ 5
+  )) |> 
+  setorder(Muni_ID,inc) |> 
+  select(-inc)
+
+
+l7 <- lapply(f7, fread)
+d7 <- rbindlist(l7)
+setnames(d7,'aggr_sector_id','SuperSector_ID')
+
+dw7 <- pivot_wider(
+  d7,
+  id_cols = c('rpa_acr', 'mpo', 'muni_name', 'SuperSector_ID', 'SuperSector'),
+  names_prefix = 'Employment_',
+  names_from = 'year',
+  values_from = 'jobs'
+)
+
+emptot <- d7 |>
+  group_by(rpa_acr, mpo, muni_name, year) |>
+  summarize(jobs = sum(jobs)) |>
+  mutate(SuperSector_ID = 100, SuperSector = 'Total Employment') |>
+  pivot_wider(
+    id_cols = c('rpa_acr', 'mpo', 'muni_name', 'SuperSector_ID', 'SuperSector'),
+    names_prefix = 'Employment_',
+    names_from = 'year',
+    values_from = 'jobs'
+  ) |> rbind(dw7) |>
+  setorder(muni_name, SuperSector_ID)
+
+xl.list <- list(
+  'Household Population' = d1,
+  'Household Population by Age' = d2,
+  'Household Population Under 18' = d3,
+  'Households by Type' = d4,
+  'Households by Age of HHder' = d5,
+  'Households by HH Income Group' = d6,
+  'Employment by Super Sector' = emptot
+)
+
+write_xlsx(xl.list, paste0(outpath,'LRTP2023_Municipal_Data_revised_20250929.xlsx'))
+
+```
+
+# 4 - Shapefile Export for Website
+
+```{r}
+# Export shapefiles for web map
+
+sfm <- muni_sf(2010)
+
+sf.hhpop <- sfm |>
+  left_join(d1, by = c('muni_id' = 'Muni_ID')) |>
+  st_write(paste0(sp.path, 'muni_HHpop.shp'), append = F)
+
+hhtot <- d4 |> filter(`Household Type` == 'Total Households') |> select(-`Household Type`) |> rename(
+  HH2020 = Households_2020,
+  HH2030 = Households_2030,
+  HH2040 = Households_2040,
+  HH2050 = Households_2050
+)
+sf.hhds <- sfm |>
+  left_join(hhtot, by = c('muni_id' = 'Muni_ID')) |>
+  st_write(paste0(sp.path, 'muni_HHds.shp'), append = F)
+
+et <- emptot |> filter(SuperSector_ID == 100) |> select(-SuperSector_ID, -SuperSector) |>
+  rename(
+    RPA = rpa_acr,
+    MPO = mpo,
+    Muni = muni_name,
+    jobs2020 = Employment_2020,
+    jobs2030 = Employment_2030,
+    jobs2040 = Employment_2040,
+    jobs2050 = Employment_2050
+  )
+sf.hhds <- sfm |>
+  left_join(et, by = c('muni_name' = 'Muni')) |>
+  st_write(paste0(sp.path, 'muni_employment.shp'), append = F)
+
+# Massbuilds shapefiles
+
+vintage <- '20250930'
+
+mb.in.lrtp <- fread(paste0(sp.path, 'all_devprojects_9_30_2025_SWM.csv')) |>
+  select(identification) |> 
+  unique() |> 
+  pull()
+
+res <- fread(
+  paste0(
+    root,
+    '03_UrbanSim/MassBuilds/Massbuilds_inputs_',
+    vintage,
+    '/Statewide/residential.csv'
+  )
+)
+com <- fread(
+  paste0(
+    root,
+    '03_UrbanSim/MassBuilds/Massbuilds_inputs_',
+    vintage,
+    '/Statewide/non_residential.csv'
+  )
+)
+mb <- rbind(res, com, fill = T) |>
+  filter(identification %in% mb.in.lrtp) |>
+  select(
+    identification,
+    x,
+    y,
+    name,
+    start_year,
+    status,
+    street,
+    city,
+    state,
+    zip,
+    residential_units,
+    employment_capacity
+  ) |>
+  group_by(identification, x, y, name, status, street, city, state, zip) |>
+  summarize(
+    res_units = sum(residential_units, na.rm = T),
+    emp_cap = sum(employment_capacity, na.rm = T),
+    year = max(start_year)
+  ) |>
+  setDT()
+
+mb[is.na(res_units), res_units := 0]
+mb[is.na(emp_cap), emp_cap := 0]
+
+dupe <- mb[duplicated(identification), unique(identification)]
+
+mb1 <- mb[!identification %in% dupe]
+mb2 <- mb[identification %in% dupe & res_units == 0] |>
+  select(identification, emp_cap)
+mb3 <- mb[identification %in% dupe & emp_cap == 0] |>
+  select(-emp_cap) |>
+  left_join(mb2, by = 'identification') |>
+  relocate(year, .before = status) |>
+  setDT()
+mb3[status == 'Proposed', status := 'Planned']
+
+mbsf <- st_as_sf(mb3, coords = c('x', 'y'))
+st_crs(mbsf) <- 4326
+mexp <- st_transform(mbsf, 26986)
+st_write(
+  mexp,
+  paste0(
+    sp.path,'massbuilds_projects_lrtp_revised.shp'
+  ),
+  append = F
+)
+
+```
+
+# 5 - Plots and Charts
+
+```{r}
+
+
+
+```
+

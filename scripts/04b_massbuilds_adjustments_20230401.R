@@ -7,12 +7,12 @@ pacman::p_load(tidyverse,
                htmlwidgets,
                viridis,
                data.table)
-setwd('K:/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim')
-# setwd('S:/Network Shares/DS Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim')
+# setwd('K:/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim')
+setwd('S:/Network Shares/K Drive/Dataservices/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim')
 
 # Update of Massbuilds inputs to UrbanSim to ensure consistency with current MB database as of date in 'vintage'
 
-vintage <- '20230929'
+vintage <- '20250930'
 dir.create(paste0('MassBuilds/Massbuilds_inputs_',vintage),showWarnings = F)
 dir.create(paste0('MassBuilds/Massbuilds_inputs_',vintage,'/Statewide/'),showWarnings = F)
 dir.create(paste0('MassBuilds/Massbuilds_inputs_',vintage,'/MAPC/'),showWarnings = F)

@@ -13,11 +13,11 @@ import os
 os.chdir("/mnt/s/Network Shares/K Drive/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/MassBuilds/")
 
 # Set output region (MAPC vs. State)
-region_extent = 'MAPC'
-#region_extent = 'Statewide'
+# region_extent = 'MAPC'
+region_extent = 'Statewide'
 
 # Code for vintage of massbuilds data
-vintage = '20231117'
+vintage = '20250930'
 
 # Give output names
 final_res_dev = 'Massbuilds_inputs_' + vintage + '/' + region_extent + '/' + vintage + '_residential'
