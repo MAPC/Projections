@@ -3,24 +3,27 @@ title: "Urbansim Model Update Exploratory Analysis"
 format: html
 editor: visual
 ---
-
-## Quarto
-
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
-
-## Running Code
-
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
-
+# 0.0 Environment and Script Set-up
+# 0.1 Load Libraries and Functions
 ```{r}
-1 + 1
 ```
-
-You can add options to executable code like this
-
+# 0.2 Set File Paths
 ```{r}
-#| echo: false
-2 * 2
 ```
+# 0.3 Set Environment Variables for this Script
+```{r}
+# Set random seed
+set.seed("101")
 
-The `echo: false` option disables the printing of code (only output is displayed).
+# Remove scienctific notation
+options(scipen = 999)
+
+# Set the PUMS vintage for this analysis
+pums_vintage = "2023"
+
+# Load 2020 PUMA to RPA crosswalk
+```
+# 1.0 Load Data
+# 1.1 Load PUMS Data from {tidycensus}
+```{r}
+```
