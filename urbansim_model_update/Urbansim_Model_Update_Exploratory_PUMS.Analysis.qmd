@@ -6,6 +6,7 @@ editor: visual
 # 0.0 Environment and Script Set-up
 # 0.1 Load Libraries and Functions
 ```{r}
+library(tidycensus)
 ```
 # 0.2 Set File Paths
 ```{r}
