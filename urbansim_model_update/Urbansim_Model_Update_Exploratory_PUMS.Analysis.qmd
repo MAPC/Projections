@@ -6,25 +6,57 @@ editor: visual
 # 0.0 Environment and Script Set-up
 # 0.1 Load Libraries and Functions
 ```{r}
-library(tidycensus)
+# Libraries used in Urbansim/Projections workflow
+source("C:/Project_Work/Projections/urbansim_model_update/projections_libraries.R")
+# Functions created for the Urbansim/Projections workflow
+source("C:/Project_Work/Projections/urbansim_model_update/projections_functions.R")
 ```
-# 0.2 Set File Paths
-```{r}
-```
-# 0.3 Set Environment Variables for this Script
+# 0.2 Set Environment Variables for this Script
 ```{r}
 # Set random seed
-set.seed("101")
+set.seed(351)
 
-# Remove scienctific notation
+# Remove scientific notation
 options(scipen = 999)
 
-# Set the PUMS vintage for this analysis
-pums_vintage = "2023"
+# Set the PUMS API call variables for this analysis. Used in the 
+# Variables from the PUMS data to query (data dictionary is here)
+pums.vars <- c('RT', 'PUMA', 'ADJHSG','ADJINC','NP','TYPEHUGQ','BDSP','RMSP','CPLT','HHLDRAGEP',
+                   'HHLDRRAC1P','HHLDRHISP', 'HHT', 'HHT2', 'HINCP', 'HUGCL', 'HUPAC', 'HUPAOC',
+                   'HUPARC', 'LNGI', 'MULTG', 'NPF', 'NPP', 'NR','NRC', 'PARTNER', 'PSF','R18',
+                   'AGEP','RELSHIPP','RAC1P','OC','SFN','SFR','TEN', "SEX", "PINCP", "ESR",
+                   "MV", "GRPIP", "OCPIP")
 
-# Load 2020 PUMA to RPA crosswalk
+# Terminal year in the vintage
+pums.vintage = 2023
+
+# Survey from which the data is requested
+survey = "acs5"
 ```
 # 1.0 Load Data
 # 1.1 Load PUMS Data from {tidycensus}
+```{r}
+# Load PUMA to RPA Crosswalk
+# For this analysis we will group Martha's Vineyard Commission, Nantucket Planning and Economic Development Commission and Cape Cod Commission into one group -- "CCC" -- which will refer to the Cape and Islands.
+puma.rpa_xwalk <- read.csv(here(paste("urbansim_model_update/inputs/puma2020_rpa_crosswalk.csv")))
+
+# Check we have 11 RPAs int the crosswalk
+# NPEDC and MVC are cannot be separated from CCC since they share PUMA 1301.
+print(length(unique(puma.rpa_xwalk$rpa_acr)))
+
+# Load PUMS data
+# Vintage: 2019-2023 ACS 5-year PUMS
+# Variables:
+# - 
+pums <- pums_query(var.list = pums.vars, yr = pums.vintage, srvy = survey) 
+  # 
+  # mutate(PUMA = as.character(str_pad(PUMA, width = 5, side = "left", pad = 0)))
+```
+
+# 2.0 First Analysis
+```{r}
+```
+
+# 3.0 Second Analysis
 ```{r}
 ```
