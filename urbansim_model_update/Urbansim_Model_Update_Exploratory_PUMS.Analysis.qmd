@@ -7,9 +7,9 @@ editor: visual
 # 0.1 Load Libraries and Functions
 ```{r}
 # Libraries used in Urbansim/Projections workflow
-source("C:/Project_Work/Projections/urbansim_model_update/projections_libraries.R")
+source(here(paste("/urbansim_model_update/projections_libraries.R")))
 # Functions created for the Urbansim/Projections workflow
-source("C:/Project_Work/Projections/urbansim_model_update/projections_functions.R")
+source(here(paste("/urbansim_model_update/projections_functions.R")))
 ```
 # 0.2 Set Environment Variables for this Script
 ```{r}
@@ -53,10 +53,18 @@ pums <- pums_query(var.list = pums.vars, yr = pums.vintage, srvy = survey)
   # mutate(PUMA = as.character(str_pad(PUMA, width = 5, side = "left", pad = 0)))
 ```
 
-# 2.0 First Analysis
+# 2.0 Household Type Analysis
 ```{r}
 ```
 
-# 3.0 Second Analysis
+# 3.0 Income Distribution Analysis
+```{r}
+```
+
+# 4.0  Older Household Analysis
+```{r}
+```
+
+# 5.0 Household Size Analysis
 ```{r}
 ```
