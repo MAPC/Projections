@@ -20,7 +20,7 @@ set.seed(351)
 options(scipen = 999)
 
 # Set the PUMS API call variables for this analysis. Used in the 
-# Variables from the PUMS data to query (data dictionary is here)
+# Variables from the PUMS data to query (data dictionary is here: https://www.census.gov/programs-surveys/acs/microdata/documentation.2023.html#list-tab-1370939201)
 pums.vars <- c(
                # General PUMS variables
                'PUMA', #PUMA designation
@@ -51,9 +51,9 @@ pums.vars <- c(
                "PAP", # Public assistance income
                "OIP", #All other income
                
-               # Overcrowding variables
+               # Overcrowding and Household Composition variables
                'BDSP', # Number of bedrooms
-               'RMSP',
+               'RMSP', # Number of rooms
                'CPLT', # Couple Type
                'RELSHIPP', # Relationship to the householder
                'PSF', # Presence of subfamily
@@ -95,12 +95,17 @@ puma.rpa_xwalk <- read.csv(here(paste("urbansim_model_update/inputs/puma2020_rpa
 print(length(unique(puma.rpa_xwalk$rpa_acr)))
 
 # Load PUMS data
-# Vintage: 2019-2023 ACS 5-year PUMS
-# Variables:
-# - 
+# Vintage: 2019-2023
+# Variables: Described above
+# Survey: ACS 5-year PUMS
+# Geography: Massachusetts
 pums <- pums_query(var.list = pums.vars, yr = pums.vintage, srvy = survey) 
   # 
   # mutate(PUMA = as.character(str_pad(PUMA, width = 5, side = "left", pad = 0)))
+```
+
+# 1.2 Clean PUMS Data
+```{r}
 ```
 
 # 2.0 Household Type Analysis
@@ -116,5 +121,8 @@ pums <- pums_query(var.list = pums.vars, yr = pums.vintage, srvy = survey)
 ```
 
 # 5.0 Household Size Analysis
+```{r}
+```
+# 6.0 Overcrowding Analysis
 ```{r}
 ```
