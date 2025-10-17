@@ -21,11 +21,61 @@ options(scipen = 999)
 
 # Set the PUMS API call variables for this analysis. Used in the 
 # Variables from the PUMS data to query (data dictionary is here)
-pums.vars <- c('RT', 'PUMA', 'ADJHSG','ADJINC','NP','TYPEHUGQ','BDSP','RMSP','CPLT','HHLDRAGEP',
-                   'HHLDRRAC1P','HHLDRHISP', 'HHT', 'HHT2', 'HINCP', 'HUGCL', 'HUPAC', 'HUPAOC',
-                   'HUPARC', 'LNGI', 'MULTG', 'NPF', 'NPP', 'NR','NRC', 'PARTNER', 'PSF','R18',
-                   'AGEP','RELSHIPP','RAC1P','OC','SFN','SFR','TEN', "SEX", "PINCP", "ESR",
-                   "MV", "GRPIP", "OCPIP")
+pums.vars <- c(
+               # General PUMS variables
+               'PUMA', #PUMA designation
+               'ADJINC', # Inflation adjustment factor for income variables
+               'TYPEHUGQ', # Type of household (Household or group quarters)
+  
+               #Demographic variables
+               'AGEP', # Age of person
+               "SEX", # Sex
+               'NP', # Number of persons in a household
+               'TEN', # Tenure
+               'RAC1P', # Race
+               'HISP', # Recoded detailed Hispanic origin (Ethnicity)
+               'R18', #Presence of persons under 18 years in household
+               'R60', # Presence of persons over 60 years in household
+               'R65', # Presence of persons over 65 years in household
+  
+               # Income variables
+               "FINCP", # Family Income
+               "HINCP", # Household Income
+               "INTP", # Interest, dividends, and net rental income
+               "PINCP", # Total person's income
+               "WAGP", # Wages or salary income past 12 months
+               "SSIP", # Supplementary Security Income
+               "SSP", # Social Security income
+               "SEMP", # Self employment income
+               "RETP", # Retirement income
+               "PAP", # Public assistance income
+               "OIP", #All other income
+               
+               # Overcrowding variables
+               'BDSP', # Number of bedrooms
+               'RMSP',
+               'CPLT', # Couple Type
+               'RELSHIPP', # Relationship to the householder
+               'PSF', # Presence of subfamily
+               'SFN', # Subfamily number
+               'SFR', # Subfamily relationship
+               'NR', # Presence of non-relative in household
+               'NRC', # Number of related children in a household
+               'MULTG', # Multigenerational household flag
+               'HHT', # Household/family type
+               'HHT2', # Household family type (including cohabiting)
+               "PARTNER", # Unmarried partner household
+               'NPP', # Grandparent headed household with no parent present
+               'NPF', # Number of persons in family
+               'HUGCL', # Household with grandparent living with grandchildren
+               'NOC', # Number of own children
+               'HUPAC', # Presence and age of children
+               'HUPAOC', # Presence and age of own children
+               'HUPARC', # Presence and age of related children
+               
+               # Disability variables
+                    
+            )
 
 # Terminal year in the vintage
 pums.vintage = 2023
