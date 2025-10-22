@@ -113,7 +113,11 @@ pums_cleaned <- pums |>
   # Filter for households
   filter(TYPEHUGQ == "1") |> 
   # Join RPA acronyms to PUMS dataframe by PUMA
-  left_join(puma.rpa_xwalk, by = c("PUMA" = "PUMACE20"))
+  left_join(puma.rpa_xwalk, by = c("PUMA" = "PUMACE20")) |> 
+  # Adjust income variables 
+  mutate(
+    
+  )
 
 
 # Check if we've created any NA values unintentionally.
@@ -125,7 +129,50 @@ print(sapply(X = pums_cleaned, FUN =  function(x) sum(is.na(x))))
 ```
 
 # 3.0 Income Distribution Analysis
+# 3.1 Evaluation of Census Income Thresholds
 ```{r}
+# Standard Urbansim Income Thresholds
+income.1 <- pums_cleaned
+
+#
+income.2 <- pums_cleaned |> 
+  mutate(
+    income.2 = case_when(
+      HINCP_adj < 20000 ~ "<$20,000",
+      HINCP_adj < 40000 & HINCP_adj >= 20000 ~ "$20,000-$39,999",
+      HINCP_adj < 60000 & HINCP_adj >= 40000 ~ "$40,000-$59,999",
+      HINCP_adj < 75000 & HINCP_adj >= 60000 ~ "$60,000-$74,999",
+      HINCP_adj < 100000 & HINCP_adj >= 75000 ~ "$75,000-$99,999",
+      HINCP_adj >= 100000 ~ ">=$100,000",
+    )
+  )
+
+# 
+income.3 <- pums_cleaned |> 
+  mutate(
+    income.3 = case_when(
+      HINCP_adj < 15000 ~ "<$15,000",
+      HINCP_adj < 35000 & HINCP_adj >= 15000 ~ "$15,000-$34,999",
+      HINCP_adj < 75000 & HINCP_adj >= 35000 ~ "$35,000-$74,999",
+      HINCP_adj < 150000 & HINCP_adj >= 75000 ~ "$75,000-$149,999",
+      HINCP_adj >= 150000 ~ ">=$150,000",
+    )
+  )
+
+# 
+income.4 <- pums_cleaned |> 
+  mutate(
+    income.4 = case_when(
+      HINCP_adj < 10000 ~ "<$10,000",
+      HINCP_adj < 15000 & HINCP_adj >= 10000 ~ "$10,000-$14,999",
+      HINCP_adj < 20000 & HINCP_adj >= 15000 ~ "$15,000-$19,999",
+      HINCP_adj < 25000 & HINCP_adj >= 20000 ~ "$20,000-$24,999",
+      HINCP_adj < 30000 & HINCP_adj >= 25000 ~ "$25,000-$29,999",
+      HINCP_adj < 35000 & HINCP_adj >= 30000 ~ "$30,000-$34,999",
+      HINCP_adj >= 150000 ~ ">=$150,000",
+    )
+  )
+  
 ```
 
 # 4.0  Older Household Analysis
