@@ -6,11 +6,14 @@ editor: visual
 # 0.0 Environment and Script Set-up
 # 0.1 Load Libraries and Functions
 ```{r}
+# {here} library to initiate conditional filepaths
+library(here)
 # Libraries used in Urbansim/Projections workflow
-source(here(paste("/urbansim_model_update/projections_libraries.R")))
+source(here("urbansim_model_update/projections_libraries.R"))
 # Functions created for the Urbansim/Projections workflow
-source(here(paste("/urbansim_model_update/projections_functions.R")))
+source(here("urbansim_model_update/projections_functions.R"))
 ```
+
 # 0.2 Set Environment Variables for this Script
 ```{r}
 # Set random seed
@@ -71,7 +74,7 @@ pums.vars <- c(
                'NOC', # Number of own children
                'HUPAC', # Presence and age of children
                'HUPAOC', # Presence and age of own children
-               'HUPARC', # Presence and age of related children
+               'HUPARC' # Presence and age of related children
                
                # Disability variables
                     
@@ -88,7 +91,8 @@ survey = "acs5"
 ```{r}
 # Load PUMA to RPA Crosswalk
 # For this analysis we will group Martha's Vineyard Commission, Nantucket Planning and Economic Development Commission and Cape Cod Commission into one group -- "CCC" -- which will refer to the Cape and Islands.
-puma.rpa_xwalk <- read.csv(here(paste("urbansim_model_update/inputs/puma2020_rpa_crosswalk.csv")))
+puma.rpa_xwalk <- read.csv(here(paste("urbansim_model_update/inputs/puma2020_rpa_crosswalk.csv"))) |> 
+  mutate(PUMACE20 = as.character(str_pad(PUMACE20, width = 5, side = "left", pad = 0)))
 
 # Check we have 11 RPAs int the crosswalk
 # NPEDC and MVC are cannot be separated from CCC since they share PUMA 1301.
@@ -100,12 +104,20 @@ print(length(unique(puma.rpa_xwalk$rpa_acr)))
 # Survey: ACS 5-year PUMS
 # Geography: Massachusetts
 pums <- pums_query(var.list = pums.vars, yr = pums.vintage, srvy = survey) 
-  # 
-  # mutate(PUMA = as.character(str_pad(PUMA, width = 5, side = "left", pad = 0)))
+
 ```
 
 # 1.2 Clean PUMS Data
 ```{r}
+pums_cleaned <- pums |> 
+  # Filter for households
+  filter(TYPEHUGQ == "1") |> 
+  # Join RPA acronyms to PUMS dataframe by PUMA
+  left_join(puma.rpa_xwalk, by = c("PUMA" = "PUMACE20"))
+
+
+# Check if we've created any NA values unintentionally.
+print(sapply(X = pums_cleaned, FUN =  function(x) sum(is.na(x))))
 ```
 
 # 2.0 Household Type Analysis
