@@ -111,12 +111,12 @@ pums <- pums_query(var.list = pums.vars, yr = pums.vintage, srvy = survey)
 ```{r}
 pums_cleaned <- pums |> 
   # Filter for households
-  filter(TYPEHUGQ == "1") |> 
+  filter(TYPEHUGQ == "1" & SPORDER == "1") |> 
   # Join RPA acronyms to PUMS dataframe by PUMA
   left_join(puma.rpa_xwalk, by = c("PUMA" = "PUMACE20")) |> 
   # Adjust income variables 
   mutate(
-    
+    HINCP_adj = HINCP*as.numeric(ADJINC)
   )
 
 
@@ -132,9 +132,29 @@ print(sapply(X = pums_cleaned, FUN =  function(x) sum(is.na(x))))
 # 3.1 Evaluation of Census Income Thresholds
 ```{r}
 # Standard Urbansim Income Thresholds
-income.1 <- pums_cleaned
+income.1 <- pums_cleaned |>
+  mutate(
+    income.1 = case_when(
+      HINCP_adj <= 35000 ~ "<=$35,000",
+      HINCP_adj > 35000 & HINCP_adj <= 75000 ~ "$35,001-$75,000",
+      HINCP_adj > 75000 & HINCP_adj <= 125000 ~ "$75,001-$125,000",
+      HINCP_adj > 125000 & HINCP_adj <= 225000 ~ "$125,001-$225,000",
+      HINCP_adj > 225000 ~ ">$225,000",
+      .default = "Check"
+    )
+  ) |> 
+  group_by(income.1) |> 
+  summarise(
+    hhds = sum(WGTP)
+  ) |> 
+  ungroup() |> 
+  mutate(
+    prop_hhds = round((hhds/sum(hhds))*100, 1)
+  )
 
-#
+print(sum(income.1$hhds))
+
+# Census Income Groupings Type 1
 income.2 <- pums_cleaned |> 
   mutate(
     income.2 = case_when(
@@ -144,11 +164,20 @@ income.2 <- pums_cleaned |>
       HINCP_adj < 75000 & HINCP_adj >= 60000 ~ "$60,000-$74,999",
       HINCP_adj < 100000 & HINCP_adj >= 75000 ~ "$75,000-$99,999",
       HINCP_adj >= 100000 ~ ">=$100,000",
+      .default = "Check"
     )
+  ) |> 
+  group_by(income.2) |> 
+  summarise(
+    hhds = sum(WGTP)
+  ) |> 
+  ungroup() |> 
+  mutate(
+    prop_hhds = round((hhds/sum(hhds))*100, 1)
   )
 
-# 
-income.3 <- pums_cleaned |> 
+# Census Income Groupings Type 2
+income.3 <- pums_cleaned |>
   mutate(
     income.3 = case_when(
       HINCP_adj < 15000 ~ "<$15,000",
@@ -156,10 +185,19 @@ income.3 <- pums_cleaned |>
       HINCP_adj < 75000 & HINCP_adj >= 35000 ~ "$35,000-$74,999",
       HINCP_adj < 150000 & HINCP_adj >= 75000 ~ "$75,000-$149,999",
       HINCP_adj >= 150000 ~ ">=$150,000",
+      .default = "Check"
     )
+  ) |> 
+  group_by(income.3) |> 
+  summarise(
+    hhds = sum(WGTP)
+  ) |> 
+  ungroup() |> 
+  mutate(
+    prop_hhds = round((hhds/sum(hhds))*100, 1)
   )
 
-# 
+# Census Income Groupings Type 3
 income.4 <- pums_cleaned |> 
   mutate(
     income.4 = case_when(
@@ -169,8 +207,57 @@ income.4 <- pums_cleaned |>
       HINCP_adj < 25000 & HINCP_adj >= 20000 ~ "$20,000-$24,999",
       HINCP_adj < 30000 & HINCP_adj >= 25000 ~ "$25,000-$29,999",
       HINCP_adj < 35000 & HINCP_adj >= 30000 ~ "$30,000-$34,999",
-      HINCP_adj >= 150000 ~ ">=$150,000",
+      HINCP_adj < 40000 & HINCP_adj >= 35000 ~ "$35,000-$39,999",
+      HINCP_adj < 45000 & HINCP_adj >= 40000 ~ "$40,000-$44,999",
+      HINCP_adj < 50000 & HINCP_adj >= 45000 ~ "$45,000-$49,999",
+      HINCP_adj < 60000 & HINCP_adj >= 50000 ~ "$50,000-$59,999",
+      HINCP_adj < 75000 & HINCP_adj >= 60000 ~ "$60,000-$74,999",
+      HINCP_adj < 100000 & HINCP_adj >= 75000 ~ "$75,000-$99,999",
+      HINCP_adj < 125000 & HINCP_adj >= 100000 ~ "$100,000-$124,999",
+      HINCP_adj < 150000 & HINCP_adj >= 125000 ~ "$125,000-$149,999",
+      HINCP_adj < 200000 & HINCP_adj >= 150000 ~ "$150,000-$199,999",
+      HINCP_adj >= 200000 ~ ">=$200,000",
+      .default = "Check"
     )
+  ) |> 
+  group_by(income.4) |> 
+  summarise(
+    hhds = sum(WGTP)
+  ) |> 
+  ungroup() |> 
+  mutate(
+    prop_hhds = round((hhds/sum(hhds))*100, 1)
+  )
+
+# Brandon Thinks Its Important to know more about High Income Households 1\
+income.5 <- pums_cleaned |> 
+  mutate(
+    income.5 = case_when(
+      HINCP_adj < 25000 ~ "<$25,000",
+      HINCP_adj < 50000 & HINCP_adj >= 25000 ~ "$25,000-$49,999",
+      HINCP_adj < 75000 & HINCP_adj >= 50000 ~ "$50,000-$74,999",
+      HINCP_adj < 100000 & HINCP_adj >= 75000 ~ "$75,000-$99,999",
+      HINCP_adj < 125000 & HINCP_adj >= 100000 ~ "$100,000-$124,999",
+      HINCP_adj < 150000 & HINCP_adj >= 125000 ~ "$125,000-$149,999",
+      HINCP_adj < 175000 & HINCP_adj >= 150000 ~ "$150,000-$174,999",
+      HINCP_adj < 200000 & HINCP_adj >= 175000 ~ "$175,000-$199,999",
+      HINCP_adj < 225000 & HINCP_adj >= 200000 ~ "$200,000-$224,999",
+      HINCP_adj < 250000 & HINCP_adj >= 225000 ~ "$225,000-$249,999",
+      HINCP_adj < 275000 & HINCP_adj >= 250000 ~ "$250,000-$274,999",
+      HINCP_adj < 300000 & HINCP_adj >= 275000 ~ "$275,000-$299,999",
+      HINCP_adj < 400000 & HINCP_adj >= 300000 ~ "$300,000-$399,999",
+      HINCP_adj < 500000 & HINCP_adj >= 400000 ~ "$400,000-$499,999",
+      HINCP_adj >= 500000 ~ ">=$500,000",
+      .default = "Check"
+    )
+  ) |> 
+  group_by(income.5) |> 
+  summarise(
+    hhds = sum(WGTP)
+  ) |> 
+  ungroup() |> 
+  mutate(
+    prop_hhds = round((hhds/sum(hhds))*100, 1)
   )
   
 ```
