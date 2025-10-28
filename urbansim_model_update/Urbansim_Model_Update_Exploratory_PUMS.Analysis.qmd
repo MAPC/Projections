@@ -198,7 +198,7 @@ pums_cleaned <- pums |>
       RELSHIPP == 34 ~ 1,
       RELSHIPP != 34 ~ 0,
       .default = 0
-    ),
+    )
   )
 
 

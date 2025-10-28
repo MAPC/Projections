@@ -4,7 +4,6 @@ format: html
 editor: visual
 ---
 
-
 # 1 - Setup
 
 ```{r, setup, include=FALSE}
@@ -16,6 +15,7 @@ pacman::p_load(
   tidycensus,
   mapcdatakeys,
   tidyverse,
+  ggplot2,
   imputeTS,
   collapse
 )
@@ -83,7 +83,7 @@ nonmapc <- munis[mpo!='MAPC']
 
 knitr::opts_knit$set(root.dir = root)
 
-``` 
+```
 
 # 2 - Compile Raw Data
 
@@ -642,7 +642,114 @@ st_write(
 
 ```{r}
 
+outpath <- "K:/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/04_Allocation_Results/Revised_Allocation_Sept2025/Tabular/"
+
+# Create empty dataframes to store data
+hhds <- NULL
+emp.swm <- NULL
+emp.mapcm <- NULL
+
+# Create a list of years to pull the data from.
+year_list <- c(2019)
+
+for (i in year_list) {
+  # Print statement for for-loop progress
+  print(paste0("Loading Urbansim outputs for ", i, "."))
+  
+  # Load each year of household and employment data. Put into tmp dataframes to be 
+  tmp_hhds <- read.csv(paste0(outpath, "urbansim_complete_microsim_population_website_revised_",i,".csv"))
+  
+  tmp_emp.swm <- read.csv(paste0(outpath, "swm_urbansim_employment_",i,".csv"))
+  
+  tmp_emp.mapcm <- read.csv(paste0(outpath, "mapcm_urbansim_employment_",i,".csv"))
+  
+  # Add tmp dataframes to the full household or employment dataframe.
+  hhds <- bind_rows(hhds, tmp_hhds)
+  
+  emp.swm <- bind_rows(emp.swm, tmp_emp.swm)
+  
+  emp.mapcm <- bind_rows(emp.mapcm, tmp_emp.mapcm)
+  
+  # Remove tmp dataframes
+  rm(tmp_hhds, tmp_emp.swm, tmp_emp.mapcm)
+  
+}
+
 
 
 ```
+# 5.1 Level Demographic Components of Projected Households (Stacked Bar Charts)
+```{r}
+# Overall
+# Household Type
 
+# Household Size
+
+# Householder Age
+
+# RPA
+# Household Type
+
+# Household Size
+
+# Householder Age
+
+```
+
+# 5.2 Level Components of Projected Employment (Stacked Bar Charts)
+```{r}
+# Overall
+# Supersectors
+
+# RPA
+# Supersectors
+
+```
+
+# 5.3 Level Projected Population (Stacked Bar Charts)
+```{r}
+# Overall
+# Age 
+
+# RPA
+# Age
+
+```
+
+# 5.4 Percent Change Demographic Components of Projected Households (Stacked Bar Charts)
+```{r}
+# Overall
+# Household Type
+
+# Household Size
+
+# Householder Age
+
+# RPA
+# Household Type
+
+# Household Size
+
+# Householder Age
+
+```
+
+# 5.5 Percent Change Components of Projected Employment (Stacked Bar Charts)
+```{r}
+# Overall
+# Supersectors
+
+# RPA
+# Supersectors
+
+```
+
+# 5.6 Percent Change Projected Population (Stacked Bar Charts)
+```{r}
+# Overall
+# Age 
+
+# RPA
+# Age
+
+```
