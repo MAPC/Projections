@@ -364,3 +364,337 @@ income.5 <- pums_cleaned |>
 # 6.0 Overcrowding Analysis
 ```{r}
 ```
+
+# 7.0 Laborforce Participation Rate: PUMS v. CPS
+```{r}
+#ACS 2016-2020 5-YEAR PUMS Testing
+
+#Labor Force Comparison Data (from BLS/FRED)
+
+lfpr_PUMS <- PUMS_data %>%
+  filter(TYPE == 1 & lf >= 1) %>%
+  group_by(year) %>%
+  count(var = lf, wt = PWGTP) %>%
+  mutate(
+    var = case_when(
+      var == 1 ~ "in LF",
+      var == 2 ~ "not in LF"),
+    freq = (n/sum(n))*100) %>%
+  filter(var == "in LF")
+
+fredr::fredr_set_key("8bdd1423b21c9e0bc762d1d259e7fecc")
+
+lfpr_FRED <- fredr::fredr(
+  series_id = "LBSSA25",
+  observation_start = as.Date("1994-01-01"),
+  observation_end = as.Date("2022-03-01")
+)
+
+
+#Not too happy with this. I trust the BLS data more so than the PUMS data, especially since the start of the pandemic.
+#Not a fan of the rate of change over the 2012-2019 period in PUMS. LFPR was not decreasing. It was growing substantially and levels were commensurate with pre-GR numbers.
+
+#Pull in CPS data to create labor force participation rates for the state by age sex educational attainment to produce adjustment factors for PUMS LFPR data.
+library(cpsR)
+
+cps_years_1 <- 1994:2021
+cps_years_2 <- 1994:2022
+
+cps_varlist <- c("pwsswgt", "pwcmpwgt", "pemlr", "peeduca", "pesex", "prtage", "gestfips")
+
+CPS_data_Jan <- map_dfr(cps_years_2, ~{
+  get_basic(
+    vars = cps_varlist,
+    year = .x,
+    month = 1
+  )
+},  .id = "year")
+
+CPS_data_Feb <- map_dfr(cps_years_2, ~{
+  get_basic(
+    vars = cps_varlist,
+    year = .x,
+    month = 2
+  )
+},  .id = "year")
+
+cps_mar_years_1 <- 1994:2018
+cps_mar_years_2 <- 2019:2022
+
+CPS_data_Mar_1 <- map_dfr(cps_mar_years_1, ~{
+  get_basic(
+    vars = cps_varlist,
+    year = .x,
+    month = 3
+  )
+},  .id = "year")
+
+CPS_data_Mar_2 <- map_dfr(cps_mar_years_2, ~{
+  get_basic(
+    vars = cps_varlist,
+    year = .x,
+    month = 3
+  )
+},  .id = "year")
+
+CPS_data_Apr <- map_dfr(cps_years_1, ~{
+  get_basic(
+    vars = cps_varlist,
+    year = .x,
+    month = 4
+  )
+},  .id = "year")
+
+CPS_data_May <- map_dfr(cps_years_1, ~{
+  get_basic(
+    vars = cps_varlist,
+    year = .x,
+    month = 5
+  )
+},  .id = "year")
+
+CPS_data_Jun <- map_dfr(cps_years_1, ~{
+  get_basic(
+    vars = cps_varlist,
+    year = .x,
+    month = 6
+  )
+},  .id = "year")
+
+CPS_data_Jul <- map_dfr(cps_years_1, ~{
+  get_basic(
+    vars = cps_varlist,
+    year = .x,
+    month = 7
+  )
+},  .id = "year")
+
+CPS_data_Aug <- map_dfr(cps_years_1, ~{
+  get_basic(
+    vars = cps_varlist,
+    year = .x,
+    month = 8
+  )
+},  .id = "year")
+
+cps_sep_years_1 <- 1994:2015
+cps_sep_years_2 <- 2016:2021
+
+CPS_data_Sep_1 <- map_dfr(cps_sep_years_1, ~{
+  get_basic(
+    vars = cps_varlist,
+    year = .x,
+    month = 9
+  )
+},  .id = "year")
+
+CPS_data_Sep_2 <- map_dfr(cps_sep_years_2, ~{
+  get_basic(
+    vars = cps_varlist,
+    year = .x,
+    month = 9
+  )
+},  .id = "year")
+
+CPS_data_Oct <- map_dfr(cps_years_1, ~{
+  get_basic(
+    vars = cps_varlist,
+    year = .x,
+    month = 10
+  )
+},  .id = "year")
+
+CPS_data_Nov <- map_dfr(cps_years_1, ~{
+  get_basic(
+    vars = cps_varlist,
+    year = .x,
+    month = 11
+  )
+},  .id = "year")
+
+CPS_data_Dec <- map_dfr(cps_years_1, ~{
+  get_basic(
+    vars = cps_varlist,
+    year = .x,
+    month = 12
+  )
+},  .id = "year")
+
+CPS_data_Jan <- CPS_data_Jan %>%
+  mutate(month = "01") %>%
+  filter(gestfips == "25")
+
+CPS_data_Feb <- CPS_data_Feb %>%
+  mutate(month = "02") %>%
+  filter(gestfips == "25")
+
+CPS_data_Mar_1 <- CPS_data_Mar_1 %>%
+  mutate(month = "03",
+         pemlr = as.character(pemlr)) %>%
+  filter(gestfips == "25")
+
+CPS_data_Mar_2 <- CPS_data_Mar_2 %>%
+  mutate(month = "03") %>%
+  filter(gestfips == "25")
+
+CPS_data_Apr <- CPS_data_Apr %>%
+  mutate(month = "04") %>%
+  filter(gestfips == "25")
+
+CPS_data_May <- CPS_data_May %>%
+  mutate(month = "05") %>%
+  filter(gestfips == "25")
+
+CPS_data_Jun <- CPS_data_Jun %>%
+  mutate(month = "06") %>%
+  filter(gestfips == "25")
+
+CPS_data_Jul <- CPS_data_Jul %>%
+  mutate(month = "07") %>%
+  filter(gestfips == "25")
+
+CPS_data_Aug <- CPS_data_Aug %>%
+  mutate(month = "08") %>%
+  filter(gestfips == "25")
+
+CPS_data_Sep_1 <- CPS_data_Sep_1 %>%
+  mutate(month = "09",
+         pemlr = as.character(pemlr)) %>%
+  filter(gestfips == "25")
+
+CPS_data_Sep_2 <- CPS_data_Sep_2 %>%
+  mutate(month = "09") %>%
+  filter(gestfips == "25")
+
+CPS_data_Oct <- CPS_data_Oct %>%
+  mutate(month = "10") %>%
+  filter(gestfips == "25")
+
+CPS_data_Nov <- CPS_data_Nov %>%
+  mutate(month = "11") %>%
+  filter(gestfips == "25")
+
+CPS_data_Dec <- CPS_data_Dec %>%
+  mutate(month = "12") %>%
+  filter(gestfips == "25")
+
+CPS_data_Mar_2 <- CPS_data_Mar_2 %>%
+  mutate(
+    year = case_when(
+      year == "1" ~ "26",
+      year == "2" ~ "27",
+      year == "3" ~ "28",
+      year == "4" ~ "29"
+    )
+  )
+
+CPS_data_Sep_2 <- CPS_data_Sep_2 %>%
+  mutate(
+    year = case_when(
+      year == "1" ~ "24",
+      year == "2" ~ "25",
+      year == "3" ~ "26",
+      year == "4" ~ "27",
+      year == "5" ~ "28",
+      year == "6" ~ "29"
+    )
+  )
+
+CPS_data <- rbind(CPS_data_Jan, CPS_data_Feb, CPS_data_Mar_1, CPS_data_Mar_2, CPS_data_Apr, CPS_data_May, CPS_data_Jun,
+                  CPS_data_Jul, CPS_data_Aug, CPS_data_Sep_1, CPS_data_Sep_2, CPS_data_Oct, CPS_data_Nov, CPS_data_Dec)
+
+CPS_data <- CPS_data %>%
+  mutate(
+    year = case_when(
+      year == "1" ~ 1994,
+      year == "2" ~ 1995,
+      year == "3" ~ 1996,
+      year == "4" ~ 1997,
+      year == "5" ~ 1998,
+      year == "6" ~ 1999,
+      year == "7" ~ 2000,
+      year == "8" ~ 2001,
+      year == "9" ~ 2002,
+      year == "10" ~ 2003,
+      year == "11" ~ 2004,
+      year == "12" ~ 2005,
+      year == "13" ~ 2006,
+      year == "14" ~ 2007,
+      year == "15" ~ 2008,
+      year == "16" ~ 2009,
+      year == "17" ~ 2010,
+      year == "18" ~ 2011,
+      year == "19" ~ 2012,
+      year == "20" ~ 2013,
+      year == "21" ~ 2014,
+      year == "22" ~ 2015,
+      year == "23" ~ 2016,
+      year == "24" ~ 2017,
+      year == "25" ~ 2018,
+      year == "26" ~ 2019,
+      year == "27" ~ 2020,
+      year == "28" ~ 2021,
+      year == "29" ~ 2022),
+    educ_attn = case_when(
+      peeduca <= 39 ~ 1,
+      peeduca %in% 40:42 ~ 2,
+      peeduca == 43 ~ 3,
+      peeduca >= 44 ~ 4,
+      peeduca == -1 ~ 1,
+      is.na(peeduca) ~ 1),
+    PAGEC =
+      cut(prtage,
+          breaks = c(-Inf, seq(4, 84, 5), Inf),
+          labels = 1:18),
+    lf = case_when(
+      pemlr == 1 | pemlr == 2 | pemlr == 4 ~ 1,
+      pemlr == 3 | pemlr == 5 | pemlr == 6 | pemlr == 7 ~ 2,
+      pemlr == -1 ~ 2,
+      is.na(pemlr) ~ 2
+    )
+  )
+
+lfpr_CPS <- CPS_data %>%
+  filter(lf >= 1 & prtage > 16) %>%
+  mutate(date_1 = paste(year, month, "01", sep = "-")) %>%
+  group_by(date_1) %>%
+  count(var = lf, wt = pwcmpwgt) %>%
+  mutate(
+    var = case_when(
+      var == 1 ~ "in LF",
+      var == 2 ~ "not in LF"),
+    freq = (n/sum(n))*100) %>%
+  filter(var == "in LF")
+
+##
+lfpr_FRED_post09 <- lfpr_FRED[186:314,]
+##
+
+lfpr_FRED %>%
+  ggplot(aes(x=date, y=value, color = "lfpr_MA")) +
+  geom_line(lwd = 1.0) +
+  geom_line(data = lfpr_PUMS,
+            mapping = aes(x=as.Date(year, format = "%Y"), y = freq, color = "lfpr_PUMS"),
+            lwd = 1.0) +
+  geom_line(data = lfpr_CPS,
+            mapping = aes(x = as.Date(date_1, format = "%Y-%m-%d"), y = freq, color = "lfpr_CPS"),
+            lwd = 1.0) +
+  geom_hline(yintercept = max(lfpr_FRED_post09$value), color = "blue", linetype = 2) +
+  geom_hline(yintercept = min(lfpr_FRED_post09$value), color = "blue", linetype = 2) +
+  scale_color_manual(name = "Data Series",
+                     breaks = c("lfpr_FRED", "lfpr_PUMS", "lfpr_CPS"),
+                     values = c("lfpr_FRED" = "black", "lfpr_PUMS" = "red", "lfpr_CPS" = "green")) +
+  labs(title = "") +
+  ylab("Percent (%)") +
+  xlab("Year") +
+  theme(legend.title = element_text(size = 16),
+        legend.text = element_text(size = 12),
+        panel.background = element_blank(),
+        panel.border = element_rect(color = "black",  fill = NA, size = 1),
+        panel.grid = element_line(color = "gray", size = 0.5),
+        axis.title.x = element_text(color = "black", size = 16),
+        axis.title.y = element_text(color = "black", size = 16),
+        axis.text.x = element_text(color = "black", size = 14),
+        axis.text.y = element_text(color = "black", size = 14))
+
+```
