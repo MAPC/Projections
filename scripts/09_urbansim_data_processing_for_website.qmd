@@ -795,6 +795,7 @@ rm(pa.labels, pa.values, pa.vars)
 ```{r}
 # Set the path to the data to load in the for loop below.
 input.path <- "K:/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/04_Allocation_Results/Revised_Allocation_Sept2025/Tabular/"
+output_path <- "K:/DataServices/Projects/Current_Projects/Projections/Projections_2023/Final_Release/Visualizations"
 
 # Load data from workbook posted to Projections webiste.
 # Household Population
@@ -811,7 +812,7 @@ hhds.income <- readxl::read_xlsx(paste0(input.path, "LRTP2023_Municipal_Data_rev
 emp <- readxl::read_xlsx(paste0(input.path, "LRTP2023_Municipal_Data_revised_20250929.xlsx"), sheet = 8)
 
 ```
-# 5.1 - Level Demographic Components of Projected Households (Stacked Bar Charts)
+# 5.3 - Level Demographic Components of Projected Households (Stacked Bar Charts)
 ```{r}
 # Overall
 # Household Type
@@ -829,7 +830,7 @@ emp <- readxl::read_xlsx(paste0(input.path, "LRTP2023_Municipal_Data_revised_202
 
 ```
 
-# 5.2 Level Components of Projected Employment (Stacked Bar Charts)
+# 5.4 Level Components of Projected Employment (Stacked Bar Charts)
 ```{r}
 # Overall
 # Supersectors
@@ -839,10 +840,10 @@ emp <- readxl::read_xlsx(paste0(input.path, "LRTP2023_Municipal_Data_revised_202
 
 ```
 
-# 5.3 Level Projected Population (Stacked Bar Charts)
+# 5.5 Level Projected Population (Stacked Bar Charts)
 ```{r}
+# 5.5.1 Overall Population
 # State
-# Overall
 pop.bc.1 <- pop |> 
   mutate(state = 1) |> 
   group_by(state) |> 
@@ -859,14 +860,36 @@ pop.bc.1 <- pop |>
     values_to = "hh.population"
   ) |> 
   ggplot(aes(x = year, y = hh.population)) +
-  geom_col()
+  geom_col() +
+  labs(
+    title = "Projected Household Population, Massachusetts (2020-2050)",
+    x = "Year",
+    y = "Population"
+  ) +
+  theme_bw() +
+  theme(
+    panel.background = element_blank(),
+    panel.border = element_rect(color = "black",fill = NA,size = 1),
+    panel.grid = element_line(color = "gray", size = 0.5),
+    plot.title = element_text(color = "black", size = 18),
+    axis.title.x = element_text(color = "black", size = 16),
+    axis.title.y = element_text(color = "black", size = 16),
+    axis.text.x = element_text(color = "black", size = 14),
+    axis.text.y = element_text(color = "black", size = 14)
+  )
 
 pop.bc.1
-# Age 
+
+ggsave(
+  filename = paste0("pop_overall.jpeg"),
+  plot = get_last_plot(),
+  path = output_path,
+  dpi = 320,
+  bg = NULL
+)
 
 # RPA
-# Overall
-pop.bc.3 <- pop |>
+pop.bc.2 <- pop |>
   group_by(RPA) |> 
   summarise(
     HHPop_2020 = sum(HHPop_2020),
@@ -879,17 +902,49 @@ pop.bc.3 <- pop |>
     !RPA,
     names_to = "year",
     values_to = "hh.population"
-  ) |>
-  filter(RPA == "MAPC") |> 
-  ggplot(aes(x = year, y = hh.population)) +
-  geom_col()
+  ) 
 
-pop.bc.3
-# Age
+# Create a plot of total population for each RPA.
+for (r in RPA) {
+  # Create graph object for each RPA
+  tmp <- pop.bc.2 |>
+    filter(RPA == r) |>
+    ggplot(aes(x = year, y = hh.population)) +
+    geom_col()
+  
+  # Display graph object in the terminal.
+  tmp
+  
+  # Save graph to disk.
+  ggsave(
+    filename = paste0("pop_",r,".jpeg"),
+    plot = get_last_plot(),
+    path = output_path,
+    dpi = 320,
+    bg = NULL
+  )
+  
+  # Remove tmp graph object
+  rm(tmp)
+  
+  # Print statement
+  print(paste0("Population bar chart for ", r, " saved on disk!"))
+  
+}
+
+# 5.5.2 Population by Age
+# State
+
+# RPA
+
+# 5.5.3 Population under 18
+# State
+
+# RPA
 
 ```
 
-# 5.4 Percent Change Demographic Components of Projected Households (Stacked Bar Charts)
+# 5.6 Percent Change Demographic Components of Projected Households (Stacked Bar Charts)
 ```{r}
 # Overall
 # Household Type
@@ -907,7 +962,7 @@ pop.bc.3
 
 ```
 
-# 5.5 Percent Change Components of Projected Employment (Stacked Bar Charts)
+# 5.7 Percent Change Components of Projected Employment (Stacked Bar Charts)
 ```{r}
 # Overall
 # Supersectors
@@ -917,7 +972,7 @@ pop.bc.3
 
 ```
 
-# 5.6 Percent Change Projected Population (Stacked Bar Charts)
+# 5.8 Percent Change Projected Population (Stacked Bar Charts)
 ```{r}
 # Overall
 # Age 
