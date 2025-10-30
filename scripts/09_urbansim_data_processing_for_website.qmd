@@ -20,6 +20,10 @@ pacman::p_load(
   collapse
 )
 
+#
+options(scipen = 999)
+#
+set.seed(351)
 # root <- 'K:/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/'
 root <- 'S:/Network Shares/K Drive/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/'
 
@@ -837,10 +841,50 @@ emp <- readxl::read_xlsx(paste0(input.path, "LRTP2023_Municipal_Data_revised_202
 
 # 5.3 Level Projected Population (Stacked Bar Charts)
 ```{r}
+# State
 # Overall
+pop.bc.1 <- pop |> 
+  mutate(state = 1) |> 
+  group_by(state) |> 
+  summarise(
+    HHPop_2020 = sum(HHPop_2020),
+    HHPop_2030 = sum(HHPop_2030),
+    HHPop_2040 = sum(HHPop_2040),
+    HHPop_2050 = sum(HHPop_2050),
+  ) |>
+  ungroup() |> 
+  pivot_longer(
+    !state,
+    names_to = "year",
+    values_to = "hh.population"
+  ) |> 
+  ggplot(aes(x = year, y = hh.population)) +
+  geom_col()
+
+pop.bc.1
 # Age 
 
 # RPA
+# Overall
+pop.bc.3 <- pop |>
+  group_by(RPA) |> 
+  summarise(
+    HHPop_2020 = sum(HHPop_2020),
+    HHPop_2030 = sum(HHPop_2030),
+    HHPop_2040 = sum(HHPop_2040),
+    HHPop_2050 = sum(HHPop_2050),
+  ) |>
+  ungroup() |> 
+  pivot_longer(
+    !RPA,
+    names_to = "year",
+    values_to = "hh.population"
+  ) |>
+  filter(RPA == "MAPC") |> 
+  ggplot(aes(x = year, y = hh.population)) +
+  geom_col()
+
+pop.bc.3
 # Age
 
 ```
