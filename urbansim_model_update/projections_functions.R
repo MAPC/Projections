@@ -18,3 +18,50 @@ lun <- function(x){
   length(unique(x))}
 sna <- function(x){
   sort(names(x))}
+
+# Visualization functions
+# Single Variable Bar Charts
+
+sv.bar.chart_ <- function(df, x_var, y_var, x_label, y_label, geo){
+  
+  graph <- ggplot(data = get(df), aes(x = get(x_var), y = get(y_var))) +
+    geom_col(
+      state = "identity",
+      width = .5,
+      fill = "lavender",
+      color = "black"
+    ) +
+    geom_text(aes(label = scales::comma(get(y_var))), vjust = -1) +
+    labs(
+      title = paste0("Projected Household Population, ", geo , " (2020-2050)"),
+      x = x_label,
+      y = y_label
+    ) +
+    scale_y_continuous(labels = scales::label_comma(),
+                       expand = expansion(mult = c(0, .1))) +
+    theme_bw() +
+    theme(
+      panel.background = element_blank(),
+      panel.border = element_rect(
+        color = "black",
+        fill = NA,
+        size = 1
+      ),
+      plot.title = element_text(color = "black", size = 18),
+      axis.title.x = element_text(color = "black", size = 16),
+      axis.title.y = element_text(color = "black", size = 16),
+      axis.text.x = element_text(color = "black", size = 14),
+      axis.text.y = element_text(color = "black", size = 14)
+    )
+  
+  return(graph)
+  
+}
+
+# Multi-Variable Stacked Bar Charts
+
+mv.bar.chart_ <- function(){
+  
+}
+
+# Line Charts
