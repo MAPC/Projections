@@ -911,13 +911,17 @@ pop.bc.2 <- pop |>
 # Create a plot of total population for each RPA.
 for (r in RPA) {
   # Create graph object for each RPA
-  tmp <- pop.bc.2 |>
-    filter(RPA == r) |>
-    ggplot(aes(x = year, y = hh.population)) +
-    geom_col()
+  tmp <- pop.bc.2 |> filter(RPA == r)
   
   # Display graph object in the terminal.
-  tmp
+  graph <- sv.bar.chart_(
+    df = "tmp",
+    x_var = "year",
+    y_var = "hh.population",
+    x_label = "Year",
+    y_label = "Population",
+    geo = r
+  )
   
   # Save graph to disk.
   ggsave(
@@ -928,8 +932,8 @@ for (r in RPA) {
     bg = NULL
   )
   
-  # Remove tmp graph object
-  rm(tmp)
+  # Remove tmp dataframe and graph object
+  rm(tmp, graph)
   
   # Print statement
   print(paste0("Population bar chart for ", r, " saved on disk!"))
