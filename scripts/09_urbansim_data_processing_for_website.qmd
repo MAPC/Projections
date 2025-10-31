@@ -854,23 +854,31 @@ pop.bc.1 <- pop |>
     HHPop_2050 = sum(HHPop_2050),
   ) |>
   ungroup() |> 
+  dplyr::rename(
+    `2020` = HHPop_2020,
+    `2030` = HHPop_2030,
+    `2040` = HHPop_2040,
+    `2050` = HHPop_2050,
+  ) |> 
   pivot_longer(
     !state,
     names_to = "year",
     values_to = "hh.population"
   ) |> 
   ggplot(aes(x = year, y = hh.population)) +
-  geom_col() +
+  geom_col(state = "identity", width = .5, fill = "lavender", color = "black") +
+  geom_text(aes(label = scales::comma(hh.population)), vjust = -1) +
   labs(
     title = "Projected Household Population, Massachusetts (2020-2050)",
     x = "Year",
     y = "Population"
   ) +
+  scale_y_continuous(labels = scales::label_comma(), expand = expansion(mult = c(0, .1))) +
   theme_bw() +
   theme(
     panel.background = element_blank(),
     panel.border = element_rect(color = "black",fill = NA,size = 1),
-    panel.grid = element_line(color = "gray", size = 0.5),
+   # panel.grid = element_line(color = "gray", size = 0.5),
     plot.title = element_text(color = "black", size = 18),
     axis.title.x = element_text(color = "black", size = 16),
     axis.title.y = element_text(color = "black", size = 16),
