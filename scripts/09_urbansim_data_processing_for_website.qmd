@@ -870,6 +870,54 @@ ggsave(
 
 # 5.3.2 Projected Households by Household Type
 # State
+hh.bc.3 <- hhds.type |> 
+  mutate(state = 1) |> 
+  filter(!`Household Type` == "Total Households") |> 
+  group_by(state, `Household Type`) |> 
+  summarise(
+    Households_2020 = sum(Households_2020),
+    Households_2030 = sum(Households_2030),
+    Households_2040 = sum(Households_2040),
+    Households_2050 = sum(Households_2050),
+  ) |>
+  ungroup() |> 
+  dplyr::rename(
+    `2020` = Households_2020,
+    `2030` = Households_2030,
+    `2040` = Households_2040,
+    `2050` = Households_2050,
+  ) |> 
+  pivot_longer(
+    !c(state, `Household Type`),
+    names_to = "year",
+    values_to = "hh"
+  ) |> 
+  select(-c(state))
+
+
+graph <-
+  mv.bar.chart_(
+    df = "hh.bc.3",
+    x_var = "year",
+    y_var = "hh",
+    group_var = "Household Type",
+    x_label = "Year",
+    y_label = "Households",
+    group_label = "Household Type",
+    custom_title = "Projected Households",
+    geo = "Massachusetts"
+  )
+
+graph
+
+ggsave(
+  filename = paste0("hh_overall.jpeg"),
+  plot = get_last_plot(),
+  path = output_path,
+  width = 10,
+  dpi = 320,
+  bg = NULL
+)
 # RPA
 
 # 5.3.3 Projected Households by Household Size
