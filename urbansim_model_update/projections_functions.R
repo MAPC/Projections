@@ -22,7 +22,7 @@ sna <- function(x){
 # Visualization functions
 # Single Variable Bar Charts
 
-sv.bar.chart_ <- function(df, x_var, y_var, x_label, y_label, geo){
+sv.bar.chart_ <- function(df, x_var, y_var, x_label, y_label, custom_title, geo){
   
   graph <- ggplot(data = get(df), aes(x = get(x_var), y = get(y_var))) +
     geom_col(
@@ -33,12 +33,12 @@ sv.bar.chart_ <- function(df, x_var, y_var, x_label, y_label, geo){
     ) +
     geom_text(aes(label = scales::comma(get(y_var))), vjust = -1) +
     labs(
-      title = paste0("Projected Household Population, ", geo , " (2020-2050)"),
+      title = paste0(custom_title, ", ", geo ," (2020-2050)"),
       x = x_label,
-      y = y_label
+      y = y_label,
+      caption = "Source: MAPC Data Services - Research Division"
     ) +
-    scale_y_continuous(labels = scales::label_comma(),
-                       expand = expansion(mult = c(0, .1))) +
+    scale_y_continuous(labels = scales::label_comma(), expand = expansion(mult = c(0, .1))) +
     theme_bw() +
     theme(
       panel.background = element_blank(),
@@ -64,4 +64,13 @@ mv.bar.chart_ <- function(){
   
 }
 
-# Line Charts
+# Single Variable Line Charts
+
+sv.line.chart <- function(){
+  
+}
+
+# Multivariable Line Chart
+mv.line.chart <- function(){
+  
+}

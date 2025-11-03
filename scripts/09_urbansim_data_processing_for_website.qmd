@@ -818,29 +818,125 @@ emp <- readxl::read_xlsx(paste0(input.path, "LRTP2023_Municipal_Data_revised_202
 ```
 # 5.3 - Level Demographic Components of Projected Households (Stacked Bar Charts)
 ```{r}
-# Overall
-# Household Type
+# 5.3.1 Total Projected Households State
+# State
+hh.bc.1 <- hhds.type |> 
+  mutate(state = 1) |> 
+  filter(`Household Type` == "Total Households") |> 
+  group_by(state) |> 
+  summarise(
+    Households_2020 = sum(Households_2020),
+    Households_2030 = sum(Households_2030),
+    Households_2040 = sum(Households_2040),
+    Households_2050 = sum(Households_2050),
+  ) |>
+  ungroup() |> 
+  dplyr::rename(
+    `2020` = Households_2020,
+    `2030` = Households_2030,
+    `2040` = Households_2040,
+    `2050` = Households_2050,
+  ) |> 
+  pivot_longer(
+    !state,
+    names_to = "year",
+    values_to = "hh"
+  ) |> 
+  select(-c(state))
 
-# Household Size
 
-# Householder Age
+graph <-
+  sv.bar.chart_(
+    df = "hh.bc.1",
+    x_var = "year",
+    y_var = "hh",
+    x_label = "Year",
+    y_label = "Households",
+    custom_title = "Projected Households",
+    geo = "Massachusetts"
+  )
 
+graph
+
+ggsave(
+  filename = paste0("hh_overall.jpeg"),
+  plot = get_last_plot(),
+  path = output_path,
+  width = 10,
+  dpi = 320,
+  bg = NULL
+)
 # RPA
-# Household Type
 
-# Household Size
+# 5.3.2 Projected Households by Household Type
+# State
+# RPA
 
-# Householder Age
+# 5.3.3 Projected Households by Household Size
+# State
+# RPA
 
+# 5.3.4 Projected Households by Householder Age
+# State
+# RPA
 ```
 
 # 5.4 Level Components of Projected Employment (Stacked Bar Charts)
 ```{r}
-# Overall
-# Supersectors
+# 5.4.1 Total Projected Employment
+# State
+# State
+emp.bc.1 <- emp |> 
+  mutate(state = 1) |> 
+  filter(SuperSector = "Total Employment") |> 
+  group_by(state) |> 
+  summarise(
+    Employment_2020 = sum(Employment_2020),
+    Employment_2030 = sum(Employment_2030),
+    Employment_2040 = sum(Employment_2040),
+    Employment_2050 = sum(Employment_2050),
+  ) |>
+  ungroup() |> 
+  dplyr::rename(
+    `2020` = Employment_2020,
+    `2030` = Employment_2030,
+    `2040` = Employment_2040,
+    `2050` = Employment_2050,
+  ) |> 
+  pivot_longer(
+    !state,
+    names_to = "year",
+    values_to = "employment"
+  ) |> 
+  select(-c(state))
 
+
+graph <-
+  sv.bar.chart_(
+    df = "emp.bc.1",
+    x_var = "year",
+    y_var = "employment",
+    x_label = "Year",
+    y_label = "Employment",
+    custom_title = "Projected Employment",
+    geo = "Massachusetts"
+  )
+
+graph
+
+ggsave(
+  filename = paste0("emp_overall.jpeg"),
+  plot = get_last_plot(),
+  path = output_path,
+  width = 10,
+  dpi = 320,
+  bg = NULL
+)
 # RPA
-# Supersectors
+
+# 5.4.2 Projected Employment by Supersectors
+# State
+# RPA
 
 ```
 
@@ -879,6 +975,7 @@ graph <-
     y_var = "hh.population",
     x_label = "Year",
     y_label = "Population",
+    custom_title = "Projected Household Population",
     geo = "Massachusetts"
   )
 
@@ -888,6 +985,7 @@ ggsave(
   filename = paste0("pop_overall.jpeg"),
   plot = get_last_plot(),
   path = output_path,
+  width = 10,
   dpi = 320,
   bg = NULL
 )
@@ -920,6 +1018,7 @@ for (r in RPA) {
     y_var = "hh.population",
     x_label = "Year",
     y_label = "Population",
+    custom_title = "Projected Household Population",
     geo = r
   )
   
@@ -928,6 +1027,7 @@ for (r in RPA) {
     filename = paste0("pop_",r,".jpeg"),
     plot = get_last_plot(),
     path = output_path,
+    width = 10,
     dpi = 320,
     bg = NULL
   )
@@ -947,8 +1047,101 @@ for (r in RPA) {
 
 # 5.5.3 Population under 18
 # State
+pop.bc.5 <- pop.child |> 
+  mutate(state = 1) |> 
+  group_by(state) |> 
+  summarise(
+    HHPop_2020 = sum(HHPop_2020),
+    HHPop_2030 = sum(HHPop_2030),
+    HHPop_2040 = sum(HHPop_2040),
+    HHPop_2050 = sum(HHPop_2050),
+  ) |>
+  ungroup() |> 
+  dplyr::rename(
+    `2020` = HHPop_2020,
+    `2030` = HHPop_2030,
+    `2040` = HHPop_2040,
+    `2050` = HHPop_2050,
+  ) |> 
+  pivot_longer(
+    !state,
+    names_to = "year",
+    values_to = "hh.population"
+  ) |> 
+  select(-c(state))
+
+
+graph <-
+  sv.bar.chart_(
+    df = "pop.bc.5",
+    x_var = "year",
+    y_var = "hh.population",
+    x_label = "Year",
+    y_label = "Population",
+    custom_title = "Projected Population of Children",
+    geo = "Massachusetts"
+  )
+
+graph
+
+ggsave(
+  filename = paste0("pop_children.jpeg"),
+  plot = get_last_plot(),
+  path = output_path,
+  width = 10,
+  dpi = 320,
+  bg = NULL
+)
 
 # RPA
+pop.bc.6 <- pop.child |>
+  group_by(RPA) |> 
+  summarise(
+    HHPop_2020 = sum(HHPop_2020),
+    HHPop_2030 = sum(HHPop_2030),
+    HHPop_2040 = sum(HHPop_2040),
+    HHPop_2050 = sum(HHPop_2050),
+  ) |>
+  ungroup() |> 
+  pivot_longer(
+    !RPA,
+    names_to = "year",
+    values_to = "hh.population"
+  ) 
+
+# Create a plot of total population for each RPA.
+for (r in RPA) {
+  # Create graph object for each RPA
+  tmp <- pop.bc.6 |> filter(RPA == r)
+  
+  # Display graph object in the terminal.
+  graph <- sv.bar.chart_(
+    df = "tmp",
+    x_var = "year",
+    y_var = "hh.population",
+    x_label = "Year",
+    y_label = "Population",
+    custom_title = "Projected Population of Children",
+    geo = r
+  )
+  
+  # Save graph to disk.
+  ggsave(
+    filename = paste0("pop_children.",r,".jpeg"),
+    plot = get_last_plot(),
+    path = output_path,
+    width = 10,
+    dpi = 320,
+    bg = NULL
+  )
+  
+  # Remove tmp dataframe and graph object
+  rm(tmp, graph)
+  
+  # Print statement
+  print(paste0("Population bar chart for ", r, " saved on disk!"))
+  
+}
 
 ```
 
