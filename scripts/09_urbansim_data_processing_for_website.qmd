@@ -26,16 +26,20 @@ options(scipen = 999)
 #
 set.seed(351)
 # root <- 'K:/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/'
-root <- 'S:/Network Shares/K Drive/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/'
+root <- 'S:/Network Shares/K Drive/DataServices/Projects/Current_Projects/Projections/Projections_2023/'
 
-inpath <- paste0(root,'03_UrbanSim/UrbanSim_Outputs/Microsim_outputs')
+inpath <- paste0(root,'Data/03_UrbanSim/UrbanSim_Outputs/Microsim_outputs')
 
-outpath <- paste0(root,'04_Allocation_Results/Revised_Allocation_Sept2025/Tabular/')
+outpath <- paste0(root,'Data/04_Allocation_Results/Revised_Allocation_Sept2025/Tabular/')
 
-sp.path <- paste0(root,'04_Allocation_Results/Revised_Allocation_Sept2025/Spatial/Projections_2023_revised_webmap/') 
+sp.path <- paste0(root,'Data/04_Allocation_Results/Revised_Allocation_Sept2025/Spatial/Projections_2023_revised_webmap/') 
   
-years <- c(2019,2029,2039,2049)
 
+# Revised Data with fix to Littleton MassBuilds projects that caused overestimated employment
+MAPCM_run='run_213'
+SWM_run='state_run_113'
+ctps_run='run_113-213'
+years=c(2019,2029,2039,2049)
 
 # # REVISED UrbanSim / TDM23.2.0 data for Projections Website
 # MAPCM_run='run_209'
@@ -94,53 +98,55 @@ knitr::opts_knit$set(root.dir = root)
 
 ```{r}
 
-#2019
+for (yr in years){
+
 fread(paste0(
   inpath,
-  '/urbansim_complete_population_run_113-209_2019.csv'
+  '/urbansim_complete_population_', ctps_run, '_', yr, '.csv'
 )) |> 
-  mutate(year=2019) |> 
-  fwrite(paste0(outpath, 'urbansim_complete_microsim_population_website_revised_2019.csv'))
+  mutate(year=yr) |> 
+  fwrite(paste0(outpath, 'urbansim_complete_microsim_population_website_revised_',yr,'.csv'))
 
-fread(paste0(root, '03_UrbanSim/UrbanSim_Outputs/state_run_113/2019/jobs.csv')) |> fwrite(paste0(outpath,'swm_urbansim_employment_2019.csv'))
+fread(paste0(root, 'Data/03_UrbanSim/UrbanSim_Outputs/',SWM_run,'/',yr,'/jobs.csv')) |> fwrite(paste0(outpath,'swm_urbansim_employment_',yr,'.csv'))
 
-fread(paste0(root, '03_UrbanSim/UrbanSim_Outputs/run_209/2019/jobs.csv')) |> fwrite(paste0(outpath,'mapcm_urbansim_employment_2019.csv'))
+fread(paste0(root, 'Data/03_UrbanSim/UrbanSim_Outputs/',MAPCM_run,'/',yr,'/jobs.csv')) |> fwrite(paste0(outpath,'mapcm_urbansim_employment_',yr,'.csv'))
+}
 
-#2029
-fread(paste0(
-  inpath,
-  '/urbansim_complete_population_run_113-210_2029.csv'
-)) |> 
-  mutate(year=2029) |> 
-  fwrite(paste0(outpath, 'urbansim_complete_microsim_population_website_revised_2029.csv'))
-
-fread(paste0(root, '03_UrbanSim/UrbanSim_Outputs/state_run_113/2029/jobs.csv')) |> fwrite(paste0(outpath,'swm_urbansim_employment_2029.csv'))
-
-fread(paste0(root, '03_UrbanSim/UrbanSim_Outputs/run_210/2029/jobs.csv')) |> fwrite(paste0(outpath,'mapcm_urbansim_employment_2029.csv'))
-
-# 2039
-fread(paste0(
-  inpath,
-  '/urbansim_complete_population_run_113-210_2039.csv'
-)) |> 
-  mutate(year=2039) |> 
-  fwrite(paste0(outpath, 'urbansim_complete_microsim_population_website_revised_2039.csv'))
-
-fread(paste0(root, '03_UrbanSim/UrbanSim_Outputs/state_run_113/2039/jobs.csv')) |> fwrite(paste0(outpath,'swm_urbansim_employment_2039.csv'))
-
-fread(paste0(root, '03_UrbanSim/UrbanSim_Outputs/run_210/2039/jobs.csv')) |> fwrite(paste0(outpath,'mapcm_urbansim_employment_2039.csv'))
-
-# 2049
-fread(paste0(
-  inpath,
-  '/urbansim_complete_population_run_113-210_2049.csv'
-)) |> 
-  mutate(year=2049) |> 
-  fwrite(paste0(outpath, 'urbansim_complete_microsim_population_website_revised_2049.csv'))
-
-fread(paste0(root, '03_UrbanSim/UrbanSim_Outputs/state_run_113/2049/jobs.csv')) |> fwrite(paste0(outpath,'swm_urbansim_employment_2049.csv'))
-
-fread(paste0(root, '03_UrbanSim/UrbanSim_Outputs/run_210/2049/jobs.csv')) |> fwrite(paste0(outpath,'mapcm_urbansim_employment_2049.csv'))
+# #2029
+# fread(paste0(
+#   inpath,
+#   '/urbansim_complete_population_run_113-210_2029.csv'
+# )) |> 
+#   mutate(year=2029) |> 
+#   fwrite(paste0(outpath, 'urbansim_complete_microsim_population_website_revised_2029.csv'))
+# 
+# fread(paste0(root, '03_UrbanSim/UrbanSim_Outputs/state_run_113/2029/jobs.csv')) |> fwrite(paste0(outpath,'swm_urbansim_employment_2029.csv'))
+# 
+# fread(paste0(root, '03_UrbanSim/UrbanSim_Outputs/run_210/2029/jobs.csv')) |> fwrite(paste0(outpath,'mapcm_urbansim_employment_2029.csv'))
+# 
+# # 2039
+# fread(paste0(
+#   inpath,
+#   '/urbansim_complete_population_run_113-210_2039.csv'
+# )) |> 
+#   mutate(year=2039) |> 
+#   fwrite(paste0(outpath, 'urbansim_complete_microsim_population_website_revised_2039.csv'))
+# 
+# fread(paste0(root, '03_UrbanSim/UrbanSim_Outputs/state_run_113/2039/jobs.csv')) |> fwrite(paste0(outpath,'swm_urbansim_employment_2039.csv'))
+# 
+# fread(paste0(root, '03_UrbanSim/UrbanSim_Outputs/run_210/2039/jobs.csv')) |> fwrite(paste0(outpath,'mapcm_urbansim_employment_2039.csv'))
+# 
+# # 2049
+# fread(paste0(
+#   inpath,
+#   '/urbansim_complete_population_run_113-210_2049.csv'
+# )) |> 
+#   mutate(year=2049) |> 
+#   fwrite(paste0(outpath, 'urbansim_complete_microsim_population_website_revised_2049.csv'))
+# 
+# fread(paste0(root, '03_UrbanSim/UrbanSim_Outputs/state_run_113/2049/jobs.csv')) |> fwrite(paste0(outpath,'swm_urbansim_employment_2049.csv'))
+# 
+# fread(paste0(root, '03_UrbanSim/UrbanSim_Outputs/run_210/2049/jobs.csv')) |> fwrite(paste0(outpath,'mapcm_urbansim_employment_2049.csv'))
 
 
 
@@ -527,8 +533,8 @@ xl.list <- list(
   'Employment by Super Sector' = emptot
 )
 
-write_xlsx(xl.list, paste0(outpath,'LRTP2023_Municipal_Data_revised_20250929.xlsx'))
-
+# write_xlsx(xl.list, paste0(outpath,'LRTP2023_Municipal_Data_revised_20250929.xlsx'))
+write_xlsx(xl.list, paste0(outpath,'LRTP2023_Municipal_Data_revised_20251105.xlsx'))
 ```
 
 # 4 - Shapefile Export for Website
@@ -540,19 +546,28 @@ sfm <- muni_sf(2010)
 
 sf.hhpop <- sfm |>
   left_join(d1, by = c('muni_id' = 'Muni_ID')) |>
+  mutate(HHPop_chg = HHPop_2050 - HHPop_2020) |> 
   st_write(paste0(sp.path, 'muni_HHpop.shp'), append = F)
 
-hhtot <- d4 |> filter(`Household Type` == 'Total Households') |> select(-`Household Type`) |> rename(
-  HH2020 = Households_2020,
-  HH2030 = Households_2030,
-  HH2040 = Households_2040,
-  HH2050 = Households_2050
-)
+hhtot <- d4 |> 
+  filter(`Household Type` == 'Total Households') |> 
+  select(-`Household Type`) |> 
+  rename(
+    HH2020 = Households_2020,
+    HH2030 = Households_2030,
+    HH2040 = Households_2040,
+    HH2050 = Households_2050) |> 
+  mutate(
+    HH_chg = HH2050 - HH2020
+    )
+
 sf.hhds <- sfm |>
   left_join(hhtot, by = c('muni_id' = 'Muni_ID')) |>
   st_write(paste0(sp.path, 'muni_HHds.shp'), append = F)
 
-et <- emptot |> filter(SuperSector_ID == 100) |> select(-SuperSector_ID, -SuperSector) |>
+et <- emptot |> 
+  filter(SuperSector_ID == 100) |> 
+  select(-SuperSector_ID, -SuperSector) |>
   rename(
     RPA = rpa_acr,
     MPO = mpo,
@@ -560,8 +575,11 @@ et <- emptot |> filter(SuperSector_ID == 100) |> select(-SuperSector_ID, -SuperS
     jobs2020 = Employment_2020,
     jobs2030 = Employment_2030,
     jobs2040 = Employment_2040,
-    jobs2050 = Employment_2050
+    jobs2050 = Employment_2050) |> 
+  mutate(
+    jobs_chg = jobs2050 - jobs2020
   )
+
 sf.hhds <- sfm |>
   left_join(et, by = c('muni_name' = 'Muni')) |>
   st_write(paste0(sp.path, 'muni_employment.shp'), append = F)
@@ -578,7 +596,7 @@ mb.in.lrtp <- fread(paste0(sp.path, 'all_devprojects_9_30_2025_SWM.csv')) |>
 res <- fread(
   paste0(
     root,
-    '03_UrbanSim/MassBuilds/Massbuilds_inputs_',
+    'Data/03_UrbanSim/MassBuilds/Massbuilds_inputs_',
     vintage,
     '/Statewide/residential.csv'
   )
@@ -586,7 +604,7 @@ res <- fread(
 com <- fread(
   paste0(
     root,
-    '03_UrbanSim/MassBuilds/Massbuilds_inputs_',
+    'Data/03_UrbanSim/MassBuilds/Massbuilds_inputs_',
     vintage,
     '/Statewide/non_residential.csv'
   )
@@ -644,7 +662,9 @@ st_write(
 ```
 
 # 5.0 - Plots and Charts
+
 # 5.1 Load 2010 Census Data
+
 ```{r}
 #Municipal GEOIDs for 2010 Decennial Census
 GEOID.10 <- mapcdatakeys::all_muni_data_keys |>  
@@ -792,31 +812,35 @@ hhpop.10 <- pa.values |>
 #Remove dataframes no longer needed in the process.
 rm(pa.labels, pa.values, pa.vars)
 ```
-# 5.2 Load 
+
+# 5.2 Load
+
 ```{r}
 # Functions created for the Urbansim/Projections workflow
 source(here("urbansim_model_update/projections_functions.R"))
 
 # Set the path to the data to load in the for loop below.
-input.path <- "K:/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/04_Allocation_Results/Revised_Allocation_Sept2025/Tabular/"
-output_path <- "K:/DataServices/Projects/Current_Projects/Projections/Projections_2023/Final_Release/Visualizations"
+input.path <- paste0(root,"Data/04_Allocation_Results/Revised_Allocation_Sept2025/Tabular/")
+output_path <- paste0(root,"Final_Release/Visualizations")
 
 # Load data from workbook posted to Projections webiste.
 # Household Population
-pop <- readxl::read_xlsx(paste0(input.path, "LRTP2023_Municipal_Data_revised_20250929.xlsx"), sheet = 2)
-pop.age <- readxl::read_xlsx(paste0(input.path, "LRTP2023_Municipal_Data_revised_20250929.xlsx"), sheet = 3)
-pop.child <- readxl::read_xlsx(paste0(input.path, "LRTP2023_Municipal_Data_revised_20250929.xlsx"), sheet = 4)
+pop <- readxl::read_xlsx(paste0(input.path, "LRTP2023_Municipal_Data_revised_20251105.xlsx"), sheet = 2)
+pop.age <- readxl::read_xlsx(paste0(input.path, "LRTP2023_Municipal_Data_revised_20251105.xlsx"), sheet = 3)
+pop.child <- readxl::read_xlsx(paste0(input.path, "LRTP2023_Municipal_Data_revised_20251105.xlsx"), sheet = 4)
 
 # Households  
-hhds.type <- readxl::read_xlsx(paste0(input.path, "LRTP2023_Municipal_Data_revised_20250929.xlsx"), sheet = 5)
-hhds.age <- readxl::read_xlsx(paste0(input.path, "LRTP2023_Municipal_Data_revised_20250929.xlsx"), sheet = 6)
-hhds.income <- readxl::read_xlsx(paste0(input.path, "LRTP2023_Municipal_Data_revised_20250929.xlsx"), sheet = 7)
+hhds.type <- readxl::read_xlsx(paste0(input.path, "LRTP2023_Municipal_Data_revised_20251105.xlsx"), sheet = 5)
+hhds.age <- readxl::read_xlsx(paste0(input.path, "LRTP2023_Municipal_Data_revised_20251105.xlsx"), sheet = 6)
+hhds.income <- readxl::read_xlsx(paste0(input.path, "LRTP2023_Municipal_Data_revised_20251105.xlsx"), sheet = 7)
 
 # Employment
-emp <- readxl::read_xlsx(paste0(input.path, "LRTP2023_Municipal_Data_revised_20250929.xlsx"), sheet = 8)
+emp <- readxl::read_xlsx(paste0(input.path, "LRTP2023_Municipal_Data_revised_20251105.xlsx"), sheet = 8)
 
 ```
+
 # 5.3 - Level Demographic Components of Projected Households (Stacked Bar Charts)
+
 ```{r}
 # 5.3.1 Total Projected Households State
 # State
@@ -930,6 +954,7 @@ ggsave(
 ```
 
 # 5.4 Level Components of Projected Employment (Stacked Bar Charts)
+
 ```{r}
 # 5.4.1 Total Projected Employment
 # State
@@ -989,6 +1014,7 @@ ggsave(
 ```
 
 # 5.5 Level Projected Population (Stacked Bar Charts)
+
 ```{r}
 # 5.5.1 Overall Population
 # State
@@ -1194,6 +1220,7 @@ for (r in RPA) {
 ```
 
 # 5.6 Percent Change Demographic Components of Projected Households (Stacked Bar Charts)
+
 ```{r}
 # Overall
 # Household Type
@@ -1212,6 +1239,7 @@ for (r in RPA) {
 ```
 
 # 5.7 Percent Change Components of Projected Employment (Stacked Bar Charts)
+
 ```{r}
 # Overall
 # Supersectors
@@ -1222,6 +1250,7 @@ for (r in RPA) {
 ```
 
 # 5.8 Percent Change Projected Population (Stacked Bar Charts)
+
 ```{r}
 # Overall
 # Age 
