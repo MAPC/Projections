@@ -3,8 +3,11 @@ title: "Urbansim Model Update Exploratory Analysis"
 format: html
 editor: visual
 ---
+
 # 0.0 Environment and Script Set-up
+
 # 0.1 Load Libraries and Functions
+
 ```{r}
 # {here} library to initiate conditional filepaths
 library(here)
@@ -12,9 +15,11 @@ library(here)
 source(here("urbansim_model_update/projections_libraries.R"))
 # Functions created for the Urbansim/Projections workflow
 source(here("urbansim_model_update/projections_functions.R"))
+
 ```
 
 # 0.2 Set Environment Variables for this Script
+
 ```{r}
 # Set random seed
 set.seed(351)
@@ -28,10 +33,11 @@ pums.vars <- c(
                # General PUMS variables
                'PUMA', #PUMA designation
                'ADJINC', # Inflation adjustment factor for income variables
-               'TYPEHUGQ', # Type of household (Household or group quarters)
+               'TYPEHUGQ', # Type of household (Household, institutional, non-institutional group quarters)
   
                #Demographic variables
                'AGEP', # Age of person
+               "HHLDRAGEP", #Householder age 
                "SEX", # Sex
                'NP', # Number of persons in a household
                'TEN', # Tenure
@@ -40,6 +46,7 @@ pums.vars <- c(
                'R18', #Presence of persons under 18 years in household
                'R60', # Presence of persons over 60 years in household
                'R65', # Presence of persons over 65 years in household
+               'ESR', #Employment status recode
   
                # Income variables
                "FINCP", # Family Income
@@ -74,10 +81,22 @@ pums.vars <- c(
                'NOC', # Number of own children
                'HUPAC', # Presence and age of children
                'HUPAOC', # Presence and age of own children
-               'HUPARC' # Presence and age of related children
+               'HUPARC', # Presence and age of related children
+               "MSP", #Married, spouse present/absent (B, 1, 2, 3, 4, 5, 6)
+               
                
                # Disability variables
-                    
+               "DIS",   # Disability status (general)
+               "DEAR",  # Hearing difficulty Boolean
+               "DEYE",  # Vision difficulty Boolean
+               "DOUT",  # Independent living difficulty (B, 1, 2)
+               "DREM",  # Cognitive difficulty (B, 1, 2)
+               "DPHY",  # Difficulty walking, climbing stairs OR ambulatory difficulty (B, 1, 2)
+               "DDRS",   # Self care difficulty (B, 1, 2)
+               "DRATX",  # Veterans service connected disability rating (B, 1, 2)
+               "HINS3",  # Medicare for 65 or older or people with certain disabilities Boolean
+               "HINS4"  # Medicaid for low income or disability Boolean
+               
             )
 
 # Terminal year in the vintage
@@ -86,8 +105,11 @@ pums.vintage = 2023
 # Survey from which the data is requested
 survey = "acs5"
 ```
+
 # 1.0 Load Data
+
 # 1.1 Load PUMS Data from {tidycensus}
+
 ```{r}
 # Load PUMA to RPA Crosswalk
 # For this analysis we will group Martha's Vineyard Commission, Nantucket Planning and Economic Development Commission and Cape Cod Commission into one group -- "CCC" -- which will refer to the Cape and Islands.
@@ -103,13 +125,16 @@ print(length(unique(puma.rpa_xwalk$rpa_acr)))
 # Variables: Described above
 # Survey: ACS 5-year PUMS
 # Geography: Massachusetts
-pums <- pums_query(var.list = pums.vars, yr = pums.vintage, srvy = survey) 
+pums_test <- pums_query(var.list = pums.vars, yr = 2022, srvy = "acs1")
+
+#pums <- pums_query(var.list = pums.vars, yr = pums.vintage, srvy = survey)
 
 ```
 
 # 1.2 Clean PUMS Data
+
 ```{r}
-pums_cleaned <- pums |> 
+pums_cleaned <- pums_test |> 
   # Filter for households
   filter(TYPEHUGQ == "1" & SPORDER == "1") |> 
   # Join RPA acronyms to PUMS dataframe by PUMA
@@ -207,11 +232,14 @@ print(sapply(X = pums_cleaned, FUN =  function(x) sum(is.na(x))))
 ```
 
 # 2.0 Household Type Analysis
+
 ```{r}
 ```
 
 # 3.0 Income Distribution Analysis
+
 # 3.1 Evaluation of Census Income Thresholds
+
 ```{r}
 # Standard Urbansim Income Thresholds
 income.1 <- pums_cleaned |>
@@ -345,33 +373,140 @@ income.5 <- pums_cleaned |>
 # Commentary
   
 ```
+
 # 3.2 Income Group Spatial Distribution (By RPA)
+
 ```{r}
 ```
 
 # 3.3 Analysis of Income and Other Household Variables
+
 ```{r}
 ```
 
-# 4.0  Older Household Analysis
+# 4.0 Older Household Analysis
+
 ```{r}
+#Define Older Adults - two types of variables - more than 60 and more than 65 years old 
+pums_cleaned <- pums_test |> 
+  # Join RPA acronyms to PUMS dataframe by PUMA
+  left_join(puma.rpa_xwalk, by = c("PUMA" = "PUMACE20")) |> 
+  # Clean data and create new variables we need for analysis 
+  mutate(
+    older60 = case_when(
+     (AGEP >= 60) ~ 1,
+      # If AGEP is NA, default to not being older60.
+      is.na(AGEP) ~ 0,
+      # If under 60 years of age then default to 0.
+      .default = 0
+    ),
+
+    older65 = case_when(
+     (AGEP >= 65) ~ 1,
+      # If AGEP is NA, default to not being older65.
+      is.na(AGEP) ~ 0,
+      # If under 65 years of age then default to 0.
+      .default = 0
+    )
+  )
+
+```
+
+
+```{r}
+#Filter Older Adults with disability
+pums_disold60 <- filter(pums_cleaned, DIS=="1" & older60==1)
+pums_disold65 <- filter(pums_cleaned, DIS=="1" & older65==1)
+
+print(summary(pums_disold60$PINCP))
+print(summary(pums_disold65$PINCP))
+
+print (older60_dis_count/older60_count) #% of older adults that are disabled
+print (older65_dis_count/older65_count) #% of older adults that are disabled
+
+
+
+```
+```{R}
+#In 2022, the federal poverty level for a single person was $13,590, and for a family of four it was $29,678 - BLS
+
+bpl_count <- count(filter(pums_cleaned, PINCP<= 13590))
+older60_count <- count(filter(pums_cleaned, older60==1))
+older65_count <- count(filter(pums_cleaned, older65==1))
+
+older60_dis_count <- count(pums_disold60)
+older65_dis_count <- count(pums_disold65)
+
+bpl_older60_count <-count(filter(pums_cleaned,older60==1 & PINCP <= 13590))
+bpl_older65_count <-count(filter(pums_cleaned,older65==1 & PINCP <= 13590))
+
+bpl_older60_dis_count <-count(filter(pums_disold60, PINCP <= 13590))
+bpl_older65_dis_count <-count(filter(pums_disold65, PINCP <= 13590))
+
+print (bpl_older60_count/older60_count) #% of older adults that are bpl
+print (bpl_older65_count/older65_count) #% of older adults that are bpl
+
+print(bpl_older60_dis_count/older60_count) #% of older adults that are bpl and disabled
+print(bpl_older65_dis_count/older65_count) #% of older adults that are bpl and disabled
+
+```
+```{r}
+# Older adults (60+ and 65+) receiving Social Security income (SSP > 0)
+
+older60_ssp_count <- count(filter(pums_cleaned, older60 == 1 & !is.na(SSP) & SSP > 0))
+older65_ssp_count <- count(filter(pums_cleaned, older65 == 1 & !is.na(SSP) & SSP > 0))
+
+# % of older adults receiving Social Security income
+print(older60_ssp_count / older60_count)
+print(older65_ssp_count / older65_count)
+
+#Older adults (60+ and 65+) receiving Retirement income (RETP > 0)
+
+older60_retp_count <- count(filter(pums_cleaned, older60 == 1 & !is.na(RETP) & RETP > 0))
+older65_retp_count <- count(filter(pums_cleaned, older65 == 1 & !is.na(RETP) & RETP > 0))
+
+print(older60_retp_count / older60_count) # % of adults 60+ with Retirement income
+print(older65_retp_count / older65_count) # % of adults 65+ with Retirement income
+
+```
+```{r}
+# Older adults living in group quarters vs households
+
+# Count of institutional and noninstitutional group quarters residents
+older60_gq_count <- count(filter(pums_cleaned, older60 == 1 & TYPEHUGQ != 1))
+older65_gq_count <- count(filter(pums_cleaned, older65 == 1 & TYPEHUGQ != 1))
+
+# Count of household residents
+older60_household_count <- count(filter(pums_cleaned, older60 == 1 & TYPEHUGQ == 1))
+older65_household_count <- count(filter(pums_cleaned, older65 == 1 & TYPEHUGQ == 1))
+
+# Print proportions
+print(older60_gq_count / older60_count)        # % of adults 60+ living in group quarters
+print(older65_gq_count / older65_count)        # % of adults 65+ living in group quarters
+
+print(older60_household_count / older60_count) # % of adults 60+ living in households
+print(older65_household_count / older65_count) # % of adults 65+ living in households
+
 ```
 
 # 5.0 Household Size Analysis
+
 ```{r}
 ```
 
 # 6.0 Overcrowding Analysis
+
 ```{r}
 ```
 
 # 7.0 Laborforce Participation Rate: PUMS v. CPS
+
 ```{r}
 #ACS 2016-2020 5-YEAR PUMS Testing
 
 #Labor Force Comparison Data (from BLS/FRED)
 
-lfpr_PUMS <- PUMS_data %>%
+lfpr_PUMS <- pums_DATA %>%
   filter(TYPE == 1 & lf >= 1) %>%
   group_by(year) %>%
   count(var = lf, wt = PWGTP) %>%
