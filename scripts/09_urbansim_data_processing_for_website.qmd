@@ -25,8 +25,11 @@ pacman::p_load(
 options(scipen = 999)
 #
 set.seed(351)
-# root <- 'K:/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/'
-root <- 'S:/Network Shares/K Drive/DataServices/Projects/Current_Projects/Projections/Projections_2023/'
+# Set paths
+# K drive path
+root <- 'K:/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/'
+# Conor somehow has an S drive path still
+# root <- 'S:/Network Shares/K Drive/DataServices/Projects/Current_Projects/Projections/Projections_2023/'
 
 inpath <- paste0(root,'Data/03_UrbanSim/UrbanSim_Outputs/Microsim_outputs')
 
@@ -820,7 +823,7 @@ rm(pa.labels, pa.values, pa.vars)
 source(here("urbansim_model_update/projections_functions.R"))
 
 # Set the path to the data to load in the for loop below.
-input.path <- paste0(root,"Data/04_Allocation_Results/Revised_Allocation_Sept2025/Tabular/")
+input.path <- paste0(root,"04_Allocation_Results/Revised_Allocation_Sept2025/Tabular/")
 output_path <- paste0(root,"Final_Release/Visualizations")
 
 # Load data from workbook posted to Projections webiste.
@@ -839,12 +842,20 @@ emp <- readxl::read_xlsx(paste0(input.path, "LRTP2023_Municipal_Data_revised_202
 
 ```
 
-# 5.3 - Level Demographic Components of Projected Households (Stacked Bar Charts)
-
+# 5.3 Data Cleaning for Visualizations
 ```{r}
-# 5.3.1 Total Projected Households State
+# Population
 # State
-hh.bc.1 <- hhds.type |> 
+
+# RPA
+
+# Population by Age
+
+# Population Under 18
+
+# Households
+# State
+hh.state <- hhds.type |> 
   mutate(state = 1) |> 
   filter(`Household Type` == "Total Households") |> 
   group_by(state) |> 
@@ -866,14 +877,68 @@ hh.bc.1 <- hhds.type |>
     names_to = "year",
     values_to = "hh"
   ) |> 
-  select(-c(state))
+  select(-c(state)) |> 
+  mutate(
+    diff = hh - lag(hh),
+    pct_diff = round(((hh - lag(hh))/lag(hh))*100, 1),
+    pct_diff.r = round(((hh - first(hh))/first(hh))*100, 1),
+  )
 
+# RPA
+hh.rpa <- hhds.type |>
+  filter(`Household Type` == "Total Households") |> 
+  group_by(RPA) |> 
+  summarise(
+    Households_2020 = sum(Households_2020),
+    Households_2030 = sum(Households_2030),
+    Households_2040 = sum(Households_2040),
+    Households_2050 = sum(Households_2050),
+  ) |>
+  ungroup() |> 
+  dplyr::rename(
+    `2020` = Households_2020,
+    `2030` = Households_2030,
+    `2040` = Households_2040,
+    `2050` = Households_2050,
+  ) |> 
+  pivot_longer(
+    !RPA,
+    names_to = "year",
+    values_to = "hh"
+  ) |>
+  group_by(RPA) |> 
+  mutate(
+    diff = hh - lag(hh),
+    pct_diff = round(((hh - lag(hh))/lag(hh))*100, 1),
+    pct_diff.r = round(((hh - first(hh))/first(hh))*100, 1),
+  ) |> 
+  ungroup()
+
+# Households by Type
+
+# Households by Age of Household
+
+# Households by Income Group
+
+# Employment
+
+# Employment by Supersector
+```
+
+# 5.3 - Level Demographic Components of Projected Households (Stacked Bar Charts)
+
+```{r}
+# 5.3.1 Total Projected Households State
+# State
+
+
+test <- hh.bc.1 |> filter(if_all(everything(), ~ !is.na(.x)))
 
 graph <-
   sv.bar.chart_(
     df = "hh.bc.1",
     x_var = "year",
-    y_var = "hh",
+    y_var = "diff",
     x_label = "Year",
     y_label = "Households",
     custom_title = "Projected Households",
@@ -1219,7 +1284,7 @@ for (r in RPA) {
 
 ```
 
-# 5.6 Percent Change Demographic Components of Projected Households (Stacked Bar Charts)
+# 5.6 Change Demographic Components of Projected Households (Stacked Bar Charts)
 
 ```{r}
 # Overall
@@ -1238,7 +1303,7 @@ for (r in RPA) {
 
 ```
 
-# 5.7 Percent Change Components of Projected Employment (Stacked Bar Charts)
+# 5.7 Change Components of Projected Employment (Stacked Bar Charts)
 
 ```{r}
 # Overall
@@ -1249,7 +1314,7 @@ for (r in RPA) {
 
 ```
 
-# 5.8 Percent Change Projected Population (Stacked Bar Charts)
+# 5.8 Change Projected Population (Stacked Bar Charts)
 
 ```{r}
 # Overall

@@ -26,7 +26,7 @@ sv.bar.chart_ <- function(df, x_var, y_var, x_label, y_label, custom_title, geo)
   
   graph <- ggplot(data = get(df), aes(x = get(x_var), y = get(y_var))) +
     geom_col(
-      state = "identity",
+      stat = "identity",
       width = .5,
       fill = "lavender",
       color = "black"
