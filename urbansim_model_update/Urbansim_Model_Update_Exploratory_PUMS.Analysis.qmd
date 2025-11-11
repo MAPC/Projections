@@ -84,6 +84,10 @@ pums.vars <- c(
                'HUPARC', # Presence and age of related children
                "MSP", #Married, spouse present/absent (B, 1, 2, 3, 4, 5, 6)
                
+               # Employment Variables
+              'ESR', #
+              'WKHP', #
+               
                # Disability variables
                "DIS",   # Disability status (general)
                "DEAR",  # Hearing difficulty Boolean
@@ -244,6 +248,22 @@ pums_cleaned <- pums |>
       is.na(ESR) ~ 0,
       # If no information is present default to not in the laborforce.
       .default = 0
+    ),
+    # Categorizing Civilian Labor Force or not
+    # NOTE: Categories are (0) under 16 or non-civilian, (1) in labor force, (2) not in labor force
+    lf = case_when(
+      ESR == "b" | ESR == 4 | ESR == 5  ~ 0,
+      ESR == 1 | ESR == 2 | ESR == 3  ~ 1,
+      ESR == 6 ~ 2,
+      is.na(ESR) ~ 0,
+      .default = 0
+    ),
+    # Categorizing full or part-time work
+    wrkfull = case_when(
+      WKHP < 35 ~ "Part time (less than 35 hrs)",
+      WKHP >= 35 ~ "Full time (35 hrs or more)",
+      is.na(WKHP) ~ "Under 16, unemployed, or not in labor force",
+      .default = "Under 16, unemployed, or not in labor force"
     ),
     # Create a grouping variable for types of relationships to the householder.
     # NOTE: 
