@@ -35,7 +35,7 @@ pums.vars <- c(
                'ADJINC', # Inflation adjustment factor for income variables
                'TYPEHUGQ', # Type of household (Household, institutional, non-institutional group quarters)
   
-               #Demographic variables
+               # Demographic variables
                'AGEP', # Age of person
                "HHLDRAGEP", #Householder age 
                "SEX", # Sex
@@ -84,7 +84,6 @@ pums.vars <- c(
                'HUPARC', # Presence and age of related children
                "MSP", #Married, spouse present/absent (B, 1, 2, 3, 4, 5, 6)
                
-               
                # Disability variables
                "DIS",   # Disability status (general)
                "DEAR",  # Hearing difficulty Boolean
@@ -127,14 +126,14 @@ print(length(unique(puma.rpa_xwalk$rpa_acr)))
 # Geography: Massachusetts
 pums_test <- pums_query(var.list = pums.vars, yr = 2022, srvy = "acs1")
 
-#pums <- pums_query(var.list = pums.vars, yr = pums.vintage, srvy = survey)
+pums <- pums_query(var.list = pums.vars, yr = pums.vintage, srvy = survey)
 
 ```
 
 # 1.2 Clean PUMS Data
 
 ```{r}
-pums_cleaned <- pums_test |> 
+pums_cleaned <- pums |> 
   # Filter for households
   filter(TYPEHUGQ == "1" & SPORDER == "1") |> 
   # Join RPA acronyms to PUMS dataframe by PUMA
@@ -145,6 +144,73 @@ pums_cleaned <- pums_test |>
     ageCAT6 = cut(AGEP, breaks = c(-Inf, seq(4, 84, 5), Inf), labels = 1:18),
     # Adjust Household Income variables to 2023 USD
     HINCP_adj = HINCP*as.numeric(ADJINC),
+    # Urbansim Household Income Groupings
+    income.1 = case_when(
+      HINCP_adj <= 35000 ~ "<=$35,000",
+      HINCP_adj > 35000 & HINCP_adj <= 75000 ~ "$35,001-$75,000",
+      HINCP_adj > 75000 & HINCP_adj <= 125000 ~ "$75,001-$125,000",
+      HINCP_adj > 125000 & HINCP_adj <= 225000 ~ "$125,001-$225,000",
+      HINCP_adj > 225000 ~ ">$225,000",
+      .default = "Check"
+    ),
+    # Census Household Income Groupings Type 1
+    income.2 = case_when(
+      HINCP_adj < 20000 ~ "<$20,000",
+      HINCP_adj < 40000 & HINCP_adj >= 20000 ~ "$20,000-$39,999",
+      HINCP_adj < 60000 & HINCP_adj >= 40000 ~ "$40,000-$59,999",
+      HINCP_adj < 75000 & HINCP_adj >= 60000 ~ "$60,000-$74,999",
+      HINCP_adj < 100000 & HINCP_adj >= 75000 ~ "$75,000-$99,999",
+      HINCP_adj >= 100000 ~ ">=$100,000",
+      .default = "Check"
+    ),
+    # Census Household Income Groupings Type 2
+    income.3 = case_when(
+      HINCP_adj < 15000 ~ "<$15,000",
+      HINCP_adj < 35000 & HINCP_adj >= 15000 ~ "$15,000-$34,999",
+      HINCP_adj < 75000 & HINCP_adj >= 35000 ~ "$35,000-$74,999",
+      HINCP_adj < 150000 & HINCP_adj >= 75000 ~ "$75,000-$149,999",
+      HINCP_adj >= 150000 ~ ">=$150,000",
+      .default = "Check"
+    ),
+    # Census Household Income Groupings Type 3
+    income.4 = case_when(
+      HINCP_adj < 10000 ~ "<$10,000",
+      HINCP_adj < 15000 & HINCP_adj >= 10000 ~ "$10,000-$14,999",
+      HINCP_adj < 20000 & HINCP_adj >= 15000 ~ "$15,000-$19,999",
+      HINCP_adj < 25000 & HINCP_adj >= 20000 ~ "$20,000-$24,999",
+      HINCP_adj < 30000 & HINCP_adj >= 25000 ~ "$25,000-$29,999",
+      HINCP_adj < 35000 & HINCP_adj >= 30000 ~ "$30,000-$34,999",
+      HINCP_adj < 40000 & HINCP_adj >= 35000 ~ "$35,000-$39,999",
+      HINCP_adj < 45000 & HINCP_adj >= 40000 ~ "$40,000-$44,999",
+      HINCP_adj < 50000 & HINCP_adj >= 45000 ~ "$45,000-$49,999",
+      HINCP_adj < 60000 & HINCP_adj >= 50000 ~ "$50,000-$59,999",
+      HINCP_adj < 75000 & HINCP_adj >= 60000 ~ "$60,000-$74,999",
+      HINCP_adj < 100000 & HINCP_adj >= 75000 ~ "$75,000-$99,999",
+      HINCP_adj < 125000 & HINCP_adj >= 100000 ~ "$100,000-$124,999",
+      HINCP_adj < 150000 & HINCP_adj >= 125000 ~ "$125,000-$149,999",
+      HINCP_adj < 200000 & HINCP_adj >= 150000 ~ "$150,000-$199,999",
+      HINCP_adj >= 200000 ~ ">=$200,000",
+      .default = "Check"
+    ),
+    # High Income Group Stratification
+    income.5 = case_when(
+      HINCP_adj < 25000 ~ "<$25,000",
+      HINCP_adj < 50000 & HINCP_adj >= 25000 ~ "$25,000-$49,999",
+      HINCP_adj < 75000 & HINCP_adj >= 50000 ~ "$50,000-$74,999",
+      HINCP_adj < 100000 & HINCP_adj >= 75000 ~ "$75,000-$99,999",
+      HINCP_adj < 125000 & HINCP_adj >= 100000 ~ "$100,000-$124,999",
+      HINCP_adj < 150000 & HINCP_adj >= 125000 ~ "$125,000-$149,999",
+      HINCP_adj < 175000 & HINCP_adj >= 150000 ~ "$150,000-$174,999",
+      HINCP_adj < 200000 & HINCP_adj >= 175000 ~ "$175,000-$199,999",
+      HINCP_adj < 225000 & HINCP_adj >= 200000 ~ "$200,000-$224,999",
+      HINCP_adj < 250000 & HINCP_adj >= 225000 ~ "$225,000-$249,999",
+      HINCP_adj < 275000 & HINCP_adj >= 250000 ~ "$250,000-$274,999",
+      HINCP_adj < 300000 & HINCP_adj >= 275000 ~ "$275,000-$299,999",
+      HINCP_adj < 400000 & HINCP_adj >= 300000 ~ "$300,000-$399,999",
+      HINCP_adj < 500000 & HINCP_adj >= 400000 ~ "$400,000-$499,999",
+      HINCP_adj >= 500000 ~ ">=$500,000",
+      .default = "Check"
+    ),
     # Generate ten-year age groupings
     # ageCAT4 is the 2020 decennial census age breaks for age of householder - used for 2020 base year control total reweighter targets
     ageCAT4 = case_when(
@@ -223,36 +289,78 @@ pums_cleaned <- pums_test |>
       RELSHIPP == 34 ~ 1,
       RELSHIPP != 34 ~ 0,
       .default = 0
+    ),
+    # Determine if case counts as child
+    child = case_when(
+      AGEP < 18 ~ 1,
+      AGEP >= 18 ~ 0
+      )
+  ) |> 
+  # Generating Household Aggregations Variables
+  group_by(SERIALNO) |> 
+  mutate(
+    # Total number of workers in a household
+    Worker_Total = sum(worker),
+    # Total number of children in a household (irrespective of relationship to householder)
+    Child_Total = sum(child)
+  ) |> 
+  ungroup() |> 
+  mutate(
+    # Categorizing households by presence of workers:
+    # (0) no workers
+    # (1) one worker
+    # (2) two workers
+    # (3) three or more workers
+    WRKHH = case_when(
+      Worker_Total == 0 ~ 0,
+      Worker_Total == 1 ~ 1,
+      Worker_Total == 2 ~ 2,
+      Worker_Total >= 3 ~ 3
+      ),
+    # Determine what type of household the person is heading or not heading:
+    # (1) Householder with children in the household,
+    # (2) Non-householder with children in the household
+    # (3) Householder with no children in the household
+    # (4) Non-householder with no children in the household
+    # (5) Household living alone
+    HHtype = case_when(
+      Child_Total >= 1 & NP > 1 & SPORDER == 1 ~ 1,
+      Child_Total >= 1 & NP > 1 & SPORDER != 1 ~ 2,
+      Child_Total == 0 & NP > 1 & SPORDER == 1 ~ 3,
+      Child_Total == 0 & NP > 1 & SPORDER != 1 ~ 4,
+      NP == 1 & SPORDER == 1 ~ 5,
+      .default = 99
     )
   )
-
 
 # Check if we've created any NA values unintentionally.
 print(sapply(X = pums_cleaned, FUN =  function(x) sum(is.na(x))))
 ```
 
 # 2.0 Household Type Analysis
+# 2.1 Analyze Additional Household Type Crosstabs
+```{r}
+# Roommates
 
+# Related Subfamilies
+
+# Grandparents with Children
+
+# Single Parents
+
+# Same-sex Households
+```
+
+# 2.2 Understand How Household Types Relate to the Housing Units they Occupy
 ```{r}
 ```
 
 # 3.0 Income Distribution Analysis
 
-# 3.1 Evaluation of Census Income Thresholds
-
+# 3.1 Distribution Households by Different Income Categories
 ```{r}
 # Standard Urbansim Income Thresholds
-income.1 <- pums_cleaned |>
-  mutate(
-    income.1 = case_when(
-      HINCP_adj <= 35000 ~ "<=$35,000",
-      HINCP_adj > 35000 & HINCP_adj <= 75000 ~ "$35,001-$75,000",
-      HINCP_adj > 75000 & HINCP_adj <= 125000 ~ "$75,001-$125,000",
-      HINCP_adj > 125000 & HINCP_adj <= 225000 ~ "$125,001-$225,000",
-      HINCP_adj > 225000 ~ ">$225,000",
-      .default = "Check"
-    )
-  ) |> 
+income.1 <- pums_cleaned |> 
   group_by(income.1) |> 
   summarise(
     hhds = sum(WGTP)
@@ -265,18 +373,7 @@ income.1 <- pums_cleaned |>
 print(sum(income.1$hhds))
 
 # Census Income Groupings Type 1
-income.2 <- pums_cleaned |> 
-  mutate(
-    income.2 = case_when(
-      HINCP_adj < 20000 ~ "<$20,000",
-      HINCP_adj < 40000 & HINCP_adj >= 20000 ~ "$20,000-$39,999",
-      HINCP_adj < 60000 & HINCP_adj >= 40000 ~ "$40,000-$59,999",
-      HINCP_adj < 75000 & HINCP_adj >= 60000 ~ "$60,000-$74,999",
-      HINCP_adj < 100000 & HINCP_adj >= 75000 ~ "$75,000-$99,999",
-      HINCP_adj >= 100000 ~ ">=$100,000",
-      .default = "Check"
-    )
-  ) |> 
+income.2 <- pums_cleaned |>
   group_by(income.2) |> 
   summarise(
     hhds = sum(WGTP)
@@ -287,17 +384,7 @@ income.2 <- pums_cleaned |>
   )
 
 # Census Income Groupings Type 2
-income.3 <- pums_cleaned |>
-  mutate(
-    income.3 = case_when(
-      HINCP_adj < 15000 ~ "<$15,000",
-      HINCP_adj < 35000 & HINCP_adj >= 15000 ~ "$15,000-$34,999",
-      HINCP_adj < 75000 & HINCP_adj >= 35000 ~ "$35,000-$74,999",
-      HINCP_adj < 150000 & HINCP_adj >= 75000 ~ "$75,000-$149,999",
-      HINCP_adj >= 150000 ~ ">=$150,000",
-      .default = "Check"
-    )
-  ) |> 
+income.3 <- pums_cleaned |> 
   group_by(income.3) |> 
   summarise(
     hhds = sum(WGTP)
@@ -308,28 +395,7 @@ income.3 <- pums_cleaned |>
   )
 
 # Census Income Groupings Type 3
-income.4 <- pums_cleaned |> 
-  mutate(
-    income.4 = case_when(
-      HINCP_adj < 10000 ~ "<$10,000",
-      HINCP_adj < 15000 & HINCP_adj >= 10000 ~ "$10,000-$14,999",
-      HINCP_adj < 20000 & HINCP_adj >= 15000 ~ "$15,000-$19,999",
-      HINCP_adj < 25000 & HINCP_adj >= 20000 ~ "$20,000-$24,999",
-      HINCP_adj < 30000 & HINCP_adj >= 25000 ~ "$25,000-$29,999",
-      HINCP_adj < 35000 & HINCP_adj >= 30000 ~ "$30,000-$34,999",
-      HINCP_adj < 40000 & HINCP_adj >= 35000 ~ "$35,000-$39,999",
-      HINCP_adj < 45000 & HINCP_adj >= 40000 ~ "$40,000-$44,999",
-      HINCP_adj < 50000 & HINCP_adj >= 45000 ~ "$45,000-$49,999",
-      HINCP_adj < 60000 & HINCP_adj >= 50000 ~ "$50,000-$59,999",
-      HINCP_adj < 75000 & HINCP_adj >= 60000 ~ "$60,000-$74,999",
-      HINCP_adj < 100000 & HINCP_adj >= 75000 ~ "$75,000-$99,999",
-      HINCP_adj < 125000 & HINCP_adj >= 100000 ~ "$100,000-$124,999",
-      HINCP_adj < 150000 & HINCP_adj >= 125000 ~ "$125,000-$149,999",
-      HINCP_adj < 200000 & HINCP_adj >= 150000 ~ "$150,000-$199,999",
-      HINCP_adj >= 200000 ~ ">=$200,000",
-      .default = "Check"
-    )
-  ) |> 
+income.4 <- pums_cleaned |>  
   group_by(income.4) |> 
   summarise(
     hhds = sum(WGTP)
@@ -341,26 +407,6 @@ income.4 <- pums_cleaned |>
 
 # Brandon Thinks Its Important to know more about High Income Households 1\
 income.5 <- pums_cleaned |> 
-  mutate(
-    income.5 = case_when(
-      HINCP_adj < 25000 ~ "<$25,000",
-      HINCP_adj < 50000 & HINCP_adj >= 25000 ~ "$25,000-$49,999",
-      HINCP_adj < 75000 & HINCP_adj >= 50000 ~ "$50,000-$74,999",
-      HINCP_adj < 100000 & HINCP_adj >= 75000 ~ "$75,000-$99,999",
-      HINCP_adj < 125000 & HINCP_adj >= 100000 ~ "$100,000-$124,999",
-      HINCP_adj < 150000 & HINCP_adj >= 125000 ~ "$125,000-$149,999",
-      HINCP_adj < 175000 & HINCP_adj >= 150000 ~ "$150,000-$174,999",
-      HINCP_adj < 200000 & HINCP_adj >= 175000 ~ "$175,000-$199,999",
-      HINCP_adj < 225000 & HINCP_adj >= 200000 ~ "$200,000-$224,999",
-      HINCP_adj < 250000 & HINCP_adj >= 225000 ~ "$225,000-$249,999",
-      HINCP_adj < 275000 & HINCP_adj >= 250000 ~ "$250,000-$274,999",
-      HINCP_adj < 300000 & HINCP_adj >= 275000 ~ "$275,000-$299,999",
-      HINCP_adj < 400000 & HINCP_adj >= 300000 ~ "$300,000-$399,999",
-      HINCP_adj < 500000 & HINCP_adj >= 400000 ~ "$400,000-$499,999",
-      HINCP_adj >= 500000 ~ ">=$500,000",
-      .default = "Check"
-    )
-  ) |> 
   group_by(income.5) |> 
   summarise(
     hhds = sum(WGTP)
@@ -370,18 +416,101 @@ income.5 <- pums_cleaned |>
     prop_hhds = round((hhds/sum(hhds))*100, 1)
   )
 
-# Commentary
+# Commentary: Income Groups
+# Urbansim income groupings are relatively well balanced. Each of the five groups accounts for at most 24% and at least 17% of households in MA. The highest and lowest income groups represent 17 and 19 percent of households in MA while the middle income categories each represent 20 percent of households. Would it be useful to tweak the edges of some of the groups to further balance the distribution - attempt to achieve 20 percent in each?
+
+# Census Income groups type 1 show a balance in the low income groupings, about 10 percent in each grouping. Curious why they deviate from the $20k buckets in those middle income categories? More balanced with those $20k groupings (maximum deviation between highest and lowest bucket is 2.0 percentage points v. ~3 percentage points with the 15 and 25k groupings at the top end of the below 100k groups.) Doesn't account for potential vartiation in high household income groups (50 percent of households earn above 100k).
+
+# Distribution balance is poor. Only 8 percent of households earn less than $15k.High income categories not granular enough and carry outsized weight.
+
+# The 5K income groupings from 15K to $50K are decently balanced at ~2.5 percent of total households (with ~70k households in each bin). Below 15K we have nearly 200k households (~10 percent of households).
+
+# $100k-$200k ~ 28.5 percent (100-150 ~ 16 percent, 150-200 ~ 11 percent). $200k-$300K ~ 11 percent. $300+ about ~10 percent of households. 
+
+# Commentary: General
+# Do we want to align any of the income groups with federal or state cut offs for income assistance legislated by different programs (SNAP, RAFT, etc.)?
+
+# Income groups by household size? How far can that income actually go? Disposable income? Income spent on housing? 
   
 ```
 
 # 3.2 Income Group Spatial Distribution (By RPA)
 
 ```{r}
+# Standard Urbansim Income Thresholds
+income.1.geo <- pums_cleaned |> 
+  group_by(rpa_acr, income.1) |> 
+  summarise(
+    hhds = sum(WGTP)
+  ) |> 
+  ungroup() |> 
+  group_by(rpa_acr) |> 
+  mutate(
+    prop_hhds = round((hhds/sum(hhds))*100, 1)
+  ) |> 
+  ungroup()
+
+print(sum(income.1$hhds))
+
+# Census Income Groupings Type 1
+income.2.geo <- pums_cleaned |>
+  group_by(rpa_acr, income.2) |> 
+  summarise(
+    hhds = sum(WGTP)
+  ) |> 
+  ungroup() |> 
+  group_by(rpa_acr) |> 
+  mutate(
+    prop_hhds = round((hhds/sum(hhds))*100, 1)
+  ) |> 
+  ungroup()
+
+# Census Income Groupings Type 2
+income.3.geo <- pums_cleaned |> 
+  group_by(rpa_acr, income.3) |> 
+  summarise(
+    hhds = sum(WGTP)
+  ) |> 
+  ungroup() |> 
+  group_by(rpa_acr) |> 
+  mutate(
+    prop_hhds = round((hhds/sum(hhds))*100, 1)
+  ) |> 
+  ungroup()
+
+# Census Income Groupings Type 3
+income.4.geo <- pums_cleaned |>  
+  group_by(rpa_acr, income.4) |> 
+  summarise(
+    hhds = sum(WGTP)
+  ) |> 
+  ungroup() |> 
+  group_by(rpa_acr) |> 
+  mutate(
+    prop_hhds = round((hhds/sum(hhds))*100, 1)
+  ) |> 
+  ungroup()
+
+# Brandon Thinks Its Important to know more about High Income Households 1\
+income.5.geo <- pums_cleaned |> 
+  group_by(rpa_acr, income.5) |> 
+  summarise(
+    hhds = sum(WGTP)
+  ) |> 
+  ungroup() |> 
+  group_by(rpa_acr) |> 
+  mutate(
+    prop_hhds = round((hhds/sum(hhds))*100, 1)
+  ) |> 
+  ungroup()
+
+# Commentary
 ```
 
 # 3.3 Analysis of Income and Other Household Variables
 
 ```{r}
+# By Household Type
 ```
 
 # 4.0 Older Household Analysis
@@ -427,7 +556,7 @@ print (older65_dis_count/older65_count) #% of older adults that are disabled
 
 
 ```
-```{R}
+```{r}
 #In 2022, the federal poverty level for a single person was $13,590, and for a family of four it was $29,678 - BLS
 
 bpl_count <- count(filter(pums_cleaned, PINCP<= 13590))
