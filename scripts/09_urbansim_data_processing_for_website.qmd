@@ -1482,6 +1482,29 @@ ggsave(
 rm(graph)
 
 # Relative Percent Change (Line Graph)
+graph <-
+  sv.line.chart(
+    df = "emp.state",
+    x_var = "year",
+    y_var = "pct_diff.r",
+    x_label = "Year",
+    y_label = "Percent Change Relative to 2020 (%)",
+    custom_title = "Projected Percent Change in Employment",
+    geo = "Massachusetts"
+  )
+
+graph
+
+ggsave(
+  filename = paste0("emp_diff.jpeg"),
+  plot = get_last_plot(),
+  path = output_path,
+  width = 10,
+  dpi = 320,
+  bg = NULL
+)
+
+rm(graph)
 
 
 # Remove the NA or 0 variables that won't be presented in these charts
@@ -1494,8 +1517,8 @@ graph <-
     x_var = "year",
     y_var = "diff",
     x_label = "Year",
-    y_label = "Employment",
-    custom_title = "Projected Employment",
+    y_label = "Percent Change Relative to 2020 (%)",
+    custom_title = "Projected Percent Change in Employment",
     geo = "Massachusetts"
   )
 
@@ -1532,7 +1555,8 @@ ggsave(
   filename = paste0("emp_diff.r.jpeg"),
   plot = get_last_plot(),
   path = output_path,
-  width = 10,
+  width = 15,
+  height = 10,
   dpi = 320,
   bg = NULL
 )
