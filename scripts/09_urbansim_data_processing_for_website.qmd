@@ -846,12 +846,187 @@ emp <- readxl::read_xlsx(paste0(input.path, "LRTP2023_Municipal_Data_revised_202
 ```{r}
 # Population
 # State
+pop.state <- pop |> 
+  mutate(state = 1) |>
+  group_by(state) |> 
+  summarise(
+    HHPop_2020 = sum(HHPop_2020),
+    HHPop_2030 = sum(HHPop_2030),
+    HHPop_2040 = sum(HHPop_2040),
+    HHPop_2050 = sum(HHPop_2050),
+  ) |>
+  ungroup() |> 
+  dplyr::rename(
+    `2020` = HHPop_2020,
+    `2030` = HHPop_2030,
+    `2040` = HHPop_2040,
+    `2050` = HHPop_2050,
+  ) |> 
+  pivot_longer(
+    !state,
+    names_to = "year",
+    values_to = "pop"
+  ) |> 
+  select(-c(state)) |> 
+  mutate(
+    diff = pop - lag(pop),
+    diff.r = pop - first(pop),
+    pct_diff = round(((pop - lag(pop))/lag(pop))*100, 1),
+    pct_diff.r = round(((pop - first(pop))/first(pop))*100, 1)
+  )
 
 # RPA
+pop.rpa <- pop |>
+  group_by(RPA) |> 
+  summarise(
+    HHPop_2020 = sum(HHPop_2020),
+    HHPop_2030 = sum(HHPop_2030),
+    HHPop_2040 = sum(HHPop_2040),
+    HHPop_2050 = sum(HHPop_2050),
+  ) |>
+  ungroup() |> 
+  dplyr::rename(
+    `2020` = HHPop_2020,
+    `2030` = HHPop_2030,
+    `2040` = HHPop_2040,
+    `2050` = HHPop_2050,
+  ) |> 
+  pivot_longer(
+    !RPA,
+    names_to = "year",
+    values_to = "pop"
+  ) |>
+  group_by(RPA) |> 
+  mutate(
+    diff = pop - lag(pop),
+    diff.r = pop - first(pop),
+    pct_diff = round(((pop - lag(pop))/lag(pop))*100, 1),
+    pct_diff.r = round(((pop - first(pop))/first(pop))*100, 1)
+  ) |> 
+  ungroup()
 
 # Population by Age
+# State
+pop.age.state <- pop.age |> 
+  mutate(state = 1) |>
+  group_by(state, `Household Population Age Group`) |> 
+  summarise(
+    HHPop_2020 = sum(HHPop_2020),
+    HHPop_2030 = sum(HHPop_2030),
+    HHPop_2040 = sum(HHPop_2040),
+    HHPop_2050 = sum(HHPop_2050),
+  ) |>
+  ungroup() |> 
+  dplyr::rename(
+    `2020` = HHPop_2020,
+    `2030` = HHPop_2030,
+    `2040` = HHPop_2040,
+    `2050` = HHPop_2050,
+  ) |> 
+  pivot_longer(
+    !c(state, `Household Population Age Group`),
+    names_to = "year",
+    values_to = "pop"
+  ) |> 
+  select(-c(state)) |> 
+  group_by(`Household Population Age Group`) |> 
+  mutate(
+    diff = pop - lag(pop),
+    diff.r = pop - first(pop),
+    pct_diff = round(((pop - lag(pop))/lag(pop))*100, 1),
+    pct_diff.r = round(((pop - first(pop))/first(pop))*100, 1)
+  )
+
+# RPA
+pop.age.rpa <- pop.age |>
+  group_by(RPA, `Household Population Age Group`) |> 
+  summarise(
+    HHPop_2020 = sum(HHPop_2020),
+    HHPop_2030 = sum(HHPop_2030),
+    HHPop_2040 = sum(HHPop_2040),
+    HHPop_2050 = sum(HHPop_2050),
+  ) |>
+  ungroup() |> 
+  dplyr::rename(
+    `2020` = HHPop_2020,
+    `2030` = HHPop_2030,
+    `2040` = HHPop_2040,
+    `2050` = HHPop_2050,
+  ) |> 
+  pivot_longer(
+    !c(RPA, `Household Population Age Group`),
+    names_to = "year",
+    values_to = "pop"
+  ) |>
+  group_by(RPA, `Household Population Age Group`) |> 
+  mutate(
+    diff = pop - lag(pop),
+    diff.r = pop - first(pop),
+    pct_diff = round(((pop - lag(pop))/lag(pop))*100, 1),
+    pct_diff.r = round(((pop - first(pop))/first(pop))*100, 1)
+  ) |> 
+  ungroup()
 
 # Population Under 18
+# State
+pop.child.state <- pop.child |> 
+  mutate(state = 1) |>
+  group_by(state) |> 
+  summarise(
+    HHPop_2020 = sum(HHPop_2020),
+    HHPop_2030 = sum(HHPop_2030),
+    HHPop_2040 = sum(HHPop_2040),
+    HHPop_2050 = sum(HHPop_2050),
+  ) |>
+  ungroup() |> 
+  dplyr::rename(
+    `2020` = HHPop_2020,
+    `2030` = HHPop_2030,
+    `2040` = HHPop_2040,
+    `2050` = HHPop_2050,
+  ) |> 
+  pivot_longer(
+    !state,
+    names_to = "year",
+    values_to = "pop"
+  ) |> 
+  select(-c(state)) |> 
+  mutate(
+    diff = pop - lag(pop),
+    diff.r = pop - first(pop),
+    pct_diff = round(((pop - lag(pop))/lag(pop))*100, 1),
+    pct_diff.r = round(((pop - first(pop))/first(pop))*100, 1)
+  )
+
+# RPA
+pop.child.rpa <- pop.child |>
+  group_by(RPA) |> 
+  summarise(
+    HHPop_2020 = sum(HHPop_2020),
+    HHPop_2030 = sum(HHPop_2030),
+    HHPop_2040 = sum(HHPop_2040),
+    HHPop_2050 = sum(HHPop_2050),
+  ) |>
+  ungroup() |> 
+  dplyr::rename(
+    `2020` = HHPop_2020,
+    `2030` = HHPop_2030,
+    `2040` = HHPop_2040,
+    `2050` = HHPop_2050,
+  ) |> 
+  pivot_longer(
+    !RPA,
+    names_to = "year",
+    values_to = "pop"
+  ) |>
+  group_by(RPA) |> 
+  mutate(
+    diff = pop - lag(pop),
+    diff.r = pop - first(pop),
+    pct_diff = round(((pop - lag(pop))/lag(pop))*100, 1),
+    pct_diff.r = round(((pop - first(pop))/first(pop))*100, 1)
+  ) |> 
+  ungroup()
 
 # Households
 # State
@@ -873,15 +1048,16 @@ hh.state <- hhds.type |>
     `2050` = Households_2050,
   ) |> 
   pivot_longer(
-    !state,
+    !c(state),
     names_to = "year",
     values_to = "hh"
   ) |> 
-  select(-c(state)) |> 
+  select(-c(state)) |>
   mutate(
     diff = hh - lag(hh),
+    diff.r = hh - first(hh),
     pct_diff = round(((hh - lag(hh))/lag(hh))*100, 1),
-    pct_diff.r = round(((hh - first(hh))/first(hh))*100, 1),
+    pct_diff.r = round(((hh - first(hh))/first(hh))*100, 1)
   )
 
 # RPA
@@ -909,20 +1085,336 @@ hh.rpa <- hhds.type |>
   group_by(RPA) |> 
   mutate(
     diff = hh - lag(hh),
+    diff.r = hh - first(hh),
     pct_diff = round(((hh - lag(hh))/lag(hh))*100, 1),
-    pct_diff.r = round(((hh - first(hh))/first(hh))*100, 1),
+    pct_diff.r = round(((hh - first(hh))/first(hh))*100, 1)
   ) |> 
   ungroup()
 
 # Households by Type
+# State
+hh.type.state <- hhds.type |> 
+  mutate(state = 1) |> 
+  filter(`Household Type` != "Total Households") |> 
+  group_by(state, `Household Type`) |> 
+  summarise(
+    Households_2020 = sum(Households_2020),
+    Households_2030 = sum(Households_2030),
+    Households_2040 = sum(Households_2040),
+    Households_2050 = sum(Households_2050),
+  ) |>
+  ungroup() |> 
+  dplyr::rename(
+    `2020` = Households_2020,
+    `2030` = Households_2030,
+    `2040` = Households_2040,
+    `2050` = Households_2050,
+  ) |> 
+  pivot_longer(
+    !c(state, `Household Type`), 
+    names_to = "year",
+    values_to = "hh"
+  ) |> 
+  select(-c(state)) |> 
+  group_by(`Household Type`) |> 
+  mutate(
+    diff = hh - lag(hh),
+    diff.r = hh - first(hh),
+    pct_diff = round(((hh - lag(hh))/lag(hh))*100, 1),
+    pct_diff.r = round(((hh - first(hh))/first(hh))*100, 1)
+  ) |> 
+  ungroup()
+
+# RPA
+hh.type.rpa <- hhds.type |>
+  filter(`Household Type` != "Total Households") |> 
+  group_by(RPA, `Household Type`) |> 
+  summarise(
+    Households_2020 = sum(Households_2020),
+    Households_2030 = sum(Households_2030),
+    Households_2040 = sum(Households_2040),
+    Households_2050 = sum(Households_2050),
+  ) |>
+  ungroup() |> 
+  dplyr::rename(
+    `2020` = Households_2020,
+    `2030` = Households_2030,
+    `2040` = Households_2040,
+    `2050` = Households_2050,
+  ) |> 
+  pivot_longer(
+    !c(RPA,`Household Type`),
+    names_to = "year",
+    values_to = "hh"
+  ) |>
+  group_by(RPA, `Household Type`) |> 
+  mutate(
+    diff = hh - lag(hh),
+    diff.r = hh - first(hh),
+    pct_diff = round(((hh - lag(hh))/lag(hh))*100, 1),
+    pct_diff.r = round(((hh - first(hh))/first(hh))*100, 1)
+  ) |> 
+  ungroup()
 
 # Households by Age of Household
+# State
+hh.age.state <- hhds.age |> 
+  mutate(state = 1) |> 
+  filter(`Householder Age Group` != "Total Households") |> 
+  group_by(state, `Householder Age Group`) |> 
+  summarise(
+    Households_2020 = sum(Households_2020),
+    Households_2030 = sum(Households_2030),
+    Households_2040 = sum(Households_2040),
+    Households_2050 = sum(Households_2050),
+  ) |>
+  ungroup() |> 
+  dplyr::rename(
+    `2020` = Households_2020,
+    `2030` = Households_2030,
+    `2040` = Households_2040,
+    `2050` = Households_2050,
+  ) |> 
+  pivot_longer(
+    !c(state, `Householder Age Group`), 
+    names_to = "year",
+    values_to = "hh"
+  ) |> 
+  select(-c(state)) |> 
+  group_by(`Householder Age Group`) |> 
+  mutate(
+    diff = hh - lag(hh),
+    diff.r = hh - first(hh),
+    pct_diff = round(((hh - lag(hh))/lag(hh))*100, 1),
+    pct_diff.r = round(((hh - first(hh))/first(hh))*100, 1)
+  ) |> 
+  ungroup()
+
+# RPA
+hh.age.rpa <- hhds.age |>
+  filter(`Householder Age Group` != "Total Households") |> 
+  group_by(RPA, `Householder Age Group`) |> 
+  summarise(
+    Households_2020 = sum(Households_2020),
+    Households_2030 = sum(Households_2030),
+    Households_2040 = sum(Households_2040),
+    Households_2050 = sum(Households_2050),
+  ) |>
+  ungroup() |> 
+  dplyr::rename(
+    `2020` = Households_2020,
+    `2030` = Households_2030,
+    `2040` = Households_2040,
+    `2050` = Households_2050,
+  ) |> 
+  pivot_longer(
+    !c(RPA,`Householder Age Group`),
+    names_to = "year",
+    values_to = "hh"
+  ) |>
+  group_by(RPA, `Householder Age Group`) |> 
+  mutate(
+    diff = hh - lag(hh),
+    diff.r = hh - first(hh),
+    pct_diff = round(((hh - lag(hh))/lag(hh))*100, 1),
+    pct_diff.r = round(((hh - first(hh))/first(hh))*100, 1)
+  ) |> 
+  ungroup()
 
 # Households by Income Group
+# State
+hh.income.state <- hhds.income |> 
+  mutate(state = 1) |>
+  group_by(state, `Household Income Group`) |> 
+  summarise(
+    Households_2020 = sum(Households_2020),
+    Households_2030 = sum(Households_2030),
+    Households_2040 = sum(Households_2040),
+    Households_2050 = sum(Households_2050),
+  ) |>
+  ungroup() |> 
+  dplyr::rename(
+    `2020` = Households_2020,
+    `2030` = Households_2030,
+    `2040` = Households_2040,
+    `2050` = Households_2050,
+  ) |> 
+  pivot_longer(
+    !c(state, `Household Income Group`), 
+    names_to = "year",
+    values_to = "hh"
+  ) |> 
+  select(-c(state)) |> 
+  group_by(`Household Income Group`) |> 
+  mutate(
+    diff = hh - lag(hh),
+    diff.r = hh - first(hh),
+    pct_diff = round(((hh - lag(hh))/lag(hh))*100, 1),
+    pct_diff.r = round(((hh - first(hh))/first(hh))*100, 1)
+  ) |> 
+  ungroup()
+
+# RPA
+hh.income.rpa <- hhds.income |>
+  group_by(RPA, `Household Income Group`) |> 
+  summarise(
+    Households_2020 = sum(Households_2020),
+    Households_2030 = sum(Households_2030),
+    Households_2040 = sum(Households_2040),
+    Households_2050 = sum(Households_2050),
+  ) |>
+  ungroup() |> 
+  dplyr::rename(
+    `2020` = Households_2020,
+    `2030` = Households_2030,
+    `2040` = Households_2040,
+    `2050` = Households_2050,
+  ) |> 
+  pivot_longer(
+    !c(RPA,`Household Income Group`),
+    names_to = "year",
+    values_to = "hh"
+  ) |>
+  group_by(RPA, `Household Income Group`) |> 
+  mutate(
+    diff = hh - lag(hh),
+    diff.r = hh - first(hh),
+    pct_diff = round(((hh - lag(hh))/lag(hh))*100, 1),
+    pct_diff.r = round(((hh - first(hh))/first(hh))*100, 1)
+  ) |> 
+  ungroup()
 
 # Employment
+# State
+emp.state <- emp |> 
+  mutate(state = 1) |> 
+  filter(SuperSector == "Total Employment") |> 
+  group_by(state, SuperSector) |> 
+  summarise(
+    Employment_2020 = sum(Employment_2020),
+    Employment_2030 = sum(Employment_2030),
+    Employment_2040 = sum(Employment_2040),
+    Employment_2050 = sum(Employment_2050),
+  ) |>
+  ungroup() |> 
+  dplyr::rename(
+    `2020` = Employment_2020,
+    `2030` = Employment_2030,
+    `2040` = Employment_2040,
+    `2050` = Employment_2050,
+  ) |> 
+  pivot_longer(
+    !c(state, SuperSector), 
+    names_to = "year",
+    values_to = "emp"
+  ) |> 
+  select(-c(state)) |> 
+  group_by(SuperSector) |> 
+  mutate(
+    diff = emp - lag(emp),
+    diff.r = emp - first(emp),
+    pct_diff = round(((emp - lag(emp))/lag(emp))*100, 1),
+    pct_diff.r = round(((emp - first(emp))/first(emp))*100, 1)
+  ) |> 
+  ungroup()
+
+# RPA
+emp.rpa <- emp |>
+  filter(SuperSector == "Total Employment") |> 
+  dplyr::rename(RPA = rpa_acr) |> 
+  group_by(RPA, SuperSector) |> 
+  summarise(
+    Employment_2020 = sum(Employment_2020),
+    Employment_2030 = sum(Employment_2030),
+    Employment_2040 = sum(Employment_2040),
+    Employment_2050 = sum(Employment_2050),
+  ) |>
+  ungroup() |> 
+  dplyr::rename(
+    `2020` = Employment_2020,
+    `2030` = Employment_2030,
+    `2040` = Employment_2040,
+    `2050` = Employment_2050,
+  ) |> 
+  pivot_longer(
+    !c(RPA, SuperSector),
+    names_to = "year",
+    values_to = "emp"
+  ) |>
+  group_by(RPA, SuperSector) |> 
+  mutate(
+    diff = emp - lag(emp),
+    diff.r = emp - first(emp),
+    pct_diff = round(((emp - lag(emp))/lag(emp))*100, 1),
+    pct_diff.r = round(((emp - first(emp))/first(emp))*100, 1)
+  ) |> 
+  ungroup()
 
 # Employment by Supersector
+# State
+emp.ss.state <- emp |> 
+  mutate(state = 1) |> 
+  filter(SuperSector != "Total Employment") |> 
+  group_by(state, SuperSector) |> 
+  summarise(
+    Employment_2020 = sum(Employment_2020),
+    Employment_2030 = sum(Employment_2030),
+    Employment_2040 = sum(Employment_2040),
+    Employment_2050 = sum(Employment_2050),
+  ) |>
+  ungroup() |> 
+  dplyr::rename(
+    `2020` = Employment_2020,
+    `2030` = Employment_2030,
+    `2040` = Employment_2040,
+    `2050` = Employment_2050,
+  ) |> 
+  pivot_longer(
+    !c(state, SuperSector), 
+    names_to = "year",
+    values_to = "emp"
+  ) |> 
+  select(-c(state)) |> 
+  group_by(SuperSector) |> 
+  mutate(
+    diff = emp - lag(emp),
+    diff.r = emp - first(emp),
+    pct_diff = round(((emp - lag(emp))/lag(emp))*100, 1),
+    pct_diff.r = round(((emp - first(emp))/first(emp))*100, 1)
+  ) |> 
+  ungroup()
+
+# RPA
+emp.ss.rpa <- emp |>
+  filter(SuperSector != "Total Employment") |> 
+  dplyr::rename(RPA = rpa_acr) |> 
+  group_by(RPA, SuperSector) |> 
+  summarise(
+    Employment_2020 = sum(Employment_2020),
+    Employment_2030 = sum(Employment_2030),
+    Employment_2040 = sum(Employment_2040),
+    Employment_2050 = sum(Employment_2050),
+  ) |>
+  ungroup() |> 
+  dplyr::rename(
+    `2020` = Employment_2020,
+    `2030` = Employment_2030,
+    `2040` = Employment_2040,
+    `2050` = Employment_2050,
+  ) |> 
+  pivot_longer(
+    !c(RPA, SuperSector),
+    names_to = "year",
+    values_to = "emp"
+  ) |>
+  group_by(RPA, SuperSector) |> 
+  mutate(
+    diff = emp - lag(emp),
+    diff.r = emp - first(emp),
+    pct_diff = round(((emp - lag(emp))/lag(emp))*100, 1),
+    pct_diff.r = round(((emp - first(emp))/first(emp))*100, 1)
+  ) |> 
+  ungroup()
 ```
 
 # 5.3 - Level Demographic Components of Projected Households (Stacked Bar Charts)

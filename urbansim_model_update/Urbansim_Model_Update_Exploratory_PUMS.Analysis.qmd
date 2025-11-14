@@ -237,25 +237,25 @@ pums_cleaned <- pums |>
     worker = case_when(
       # (b) indicates a person under the age of 16.
       # (6) indicates someone not in the laborforce
-      (ESR == "b" | ESR == 6) ~ 0,
+      (ESR.x == "b" | ESR.x == 6) ~ 0,
       # (1) indicates an employed civilian at work.
       # (2) indicates an employed civilian with a job but not at work.
       # (3) indicates civilian who is unemployed.
       # (4) Indicates an employed person in the armed forces. 
       # (5) indicates an employed person in the armed forces with a job but not at work.      
-      (ESR == 1 | ESR == 2 | ESR == 3 | ESR == 4 | ESR == 5) ~ 1,
+      (ESR.x == 1 | ESR.x == 2 | ESR.x == 3 | ESR.x == 4 | ESR.x == 5) ~ 1,
       # When ESR is NA, default to not in the laborforce.
-      is.na(ESR) ~ 0,
+      is.na(ESR.x) ~ 0,
       # If no information is present default to not in the laborforce.
       .default = 0
     ),
     # Categorizing Civilian Labor Force or not
     # NOTE: Categories are (0) under 16 or non-civilian, (1) in labor force, (2) not in labor force
     lf = case_when(
-      ESR == "b" | ESR == 4 | ESR == 5  ~ 0,
-      ESR == 1 | ESR == 2 | ESR == 3  ~ 1,
-      ESR == 6 ~ 2,
-      is.na(ESR) ~ 0,
+      ESR.x == "b" | ESR.x == 4 | ESR.x == 5  ~ 0,
+      ESR.x == 1 | ESR.x == 2 | ESR.x == 3  ~ 1,
+      ESR.x == 6 ~ 2,
+      is.na(ESR.x) ~ 0,
       .default = 0
     ),
     # Categorizing full or part-time work
