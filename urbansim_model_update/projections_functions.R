@@ -113,7 +113,7 @@ sv.line.chart <- function(df, x_var, y_var, x_label, y_label, custom_title, geo)
       y = y_label,
       caption = "Source: MAPC Data Services - Research Division"
     ) +
-    scale_y_continuous(labels = scales::label_comma(), expand = expansion(mult = c(0, .1))) +
+    scale_y_continuous(labels = scales::label_comma(), limits = c(0,NA), expand = expansion(mult = c(0, .1))) +
     theme_bw() +
     theme(
       panel.background = element_blank(),

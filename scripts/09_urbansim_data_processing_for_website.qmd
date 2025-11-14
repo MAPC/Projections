@@ -840,6 +840,9 @@ hhds.income <- readxl::read_xlsx(paste0(input.path, "LRTP2023_Municipal_Data_rev
 # Employment
 emp <- readxl::read_xlsx(paste0(input.path, "LRTP2023_Municipal_Data_revised_20251105.xlsx"), sheet = 8)
 
+# Create RPA list
+rpa_list <- unique(pop$RPA)
+
 ```
 
 # 5.3 Data Cleaning for Visualizations
@@ -1496,16 +1499,16 @@ graph <-
 graph
 
 ggsave(
-  filename = paste0("emp_diff.jpeg"),
+  filename = paste0("emp_pct_diff.r.jpeg"),
   plot = get_last_plot(),
   path = output_path,
-  width = 10,
+    width = 15,
+  height = 10,
   dpi = 320,
   bg = NULL
 )
 
 rm(graph)
-
 
 # Remove the NA or 0 variables that won't be presented in these charts
 emp.state <- emp.state |> filter(across(everything(), ~!is.na(.x)))
@@ -1517,8 +1520,8 @@ graph <-
     x_var = "year",
     y_var = "diff",
     x_label = "Year",
-    y_label = "Percent Change Relative to 2020 (%)",
-    custom_title = "Projected Percent Change in Employment",
+    y_label = "Change in Employment",
+    custom_title = "Projected Y-o-Y Change in Employment",
     geo = "Massachusetts"
   )
 
@@ -1536,6 +1539,30 @@ ggsave(
 rm(graph)
 
 # Year-over-Year Percent Change (Line Graph)
+graph <-
+  sv.line.chart(
+    df = "emp.state",
+    x_var = "year",
+    y_var = "pct_diff",
+    x_label = "Year",
+    y_label = "Percent Change Relative to 2020 (%)",
+    custom_title = "Projected Percent Change in Employment",
+    geo = "Massachusetts"
+  )
+
+graph
+
+ggsave(
+  filename = paste0("emp_pct_diff.jpeg"),
+  plot = get_last_plot(),
+  path = output_path,
+    width = 15,
+  height = 10,
+  dpi = 320,
+  bg = NULL
+)
+
+rm(graph)
 
 # Cumulative Level Difference (Bar Chart)
 graph <-
@@ -1545,7 +1572,7 @@ graph <-
     y_var = "diff.r",
     x_label = "Year",
     y_label = "Employment",
-    custom_title = "Projected Employment",
+    custom_title = "Projected Change in Employment Relative to 2020",
     geo = "Massachusetts"
   )
 
@@ -1564,25 +1591,26 @@ ggsave(
 rm(graph)
 
 # RPA
+# Overall
 # Create a plot of total population for each RPA.
-for (r in RPA) {
+for (r in rpa_list) {
   # Create graph object for each RPA
-  tmp <- pop.bc.2 |> filter(RPA == r)
+  tmp <- emp.rpa |> filter(RPA == r)
   
   # Display graph object in the terminal.
   graph <- sv.bar.chart_(
     df = "tmp",
     x_var = "year",
-    y_var = "hh.population",
+    y_var = "emp",
     x_label = "Year",
-    y_label = "Population",
-    custom_title = "Projected Household Population",
+    y_label = "Employment",
+    custom_title = "Projected Employment",
     geo = r
   )
   
   # Save graph to disk.
   ggsave(
-    filename = paste0("pop_",r,".jpeg"),
+    filename = paste0("emp_overall.",r,".jpeg"),
     plot = get_last_plot(),
     path = output_path,
     width = 10,
@@ -1594,7 +1622,7 @@ for (r in RPA) {
   rm(tmp, graph)
   
   # Print statement
-  print(paste0("Population bar chart for ", r, " saved on disk!"))
+  print(paste0("Overall Employment bar chart for ", r, " saved on disk!"))
   
 }
 
