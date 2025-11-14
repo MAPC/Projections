@@ -58,13 +58,14 @@ sv.bar.chart_ <- function(df, x_var, y_var, x_label, y_label, custom_title, geo)
   
 }
 
-# Multi-Variable Stacked Bar Charts
 
-mv.bar.chart_ <- function(df, x_var, y_var, group_var, x_label, y_label, group_label, custom_title, geo){
+# Multi-Variable Bar Charts
+
+mv.bar.chart_ <- function(df, x_var, y_var, group_var, x_label, y_label, group_label, custom_title, geo, stacked){
   
   graph <- ggplot(data = get(df), aes(fill = get(group_var), x = get(x_var), y = get(y_var))) +
     geom_col(
-      position = "stack",
+      position = stacked,
       stat = "identity",
       width = .5,
       # fill = group_var,
