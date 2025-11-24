@@ -1,0 +1,383 @@
+---
+title: "Employment Data Review"
+format: html
+editor: visual
+---
+
+#1 - Setup
+
+```{r, setup, include=FALSE}
+
+# devtools::install_git("https://github.com/hrbrmstr/lodes.git")
+
+pacman::p_load(
+  writexl,
+  sf,
+  data.table,
+  tidycensus,
+  mapcdatakeys,
+  janitor,
+  collapse,
+  tidyverse
+)
+
+
+# root <- 'K:/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/'
+
+root <- 'S:/Network Shares/K Drive/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/Employment_data_comparison/'
+
+sun <- function(x){
+  sort(unique(x))}
+lun <- function(x){
+  length(unique(x))}
+sna <- function(x){
+  sort(names(x))}
+
+# List of RPA names
+mpos <- mapcdatakeys::all_muni_data_keys |> pull(mpo) |> unique()
+
+# Munis by RPA/MPO
+munis <-
+  mapcdatakeys::all_muni_data_keys |> select(muni_id, muni_name, rpa_acr, mpo) |> setDT()
+
+blks <-
+  mapcdatakeys::geog_xw_2020 |> 
+  left_join(munis, by = c('muni_id','muni_name')) |> 
+  select(bl20_id, muni_id, muni_name, rpa_acr, mpo) |> 
+  mutate(bl20_id=as.character(bl20_id)) |> 
+  setDT()
+
+knitr::opts_knit$set(root.dir = root)
+
+```
+#2 - Load raw data
+
+```{r}
+
+txt_naics_xw<-data.table(naics2digit=c('23','61','62','52','53','92','51','44-45','71','72','31-33','11','21','81','99','54','55','56','22','42','48-49'),superNAICS=c(1,2,2,3,3,4,5,6,6,6,7,8,8,8,8,9,9,9,10,10,10))
+setkey(txt_naics_xw,naics2digit)
+
+alt_naics_xw<-data.table(naics2digit=c(23,61,62,52,53,92,51,44,45,71,72,31,32,33,11,21,81,99,54,55,56,22,42,48,49),superNAICS=c(1,2,2,3,3,4,5,6,6,6,6,7,7,7,8,8,8,8,9,9,9,10,10,10,10))
+setkey(alt_naics_xw,naics2digit)
+
+# State totals from ES-202
+s19 <- fread(paste0(root,'ES202/es202_state_employment_2019.csv')) |> 
+  filter(NAICS %in% txt_naics_xw$naics2digit) |> 
+  left_join(txt_naics_xw, by=c('NAICS'='naics2digit')) |> 
+  group_by(superNAICS) |> 
+  summarise(emp = sum(avgemp, na.rm=T)) |> 
+  mutate(year=2019) |> 
+   pivot_wider(
+    id_cols = c('year'),
+    values_from = 'emp',
+    names_prefix = 'est202_',
+    names_from = 'superNAICS'
+  ) |>
+  setDT()
+
+s20 <- fread(paste0(root,'ES202/es202_state_employment_2020.csv')) |> 
+  filter(NAICS %in% txt_naics_xw$naics2digit) |> 
+  left_join(txt_naics_xw, by=c('NAICS'='naics2digit')) |> 
+  group_by(superNAICS) |> 
+  summarise(emp = sum(avgemp, na.rm=T)) |> 
+  mutate(year=2020) |> 
+   pivot_wider(
+    id_cols = c('year'),
+    values_from = 'emp',
+    names_prefix = 'est202_',
+    names_from = 'superNAICS'
+  ) |>
+  setDT()
+
+s21 <- fread(paste0(root,'ES202/es202_state_employment_2021.csv')) |> 
+  filter(NAICS %in% txt_naics_xw$naics2digit) |> 
+  left_join(txt_naics_xw, by=c('NAICS'='naics2digit')) |> 
+  group_by(superNAICS) |> 
+  summarise(emp = sum(avgemp, na.rm=T)) |> 
+  mutate(year=2021) |> 
+   pivot_wider(
+    id_cols = c('year'),
+    values_from = 'emp',
+    names_prefix = 'est202_',
+    names_from = 'superNAICS'
+  ) |>
+  setDT()
+
+s22 <- fread(paste0(root,'ES202/es202_state_employment_2022.csv')) |> 
+  filter(NAICS %in% txt_naics_xw$naics2digit) |> 
+  left_join(txt_naics_xw, by=c('NAICS'='naics2digit')) |> 
+  group_by(superNAICS) |> 
+  summarise(emp = sum(avgemp, na.rm=T)) |> 
+  mutate(year=2022) |> 
+   pivot_wider(
+    id_cols = c('year'),
+    values_from = 'emp',
+    names_prefix = 'est202_',
+    names_from = 'superNAICS'
+  ) |>
+  setDT()
+
+s23 <- fread(paste0(root,'ES202/es202_state_employment_2023.csv')) |> 
+  filter(NAICS %in% txt_naics_xw$naics2digit) |> 
+  left_join(txt_naics_xw, by=c('NAICS'='naics2digit')) |> 
+  group_by(superNAICS) |> 
+  summarise(emp = sum(avgemp, na.rm=T)) |> 
+  mutate(year=2023) |> 
+   pivot_wider(
+    id_cols = c('year'),
+    values_from = 'emp',
+    names_prefix = 'est202_',
+    names_from = 'superNAICS'
+  ) |>
+  setDT()
+
+s24 <- fread(paste0(root,'ES202/es202_state_employment_2024.csv')) |> 
+  filter(NAICS %in% txt_naics_xw$naics2digit) |> 
+  left_join(txt_naics_xw, by=c('NAICS'='naics2digit')) |> 
+  group_by(superNAICS) |> 
+  summarise(emp = sum(avgemp, na.rm=T)) |> 
+  mutate(year=2024) |> 
+   pivot_wider(
+    id_cols = c('year'),
+    values_from = 'emp',
+    names_prefix = 'est202_',
+    names_from = 'superNAICS'
+  ) 
+
+st.es <-
+  rbind(s19,s20,s21,s22,s23,s24,fill=T) |> 
+  setorder(year) |> 
+  rowwise() |> 
+  mutate(est202_total = sum(c_across(starts_with("est")), na.rm = T)) |> 
+  ungroup() |> 
+  setDT() |> 
+  setkey(year)
+
+# ES-202 Municipal Data
+es19 <- readxl::read_xlsx(paste0(root,'ES202/2019townindEMPwagesbytownallown.xlsx')) |> 
+  select(areaname,indcode,naicstitle,avgemp) |> 
+  filter(indcode %in% txt_naics_xw$naics2digit) |> 
+  left_join(txt_naics_xw, by=c('indcode'='naics2digit')) |> 
+  group_by(areaname,superNAICS) |> 
+  summarise(es2019 = sum(avgemp)) |> 
+  ungroup()
+
+es20 <- readxl::read_xlsx(paste0(root,'ES202/2020townindEMPwagesbytownallown.xlsx')) |> 
+  select(areaname,indcode,naicstitle,avgemp) |> 
+  filter(indcode %in% txt_naics_xw$naics2digit) |> 
+  left_join(txt_naics_xw, by=c('indcode'='naics2digit')) |> 
+  group_by(areaname,superNAICS) |> 
+  summarise(es2020 = sum(avgemp)) |> 
+  ungroup() |> 
+  full_join(es19, by=c('areaname','superNAICS'))
+
+es21 <- readxl::read_xlsx(paste0(root,'ES202/2021townindEMPwagesbytownallown.xlsx')) |> 
+  select(areaname,indcode,naicstitle,avgemp) |> 
+  filter(indcode %in% txt_naics_xw$naics2digit) |> 
+  left_join(txt_naics_xw, by=c('indcode'='naics2digit')) |> 
+  group_by(areaname,superNAICS) |> 
+  summarise(es2021 = sum(avgemp)) |> 
+  ungroup() |> 
+  full_join(es20, by=c('areaname','superNAICS'))
+
+es22 <- readxl::read_xlsx(paste0(root,'ES202/2022townindEMPwagesbytownallown.xlsx')) |> 
+  select(areaname,indcode,naicstitle,avgemp) |> 
+  filter(indcode %in% txt_naics_xw$naics2digit) |> 
+  left_join(txt_naics_xw, by=c('indcode'='naics2digit')) |> 
+  group_by(areaname,superNAICS) |> 
+  summarise(es2022 = sum(avgemp)) |> 
+  ungroup() |> 
+  full_join(es21, by=c('areaname','superNAICS'))
+
+es23 <- readxl::read_xlsx(paste0(root,'ES202/2023townindEMPwagesbytownallown.xlsx')) |> 
+  select(areaname,indcode,naicstitle,avgemp) |> 
+  filter(indcode %in% txt_naics_xw$naics2digit) |> 
+  left_join(txt_naics_xw, by=c('indcode'='naics2digit')) |> 
+  group_by(areaname,superNAICS) |> 
+  summarise(es2023 = sum(avgemp)) |> 
+  ungroup() |> 
+  full_join(es22, by=c('areaname','superNAICS'))
+
+es202 <- readxl::read_xlsx(paste0(root, 'ES202/2024townindEMPwagesbytownallown.xlsx')) |>
+  select(areaname, indcode, naicstitle, avgemp) |>
+  filter(indcode %in% txt_naics_xw$naics2digit) |>
+  left_join(txt_naics_xw, by = c('indcode' = 'naics2digit')) |>
+  group_by(areaname, superNAICS) |>
+  summarise(es2024 = sum(avgemp)) |>
+  ungroup() |>
+  full_join(es23, by = c('areaname', 'superNAICS')) |>
+  pivot_longer(
+    cols = c('es2019', 'es2020', 'es2021', 'es2022', 'es2023', 'es2024'),
+    names_to = 'year'
+  ) |>
+  mutate(year = as.numeric(gsub('es', '', year))) |>
+  pivot_wider(
+    id_cols = c('areaname', 'year'),
+    values_from = 'value',
+    names_prefix = 'es202_',
+    names_from = 'superNAICS'
+  ) |>
+  relocate(es202_4, .before = es202_5) |>
+  rename(muni_name=areaname) |> 
+  mutate(
+    es202_4 = case_when(
+    is.na(es202_4) ~ 0, .default = es202_4),
+    muni_name = case_when(
+      muni_name=="Manchester-by-the- Sea" ~ 'Manchester-by-the-Sea',
+      muni_name=='Attleborough' ~ 'Attleboro',
+      .default=muni_name)
+    ) |>
+  left_join(munis, by='muni_name') |> 
+  select(-rpa_acr,-mpo) |> 
+  relocate(c(muni_id,muni_name), .after = year) |> 
+  rowwise() |> 
+  mutate(es202_total = sum(c_across(starts_with("es202")), na.rm = T)) |> 
+  ungroup() |> 
+  setDT() |> 
+  setkey(year,muni_id,muni_name)
+
+
+# Import LODES WAC data
+lodes19 <- fread(paste0(root,'LODES/ma_wac_S000_JT00_2019.csv')) |> 
+  mutate(year=2019)
+lodes20 <- fread(paste0(root,'LODES/ma_wac_S000_JT00_2020.csv')) |> 
+  mutate(year=2020)
+lodes21 <- fread(paste0(root,'LODES/ma_wac_S000_JT00_2021.csv')) |> 
+  mutate(year=2021)
+lodes22 <- fread(paste0(root,'LODES/ma_wac_S000_JT00_2022.csv')) |> 
+  mutate(year=2022)
+
+lodes <- rbind(lodes19,lodes20,lodes21,lodes22, fill=T) |> 
+  mutate(
+    bl20_id = as.character(w_geocode),
+    emp_1 = CNS04,
+    emp_2 = CNS15+CNS16,
+    emp_3 = CNS10+CNS11,
+    emp_4 = CNS20,
+    emp_5 = CNS09,
+    emp_6 = CNS07+CNS17+CNS18,
+    emp_7 = CNS05,
+    emp_8 = CNS01+CNS02+CNS19,
+    emp_9 = CNS12+CNS13+CNS14,
+    emp_10 = CNS03+CNS06+CNS08
+  ) |> 
+  select(year,bl20_id,emp_1,emp_2,emp_3,emp_4,emp_5,emp_6,emp_7,emp_8,emp_9,emp_10) |> 
+  left_join(blks, by='bl20_id') |> 
+  setDT()
+
+mlodes <- lodes |>
+  group_by(year, muni_id, muni_name) |>
+  summarise(
+    lodes_1 = sum(emp_1, na.rm = T),
+    lodes_2 = sum(emp_2, na.rm = T),
+    lodes_3 = sum(emp_3, na.rm = T),
+    lodes_4 = sum(emp_4, na.rm = T),
+    lodes_5 = sum(emp_5, na.rm = T),
+    lodes_6 = sum(emp_6, na.rm = T),
+    lodes_7 = sum(emp_7, na.rm = T),
+    lodes_8 = sum(emp_8, na.rm = T),
+    lodes_9 = sum(emp_9, na.rm = T),
+    lodes_10 = sum(emp_10, na.rm = T),
+  ) |>
+  rowwise() |> 
+  mutate(lodes_total = sum(c_across(starts_with("lodes")), na.rm = T)) |> 
+  ungroup() |> 
+  setDT() |> 
+  setkey(year,muni_id,muni_name)
+
+
+# Data Axle / Infogroup data (only available for 2019, 2021, 2023, and 2025)
+
+daxle19 <- fread(paste0(root,'Dataaxle/adjusted_dataaxle_employment_2019.csv')) |> 
+  select(muni_id, muni_name, superNAICS, dataaxle_adjusted_emp_2019) |> 
+  group_by(muni_id,muni_name,superNAICS) |> 
+  summarise(emp = sum(dataaxle_adjusted_emp_2019, na.rm=T)) |> 
+  mutate(year=2019) |>
+  pivot_wider(
+    id_cols = c('year','muni_id', 'muni_name'),
+    values_from = 'emp',
+    names_prefix = 'da_',
+    names_from = 'superNAICS'
+  ) |>
+  rowwise() |> 
+  mutate(da_total = sum(c_across(starts_with("da")), na.rm = T)) |> 
+  ungroup() |> 
+  setDT()
+
+msf <- muni_sf(2020)
+
+daxle21 <- fread(paste0(root,'Dataaxle/dataaxle_2021_revised.csv')) |> 
+  select(superNAICS,locemp_2021,latitude,longitude) |> 
+  st_as_sf(coords=c('longitude','latitude'), crs=4326) |>
+  st_transform(crs = st_crs(msf)) |> 
+  st_intersection(msf) |> 
+  setDT() |> 
+  group_by(muni_id,muni_name,superNAICS) |>
+  summarize(emp=sum(locemp_2021,na.rm=T)) |> 
+  mutate(year=2021) |> 
+  pivot_wider(
+    id_cols = c('year', 'muni_id', 'muni_name'),
+    values_from = 'emp',
+    names_prefix = 'da_',
+    names_from = 'superNAICS'
+  ) |>
+  rowwise() |> 
+  mutate(da_total = sum(c_across(starts_with("da")), na.rm = T)) |> 
+  ungroup() |> 
+  setDT()
+
+
+daxle23 <- fread(paste0(root,'Dataaxle/dataaxle_2023_revised.csv')) |> 
+  select(superNAICS,locemp_2023,latitude,longitude) |> 
+  st_as_sf(coords=c('longitude','latitude'), crs=4326) |>
+  st_transform(crs = st_crs(msf)) |> 
+  st_intersection(msf) |> 
+  setDT() |> 
+  group_by(muni_id,muni_name,superNAICS) |>
+  summarize(emp=sum(locemp_2023,na.rm=T)) |> 
+  mutate(year=2023) |> 
+  filter(!is.na(superNAICS)) |> 
+  pivot_wider(
+    id_cols = c('year', 'muni_id', 'muni_name'),
+    values_from = 'emp',
+    names_prefix = 'da_',
+    names_from = 'superNAICS'
+  ) |>
+  rowwise() |> 
+  mutate(da_total = sum(c_across(starts_with("da")), na.rm = T)) |> 
+  ungroup() |> 
+  setDT()
+
+daxle25 <- readRDS(paste0(root,'Dataaxle/dataaxle_2025_clean.rds')) |> 
+  select(muni_id, muni_name, primary_naics_code_id, locemp_2025) |> 
+  mutate(naics2digit = as.numeric(substr(primary_naics_code_id,1,2))) |> 
+  left_join(alt_naics_xw, by=c('naics2digit')) |> 
+  group_by(muni_id,muni_name,superNAICS) |> 
+  summarize(emp=sum(locemp_2025, na.rm=T)) |> 
+  mutate(year=2025) |>
+  pivot_wider(
+    id_cols = c('year', 'muni_id', 'muni_name'),
+    values_from = 'emp',
+    names_prefix = 'da_',
+    names_from = 'superNAICS'
+  ) |>
+  rowwise() |> 
+  mutate(da_total = sum(c_across(starts_with("da")), na.rm = T)) |> 
+  ungroup() |> 
+  setDT()
+  
+da <- rbind(daxle19, daxle21, daxle23, fill=T) |> 
+  setDT() |> 
+  setkey(year,muni_id,muni_name)
+
+
+comp <- full_join(es202, da, by=c('year','muni_id','muni_name')) |> 
+  left_join(mlodes, by=c('year','muni_id','muni_name')) |> 
+  left_join(st.es, by= 'year') |> 
+  left_join(munis, by=c('muni_id','muni_name')) |> 
+  relocate(c(rpa_acr,mpo), .after=muni_name) |> 
+  relocate(c(es202_total,lodes_total,da_total,est202_total), .after = mpo) |> 
+  setDT()
+
+
+```
