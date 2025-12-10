@@ -32,13 +32,15 @@ lun <- function(x){
   length(unique(x))}
 sna <- function(x){
   sort(names(x))}
+`%nin%` = Negate(`%in%`)
 
 # List of RPA names
 mpos <- mapcdatakeys::all_muni_data_keys |> pull(mpo) |> unique()
 
 # Munis by RPA/MPO
 munis <-
-  mapcdatakeys::all_muni_data_keys |> select(muni_id, muni_name, rpa_acr, mpo) |> setDT()
+  mapcdatakeys::all_muni_data_keys |> select(muni_id, muni_name, rpa_acr, mpo) |> setDT() |> 
+  setkey(muni_id,muni_name)
 
 blks <-
   mapcdatakeys::geog_xw_2020 |> 
@@ -47,18 +49,19 @@ blks <-
   mutate(bl20_id=as.character(bl20_id)) |> 
   setDT()
 
-knitr::opts_knit$set(root.dir = root)
-
-```
-#2 - Load raw data
-
-```{r}
-
+# NAICS 2-digit code to superNAICS crosswalks
 txt_naics_xw<-data.table(naics2digit=c('23','61','62','52','53','92','51','44-45','71','72','31-33','11','21','81','99','54','55','56','22','42','48-49'),superNAICS=c(1,2,2,3,3,4,5,6,6,6,7,8,8,8,8,9,9,9,10,10,10))
 setkey(txt_naics_xw,naics2digit)
 
 alt_naics_xw<-data.table(naics2digit=c(23,61,62,52,53,92,51,44,45,71,72,31,32,33,11,21,81,99,54,55,56,22,42,48,49),superNAICS=c(1,2,2,3,3,4,5,6,6,6,6,7,7,7,8,8,8,8,9,9,9,10,10,10,10))
 setkey(alt_naics_xw,naics2digit)
+
+knitr::opts_knit$set(root.dir = root)
+
+```
+#2 - Load ES-202
+
+```{r}
 
 # State totals from ES-202
 s19 <- fread(paste0(root,'ES202/es202_state_employment_2019.csv')) |> 
@@ -236,7 +239,11 @@ es202 <- readxl::read_xlsx(paste0(root, 'ES202/2024townindEMPwagesbytownallown.x
   setDT() |> 
   setkey(year,muni_id,muni_name)
 
+```
 
+#3 - Load LODES
+
+```{r}
 # Import LODES WAC data
 lodes19 <- fread(paste0(root,'LODES/ma_wac_S000_JT00_2019.csv')) |> 
   mutate(year=2019)
@@ -285,6 +292,11 @@ mlodes <- lodes |>
   setDT() |> 
   setkey(year,muni_id,muni_name)
 
+```
+
+#4 - Load DataAxle
+
+```{r}
 
 # Data Axle / Infogroup data (only available for 2019, 2021, 2023, and 2025)
 
@@ -349,6 +361,18 @@ daxle23 <- fread(paste0(root,'Dataaxle/dataaxle_2023_revised.csv')) |>
   setDT()
 
 daxle25 <- readRDS(paste0(root,'Dataaxle/dataaxle_2025_clean.rds')) |> 
+  select(-geometry) |> 
+  mutate(locemp_2025 = case_when(
+    is.na(location_employee_count) & !is.na(estimated_location_employee_count) ~ estimated_location_employee_count,
+    is.na(location_employee_count) & is.na(estimated_location_employee_count) & !is.na(corporate_employee_count) & corporate_employee_count <=100 ~ corporate_employee_count,
+    is.na(location_employee_count) & is.na(estimated_location_employee_count) & is.na(corporate_employee_count) & !is.na(estimated_corporate_employee_count) & estimated_corporate_employee_count <=100 ~ estimated_corporate_employee_count,
+    .default = location_employee_count)
+    ) |> 
+  mutate(bl20_id = case_when(
+    infogroup_id==781208615 & bl20_id!='250214134022004' ~ '250214134022004',
+    .default=bl20_id
+  )) |> 
+  unique() |> 
   select(muni_id, muni_name, primary_naics_code_id, locemp_2025) |> 
   mutate(naics2digit = as.numeric(substr(primary_naics_code_id,1,2))) |> 
   left_join(alt_naics_xw, by=c('naics2digit')) |> 
@@ -366,18 +390,38 @@ daxle25 <- readRDS(paste0(root,'Dataaxle/dataaxle_2025_clean.rds')) |>
   ungroup() |> 
   setDT()
   
-da <- rbind(daxle19, daxle21, daxle23, fill=T) |> 
+da <- rbind(daxle19, daxle21, daxle23, daxle25, fill=T) |> 
   setDT() |> 
-  setkey(year,muni_id,muni_name)
+  setkey(year,muni_id,muni_name) |> 
+  mutate(da_total = da_1+da_2+da_3+da_4+da_5+da_6+da_7+da_8+da_9+da_10)
 
+```
 
-comp <- full_join(es202, da, by=c('year','muni_id','muni_name')) |> 
-  left_join(mlodes, by=c('year','muni_id','muni_name')) |> 
-  left_join(st.es, by= 'year') |> 
-  left_join(munis, by=c('muni_id','muni_name')) |> 
+#5 - Comparison
+
+```{r}
+
+comp <- merge.data.table(da,es202,all=T)
+comp <- merge.data.table(comp,mlodes,all=T)
+setkey(comp,year)
+comp <- st.es[comp]
+setkey(comp,muni_id,muni_name)
+comp <- munis[comp]
+
+comp <- comp |> 
   relocate(c(rpa_acr,mpo), .after=muni_name) |> 
   relocate(c(es202_total,lodes_total,da_total,est202_total), .after = mpo) |> 
   setDT()
+setorder(comp,year,muni_id)
 
+comp[is.na(comp)] <- 0
+clist <- c('es202_total', 'lodes_total', 'da_total', paste0('es202_',1:10), paste0('lodes_',1:10),  paste0('da_',1:10))
+
+tots <- comp[,lapply(.SD,sum,na.rm=T),year,.SDcols=(clist)]
+setkey(tots, year)
+tots <- st.es[tots]
+
+fwrite(comp, paste0(root, 'muni_employment_comparison.csv'))
+fwrite(tots, paste0(root, 'state_employment_comparison.csv'))
 
 ```
