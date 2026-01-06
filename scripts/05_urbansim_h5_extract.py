@@ -6,7 +6,7 @@ import h5py
 # set working directory
 
 #Most recent MAPC Model run
-run = 'run_214'
+run = 'run_215'
 
 #Most recent SWM run
 # run = 'state_run_118'
@@ -25,7 +25,7 @@ os.chdir('/mnt/s/Network Shares/K Drive/DataServices/Projects/Current_Projects/P
 #Years in the H5 file
 #years = ['2010','2019','2029','2034']
 #years = ['2019','2029','2034','2039','2044','2049']
-years = ['2010','2014','2024']
+years = ['2023']
 for yr in years:
         if not os.path.exists(yr):
             os.makedirs(yr)

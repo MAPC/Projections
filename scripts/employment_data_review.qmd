@@ -392,8 +392,28 @@ daxle25 <- readRDS(paste0(root,'Dataaxle/dataaxle_2025_clean.rds')) |>
   
 da <- rbind(daxle19, daxle21, daxle23, daxle25, fill=T) |> 
   setDT() |> 
-  setkey(year,muni_id,muni_name) |> 
-  mutate(da_total = da_1+da_2+da_3+da_4+da_5+da_6+da_7+da_8+da_9+da_10)
+  setkey(year,muni_id,muni_name)
+
+da[is.na(da)] <- 0
+da[,da_total := da_1+da_2+da_3+da_4+da_5+da_6+da_7+da_8+da_9+da_10]
+
+
+daw <- pivot_wider(da, id_cols=c('muni_id','muni_name'), names_from=year, values_from = 4:14)
+
+daw.chk <-  daw |> 
+  mutate(
+    s1_23_25 = da_1_2023 - da_1_2025,
+    s2_23_25 = da_2_2023 - da_2_2025,
+    s3_23_25 = da_3_2023 - da_3_2025,
+    s4_23_25 = da_4_2023 - da_4_2025,
+    s5_23_25 = da_5_2023 - da_5_2025,
+    s6_23_25 = da_6_2023 - da_6_2025,
+    s7_23_25 = da_7_2023 - da_7_2025,
+    s8_23_25 = da_8_2023 - da_8_2025,
+    s9_23_25 = da_9_2023 - da_9_2025,
+    s10_23_25 = da_10_2023 - da_10_2025,
+    tot_23_25 = da_total_2023 - da_total_2025,
+  )
 
 ```
 

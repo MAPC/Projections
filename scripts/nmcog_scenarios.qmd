@@ -1,0 +1,120 @@
+---
+title: "NMCOG_scenarios"
+author: "Conor Gately"
+format: html
+editor: source
+---
+
+## 1 - Setup
+
+```{r}
+
+library(data.table)
+library(tidycensus)
+library(mapcdatakeys)
+library(tidyverse)
+library(sf)
+
+# root <- 'K:/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/UrbanSim_Outputs/'
+r1 <- 'S:/Network Shares/K Drive/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/UrbanSim_Outputs/'
+
+r2 <- 'S:/Network Shares/K Drive/DataServices/Projects/Current_Projects/Projections/Projections_2023/'
+
+project <- 'NMCOG_scenarios'
+proj.dir <- paste0(r2,'Associated_Projects/', project, '/')
+
+sp.dir <- paste0(proj.dir,'Spatial/')
+tab.dir <- paste0(proj.dir,'Tabular/')
+
+dir.create(proj.dir, showWarnings = F)
+dir.create(sp.dir, showWarnings = F)
+dir.create(tab.dir, showWarnings = F)
+
+SWM_run = 'state_run_120'
+
+sun <- function(x){
+  sort(unique(x))}
+lun <- function(x){
+  length(unique(x))}
+sna <- function(x){
+  sort(names(x))}
+
+# List of RPA names
+mpos <- unlist(c(mapcdatakeys::all_muni_data_keys |> select(mpo) |> unique()))
+
+# Munis by RPA/MPO
+munis <-
+  mapcdatakeys::all_muni_data_keys |> select(muni_id, rpa_acr, mpo) |> setDT()
+
+nonmapc <- munis[mpo!='MAPC']
+# 2010 Blocks / Munis / RPA / MPO
+blks <-
+  mapcdatakeys::geog_xw_2010 |> left_join(munis, by = 'muni_id') |> select(bl10_id, muni_id, muni_name, rpa_acr, mpo) |> setDT()
+
+knitr::opts_knit$set(root.dir = r1)
+
+```
+
+## 2 - Existing zoning constraints
+
+```{r}
+
+bsf <- block_sf(2010)
+gpkg <- paste0(sp.dir,'nmcog.gpkg')
+
+for (yr in c(2019, 2024, 2034)) {
+  dt <- fread(paste0(
+    r1,
+    SWM_run,
+    '/results_mapc_',
+    SWM_run,
+    '_block_indicators_',yr,'.csv'
+  )) |> select(
+    block_id,
+    muni_id,
+    residential_unit_capacity,
+    total_residential_units,
+    vacant_residential_units,
+    ru_vacancy_rate,
+    total_households,
+    density_households,
+    unavailable_units,
+    acres
+  ) |>
+    mutate(
+      year = case_when(yr == 2019 ~ 2019, 
+                       yr == 2024 ~ 2025, 
+                       yr == 2034 ~ 2035),
+      bl10_id = as.character(block_id),
+      residential_unit_capacity = round(residential_unit_capacity),
+      cap_pct = round(100 * total_residential_units / residential_unit_capacity, 2)
+    ) |>
+    mutate(cap_pct = case_when(is.infinite(cap_pct) ~ 100, 
+                               is.na(cap_pct) ~ 0,
+                               .default = cap_pct)) |>
+    left_join(munis, by = 'muni_id') |>
+    filter(rpa_acr == 'NMCOG') |>
+    left_join(bsf, by = 'bl10_id') |> 
+    rename(muni_id = muni_id.x) |> 
+    select(-muni_id.y,-block_id)
+  
+  st_write(dt, dsn = gpkg, layer = paste0('nmcog_block_developed_capacities_',yr))
+}
+
+msf <- muni_sf(2020) |> 
+  filter(muni_id %in% dt$muni_id)
+st_write(msf, paste0(sp.dir,'nmcog_munis.shp'), append=F)
+
+```
+
+#3 - New zoning layers
+
+```{r}
+
+# 968 square feet per job is the UrbanSim conversion rate when loading in new zoning shapefiles
+
+# shapefile format for upload to old model platform is:
+
+# oid(int)  |  id(int)  |  max_dua (dbl)  | max_far (dbl)  | zoning (chr)
+
+```

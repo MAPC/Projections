@@ -4,7 +4,7 @@ format: html
 editor: visual
 ---
 
-# 0.0 Setup - Define helper functions, set knitr path, load necessary packages, set muni data keys
+# v0.0 Setup - Define helper functions, set knitr path, load necessary packages, set muni data keys
 
 # 0.1 - Set knitr path + root for inputs
 
@@ -121,7 +121,7 @@ GEOID.cn.20 <- mapcdatakeys::all_muni_data_keys |>
 
 ```{r}
 # Bring in helper functions
-source(here('scripts/control_totals/Projections.Functions.R'))
+source(here('scripts/Projections.Functions.R'))
 
 ```
 

@@ -4,7 +4,7 @@ format: html
 editor: visual
 ---
 
-# 1 - Setup
+# s1 - Setup
 
 ```{r, setup, include=FALSE}
 
@@ -102,10 +102,10 @@ comp.path <- paste0(root,'Run_Comparisons/')
 # years=c(2014)
 
 # # REVISED TDM23.2.1 for Projections Website
-MAPCM_run='run_214'
-SWM_run='state_run_116'
-ctps_run='run_116-214'
-years=c(2024)
+# MAPCM_run='run_214'
+# SWM_run='state_run_116'
+# ctps_run='run_116-214'
+# years=c(2024)
 
 # # REVISED TDM23.2.1 for Projections Website
 # MAPCM_run='run_213'
@@ -119,6 +119,11 @@ years=c(2024)
 # ctps_run='run_117-213'
 # years=c(2044)
 
+# # REVISED TDM23.2.0 for AECOM 2024
+MAPCM_run='run_215'
+SWM_run='state_run_118'
+ctps_run='run_118-215'
+years=2023
 
 # set run for script
 run = MAPCM_run

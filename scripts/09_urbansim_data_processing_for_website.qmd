@@ -846,6 +846,7 @@ rpa_list <- unique(pop$RPA)
 ```
 
 # 5.3 Data Cleaning for Visualizations
+
 ```{r}
 # Population
 # State
@@ -1419,8 +1420,11 @@ emp.ss.rpa <- emp |>
   ) |> 
   ungroup()
 ```
+
 # 5.4 Visualizations
+
 # 5.4.1 Population
+
 ```{r}
 # Overall
 # State
@@ -1600,6 +1604,7 @@ for (r in rpa_list) {
 ```
 
 # 5.4.2 Households
+
 ```{r}
 # Overall Households
 # State
@@ -1784,6 +1789,7 @@ for (r in rpa_list) {
 ```
 
 # 5.4.3 Employment
+
 ```{r}
 # Overall Employment
 # State
