@@ -1,0 +1,3527 @@
+---
+title: "RPA_Reweighter"
+format: html
+editor: visual
+project: execute-dir: project
+---
+
+## RPA Reweighter
+
+This set of scripts runs the household reweighter to produce reweighted PUMS data that satisfies household targets set by the user.
+
+# 1 - Set Scenario Name, knitr path, and root directory, load packages
+
+```{r, setup, include=FALSE}
+
+pacman::p_load(
+  tidyverse,
+  tidycensus,
+  mapcdatakeys,
+  janitor,
+  readxl,
+  rjson,
+  stringr,
+  data.table,
+  here
+)
+# Set Scenario name
+
+scen <- 'Scenario_1'
+# scen <- 'Scenario_2'
+# scen <- 'Scenario_3'
+# scen <- 'Scenario_4'
+
+# Set ACS / PUMS vintage
+vintage <-  2021
+
+#Headship rate Scenario
+if (scen == 'Scenario_1'){
+  hdshp <- 'acs1721'
+}
+if (scen != 'Scenario_1'){
+  hdshp <- 'scen2'
+}
+# Set MAPC at 101 or 97 towns
+reb <- 'MAPC101'
+# reb <- 'MAPC97'
+
+# List of RPA names
+mpos <- unlist(c(mapcdatakeys::all_muni_data_keys |> select(mpo) |> unique()))
+
+# Root Directory
+root <- 'S:/Network Shares/K Drive/DataServices/Projects/'
+# root <- 'K:/DataServices/Projects/'
+
+umdi.path <- paste0(root, 'Current_Projects/Housing/StatewideHousingPlan/04_Analysis/Data/Working/Regional_Control_Totals/UMDI/', scen, '/')
+
+if(scen %in% c('Scenario_2', 'Scenario_3', 'Scenario_4')){
+ctrltotal.path <- paste0(root, 'Current_Projects/Housing/StatewideHousingPlan/04_Analysis/Data/Working/Regional_Control_Totals/', scen, '/UPDATE/')
+} else { ctrltotal.path <- paste0(root, 'Current_Projects/Housing/StatewideHousingPlan/04_Analysis/Data/Working/Regional_Control_Totals/', scen, '/')
+}
+
+workpath <- paste0(root, 'Current_Projects/Housing/StatewideHousingPlan/04_Analysis/Data/Working/Reweighter/')
+
+deliv_path <- paste0(root,'Current_Projects/Housing/StatewideHousingPlan/04_Analysis/Data/Final_Outputs/',scen,'/UPDATE_w_shelter2/')
+dir.create(deliv_path, showWarnings = F)
+
+input_path <- paste0(workpath, scen, '/Input_Files_UPDATE/') 
+output_path <- paste0(workpath, scen, '/Output_Files_UPDATE/') 
+
+# Subfolders for RPA inputs and outputs
+dir.create(input_path, showWarnings = F)
+dir.create(output_path, showWarnings = F)
+
+  for (m in mpos) {
+    dir.create(paste0(input_path, m), showWarnings = F)
+    dir.create(paste0(output_path, m), showWarnings = F)
+  }
+
+#Set knitr path
+#knitr::opts_knit$set(root.dir = workpath)
+
+## turn off scientific notation
+options(scipen = 999)
+#Set random seed
+set.seed(351)
+# Helper function
+sun <- function(x){sort(unique(x))}
+lun <- function(x){length(unique(x))}
+
+```
+
+# 2 - Subset PUMS data for each RPA
+
+Formatted PUMS data is created by the *create_regional_control_totals.qmd* in section 6.2
+
+# 2.1 - Scenario 1
+
+```{r}
+if(scen=='Scenario_1') {
+  pums_data <- fread(paste0(workpath, 'PUMS_data/PUMS', vintage, '_formatted.csv')) |> filter(TYPEHUGQ == "1") |>
+    mutate(AgeCat = ageCAT6)
+  
+  mapc.pumas <- pums_data[rpa_acr == 'MAPC', unique(PUMA)]
+  swm.pumas <- pums_data[rpa_acr != 'MAPC', .(rpa_acr, PUMA)] |>
+    unique()
+  # MAPC 101 subset
+  fwrite(
+    pums_data[PUMA %in% mapc.pumas],
+    paste0(
+      workpath,
+      scen,
+      '/Input_Files/MAPC/PUMS2021_',
+      scen,
+      '_MAPC.csv'
+    )
+  )
+  message(paste0('MAPC 101 PUMS export complete ', yr))
+  # SWM join PUMA and export subsets
+  for (m in unique(swm.pumas$rpa_acr)) {
+    pums_data |>
+      filter(rpa_acr == m) |>
+      fwrite(
+        paste0(
+          workpath,
+          scen,
+          '/Input_Files/',
+          m,
+          '/PUMS2021_',
+          scen,
+          '_',
+          m,
+          '.csv'
+        )
+      )
+    message(paste0(m, ' PUMS export complete ', yr))
+  }
+}
+```
+
+# 2.2 - Scenario 2/3/4
+
+```{r}
+if(scen %in% c('Scenario_2', 'Scenario_3', 'Scenario_4')) {
+  
+  # We keep the base ACS 17-21 headship rates and PUMS subset from Scenario 1 for the year 2025, but applied to the Scenario 2/3/4 populations from UMDI. Adjusted headship rates and PUMS subsets are used only for year 2030 and after
+  for (yr in 2025){
+    pums_data <- fread(paste0(workpath, 'PUMS_data/PUMS', vintage, '_formatted.csv')) |> filter(TYPEHUGQ == "1") |>
+    mutate(AgeCat = ageCAT6)
+  for (m in mpos) {
+    dir.create(paste0(input_path, m), showWarnings = F)
+    dir.create(paste0(output_path, m), showWarnings = F)
+  }
+  mapc.pumas <- pums_data[rpa_acr == 'MAPC', unique(PUMA)]
+  swm.pumas <- pums_data[rpa_acr != 'MAPC', .(rpa_acr, PUMA)] |>
+    unique()
+  # MAPC 101 subset
+  fwrite(
+    pums_data[PUMA %in% mapc.pumas],
+    paste0(
+      input_path,'MAPC/PUMS2021_',
+      scen,
+      '_MAPC_',
+      yr,
+      '.csv'
+    )
+  )
+  message(paste0('MAPC 101 PUMS export complete ', yr))
+  # SWM join PUMA and export subsets
+  for (m in unique(swm.pumas$rpa_acr)) {
+    pums_data |>
+      filter(rpa_acr == m) |>
+      fwrite(
+        paste0(
+          input_path,
+          m,
+          '/PUMS2021_',
+          scen,
+          '_',
+          m,
+          '_',
+          yr,
+          '.csv'
+        )
+      )
+    message(paste0(m, ' PUMS export complete ', yr))
+  }
+  }
+  
+  for (yr in seq(2030, 2050, 5)) {
+    x2 <- fread(paste0(workpath, 'PUMS_data/PUMA10_RPA_crosswalk.csv')) |> 
+      mutate(PUMA = as.numeric(PUMA))
+    pums_data <- fread(paste0(workpath, 'PUMS_data/PUMS2021_Scenario_2_', yr, '.csv')) |>
+      left_join(x2, by = c('PUMA')) |>
+      filter(TYPEHUGQ == "1") |>
+      mutate(AgeCat = ageCAT6)
+    pums_data[!is.na(SPORDER.adj), SPORDER := SPORDER.adj]
+    pums_data[!is.na(HHtype.adj), HHtype := HHtype.adj]
+    pums_data[!is.na(SERIALNO.adj), SERIALNO := SERIALNO.adj]
+
+    mapc.pumas <- pums_data[rpa_acr == 'MAPC', unique(PUMA)]
+    swm.pumas <- pums_data[rpa_acr != 'MAPC', .(rpa_acr, PUMA)] |>
+      unique()
+    
+    # MAPC 101 subset
+    fwrite(
+      pums_data[PUMA %in% mapc.pumas],
+      paste0(
+        input_path,'MAPC/PUMS2021_',
+        scen,
+        '_MAPC_',
+        yr,
+        '.csv'
+      )
+    )
+    message(paste0('MAPC 101 PUMS export complete ', yr))
+    
+    # SWM join PUMA and export subsets
+    for (m in unique(swm.pumas$rpa_acr)) {
+      pums_data |>
+        filter(rpa_acr == m) |>
+        fwrite(
+          paste0(
+            input_path,
+            m,
+            '/PUMS2021_',
+            scen,
+            '_',
+            m,
+            '_',
+            yr,
+            '.csv'
+          )
+        )
+      message(paste0(m, ' PUMS export complete ', yr))
+    }
+  }
+}
+```
+
+# 3 - Create RPA config JSON files for reweighter configuration
+
+```{r}
+
+# Template config file
+infile1 <- paste0(workpath, 'Templates/reweighting_config_2021.json')
+
+infile2 <- paste0(workpath, 'Templates/reweighting_config_2020baseyear.json')
+
+for (m in mpos){
+  outfile1 <- paste0(input_path, m, '/reweighting_config_2021_', m, '.json')
+  outfile2 <- paste0(input_path, m, '/reweighting_config_2020baseyear_', m, '.json')
+  cfig1 = readLines(infile1)
+  cfig1 = gsub('PUMS2021', paste0('PUMS2021_', m), cfig1)
+  writeLines(cfig1, outfile1)
+  cfig2 = readLines(infile2)
+  cfig2 = gsub('PUMS2021', paste0('PUMS2021_', m), cfig2)
+  writeLines(cfig2, outfile2)
+}
+
+```
+
+# 4 - Configure, set targets and run reweighter for each RPA and year
+
+# 4.1 - Scenario 1
+
+```{r}
+
+#
+source('algo_hh.R')
+
+# Set Targets and run reweighter loop
+
+# Different configuration for 2020 base year
+if (scen == 'Scenario_1') {
+  for (yr in c(2020)) {
+    #for (mid in c('MAPC')) {
+    for (mid in mpos) {
+      # Set config files
+      inpath <- paste0(input_path, mid, '/')
+      
+      source(here('scripts/reweighter/read_config_RPA_2020baseyear.R'))
+      message(paste0(mid, ' configuration complete'))
+      
+      outpath <- paste0(output_path, mid, '/')
+      age.target <- fread(
+        paste0(
+          ctrltotal.path,
+          'age.targetfile.',
+          reb,
+          '.',
+          scen,
+          '.hdshp.',
+          hdshp,
+          '.y',
+          yr,
+          '.csv'
+        )
+      ) |>
+        filter(RPA == mid) |>
+        select(-RPA) |> setDT()
+      setorder(age.target, ageCAT4)
+      fwrite(age.target, paste0(inpath, '/age.csv'))
+      
+      size.target <- fread(
+        paste0(
+          ctrltotal.path,
+          'size.targetfile.',
+          reb,
+          '.',
+          scen,
+          '.hdshp.',
+          hdshp,
+          '.y',
+          yr,
+          '.csv'
+        )
+      ) |>
+        filter(RPA == mid) |>
+        select(-RPA) |> setDT()
+      setorder(size.target, size)
+      fwrite(size.target, paste0(inpath, '/size.csv'))
+      
+      type.target <- fread(
+        paste0(
+          ctrltotal.path,
+          'type.targetfile.',
+          reb,
+          '.',
+          scen,
+          '.hdshp.',
+          hdshp,
+          '.y',
+          yr,
+          '.csv'
+        )
+      ) |>
+        filter(RPA == mid) |>
+        select(-RPA) |> setDT()
+      setorder(type.target, HHtype)
+      fwrite(type.target, paste0(inpath, '/type.csv'))
+      
+      message(paste0(mid, ' targets set'))
+      
+      pums <- fread(paste0(inpath, 'PUMS', vintage, '_', mid, '.csv'))
+      
+      source(here('scripts/reweighter/Manage_Scenario_RPA.R'))
+      message(paste0(mid, ' reweighter complete'))
+      
+      mess <- data.table(txt = paste0(mid, ' reweighter complete'))
+      fwrite(mess, paste0(outpath, mid, '_', yr, '_complete.txt'))
+    }
+  }
+  for (yr in c(2025, 2030, 2035, 2040, 2045, 2050)) {
+    for (mid in mpos) {
+      # Set config
+      inpath <- paste0(input_path, mid, '/')
+      source(here('scripts/reweighter/read_config_RPA.R'))
+      message(paste0(mid, ' configuration complete'))
+      
+      # Set targets
+      outpath <- paste0(output_path, mid, '/')
+      dir.create(outpath, showWarnings = F)
+      template <- fread(paste0(workpath, 'Templates/AgeHHder_HHtype_template.csv')) |>
+        select(-BASELINE, -TARGET)
+      target <- fread(
+        paste0(
+          ctrltotal.path,
+          'hhtype.targetfile.',
+          reb,
+          '.',
+          scen,
+          '.hdshp.',
+          hdshp,
+          '.y',
+          yr,
+          '.csv'
+        )
+      ) |>
+        filter(RPA == mid) |>
+        select(-RPA) |> right_join(template, by = c('AgeCat', 'HHtype')) |> setDT()
+      target[AgeCat %in% c('x == 1', 'x == 2', 'x == 3'), `:=`(BASELINE =
+                                                                 0,
+                                                               INTER = 0,
+                                                               TARGET = 0)]
+      target[is.na(BASELINE), `:=`(BASELINE = 0,
+                                   INTER = 0,
+                                   TARGET = 0)]
+      setorder(target, AgeCat, HHtype)
+      fwrite(target, paste0(inpath, '/AgeHHder_HHtype.csv'))
+      
+      template2 <- fread(paste0(workpath, 'Templates/age_tenure_template.csv'))
+      target2 <- fread(
+        paste0(
+          ctrltotal.path,
+          "tenure.targetfile.",
+          reb,
+          ".",
+          scen,
+          '.hdshp.',
+          hdshp,
+          ".y",
+          yr,
+          ".csv"
+        )
+      ) |>
+        filter(RPA == mid) |>
+        select(-RPA) |>
+        right_join(template2, by = c('AgeCat', 'tenure')) |>
+        setDT()
+      
+      target2[is.na(BASELINE), `:=`(BASELINE = 0,
+                                    INTER = 0,
+                                    TARGET = 0)]
+      setorder(target2, AgeCat, tenure)
+      fwrite(target2, paste0(inpath, '/age_tenure.csv'))
+      
+      message(paste0(mid, ' targets set'))
+      
+      pums <- fread(paste0(inpath, 'PUMS', vintage, '_', mid, '.csv'))
+      if (scen == 'Scenario_2') {
+        pums[, SPORDER := SPORDER.adj][, SERIALNO := SERIALNO.adj]
+      }
+      
+      source(here('scripts/reweighter/Manage_Scenario_RPA.R'))
+      message(paste0(mid, ' reweighter complete'))
+      
+      mess <- data.table(txt = paste0(mid, ' reweighter complete'))
+      fwrite(mess, paste0(outpath, mid, '_', yr, '_complete.txt'))
+    }
+  }
+}
+
+```
+
+# 4.2 - Scenario 2/3/4
+
+```{r}
+
+
+source('algo_hh.R')
+
+if (scen %in% c('Scenario_2', 'Scenario_3', 'Scenario_4')) {
+  for (yr in c(2030)) {
+  # for (yr in c(2025)) {
+  # for (yr in c(2035)) {
+  # for (yr in c(2050)) {
+    for (mid in mpos) {
+      infile1 <- paste0(workpath, 'Templates/reweighting_config_2021.json')
+      outfile1 <- paste0(
+        input_path,
+        mid,
+        '/reweighting_config_2021_',
+        mid,
+        '.json'
+      )
+      cfig1 = readLines(infile1)
+      cfig1 = gsub('PUMS2021.csv',
+                   paste0('PUMS2021_', scen, '_', mid, '_', yr, '.csv'),
+                   cfig1)
+      writeLines(cfig1, outfile1)
+      # Set config
+      inpath <- paste0(input_path, mid, '/')
+      source(here('scripts/reweighter/read_config_RPA.R'))
+      message(paste0(mid, ' configuration complete'))
+      
+      # Set targets
+      outpath <- paste0(output_path, mid, '/')
+      dir.create(outpath, showWarnings = F)
+      template <- fread(paste0(workpath, 'Templates/AgeHHder_HHtype_template.csv')) |>
+        select(-BASELINE, -TARGET)
+      target <- fread(
+        paste0(
+          ctrltotal.path,
+          'hhtype.targetfile.',
+          reb,
+          '.',
+          scen,
+          '.hdshp.',
+          hdshp,
+          '.y',
+          yr,
+          '.csv'
+        )
+      ) |>
+        filter(RPA == mid) |>
+        select(-RPA) |> right_join(template, by = c('AgeCat', 'HHtype')) |> setDT()
+      target[AgeCat %in% c('x == 1', 'x == 2', 'x == 3'), `:=`(BASELINE =
+                                                                 0,
+                                                               INTER = 0,
+                                                               TARGET = 0)]
+      target[is.na(BASELINE), `:=`(BASELINE = 0,
+                                   INTER = 0,
+                                   TARGET = 0)]
+      setorder(target, AgeCat, HHtype)
+      fwrite(target, paste0(inpath, '/AgeHHder_HHtype.csv'))
+      
+      template2 <- fread(paste0(workpath, 'Templates/age_tenure_template.csv'))
+      target2 <- fread(
+        paste0(
+          ctrltotal.path,
+          "tenure.targetfile.",
+          reb,
+          ".",
+          scen,
+          '.hdshp.',
+          hdshp,
+          ".y",
+          yr,
+          ".csv"
+        )
+      ) |>
+        filter(RPA == mid) |>
+        select(-RPA) |>
+        right_join(template2, by = c('AgeCat', 'tenure')) |>
+        setDT()
+      
+      target2[is.na(BASELINE), `:=`(BASELINE = 0,
+                                    INTER = 0,
+                                    TARGET = 0)]
+      setorder(target2, AgeCat, tenure)
+      fwrite(target2, paste0(inpath, '/age_tenure.csv'))
+      
+      message(paste0(mid, ' targets set'))
+      
+      pums <- fread(paste0(inpath, 'PUMS2021_', scen, '_', mid, '_', yr, '.csv'))
+
+      source(here('scripts/reweighter/Manage_Scenario_RPA.R'))
+      message(paste0(mid, ' reweighter complete'))
+      
+      mess <- data.table(txt = paste0(mid, ' reweighter complete'))
+      fwrite(mess, paste0(outpath, mid, '_', yr, '_complete.txt'))
+    }
+  }
+}
+
+```
+
+# 5 - Create reweighted PUMS files and QC the reweighter Outputs
+
+# 5.0 - Check that all years/RPAs successfully converged
+
+```{r}
+  
+log.comp <- c()
+for (mid in mpos) {
+  outpath <- paste0(output_path, mid, '/')
+  logs <- list.files(path = outpath, pattern ='logfile*')
+  for (f in logs){
+    df <- readLines(paste0(outpath,f))
+    log.comp <- c(log.comp, if (length(
+      grep("Maximum deviation from target stopping condition achieved", df)
+    ) != 0) {
+      print(paste0(f, ' success'))
+    } else if (length(grep("Maximum number of iterations reached", df)) !=
+               0) {
+      print(paste0(f, ' failed to converge'))
+    } else if (length(grep(
+      "No change in weights stopping condition met", df
+    )) != 0) {
+      print(paste0(f, ' no change in weights'))
+    })
+  }
+}
+fwrite(as.data.table(log.comp),paste0(output_path,'/reweighter_convergence_check.txt'))
+
+
+
+
+```
+
+# 5.1 - Scenario 1
+
+```{r}
+
+comp.dt <- data.table()
+if(scen=='Scenario_1'){
+for (yr in 2020){
+  for (mid in mpos) {
+    inpath <- paste0(workpath, scen, '/Input_Files/', mid, '/')
+    outpath <- paste0(workpath, scen, '/Output_Files/', mid, '/')
+    # Summarize total households by mpo from target inputs to reweighter
+    target <- fread(paste0(ctrltotal.path, 'type.targetfile.', reb, '.', scen, '.hdshp.', hdshp, '.y', yr, '.csv')) |>
+      filter(RPA == mid) |> setDT()
+    
+    tsum <- target[, lapply(.SD, sum), RPA, .SDcols = 'TARGET']
+    tsum[, TARGET := round(TARGET)][,year:=yr]
+    setnames(tsum, 'RPA', 'mpo')
+    setkey(tsum, mpo)
+    
+    # Calculate total households from the reweighter outputs
+    pums <- fread(paste0(inpath, 'PUMS', vintage, '_', mid, '.csv'))
+    setkey(pums, SERIALNO, SPORDER)
+
+    x <- fread(paste0(outpath, 'weights_final_', scen, '_', mid, '_', yr, '.csv')) |> select(SERIALNO, SPORDER, new_WGTP) |> mutate(mpo = mid) |> setDT()
+    setkey(x, SERIALNO, SPORDER)
+    xp <- pums[x]
+    fwrite(xp, paste0(outpath, '/reweighted_PUMS_', scen, '_', reb, '_', mid, '_', hdshp, '_', yr, '.csv'))
+    rw <- xp[SPORDER == 1, lapply(.SD, sum), .(mpo), .SDcols = c('WGTP', 'new_WGTP')]
+    rw[, rw_HH := round(new_WGTP)][, pums_baseline_hh := round(WGTP)]
+    setkey(rw, mpo)
+    comp <- tsum[rw]
+    comp.out <- comp[,.(year,mpo,pums_baseline_hh, TARGET,rw_HH)]
+    comp.out[,diff:= TARGET - rw_HH]
+    fwrite(comp.out,paste0(outpath,'reweighter_QC_', scen, '_', reb, '_', mid, '_', hdshp, '_', yr,' .csv'))
+    comp.dt <- rbind(comp.dt,comp.out)
+  }
+}
+for (yr in c(2025,2030,2035,2040,2045,2050)){
+  for (mid in mpos) {
+    inpath <- paste0(workpath, scen, '/Input_Files/', mid, '/')
+    outpath <- paste0(workpath, scen, '/Output_Files/', mid, '/')
+    # Summarize total households by mpo from target inputs to reweighter
+    target <- fread(paste0(ctrltotal.path, 'hhtype.targetfile.', reb, '.', scen, '.hdshp.', hdshp, '.y', yr, '.csv')) |>
+      filter(RPA == mid) |> setDT()
+    
+    tsum <- target[, lapply(.SD, sum), RPA, .SDcols = 'TARGET']
+    tsum[, TARGET := round(TARGET)][,year:=yr]
+    setnames(tsum, 'RPA', 'mpo')
+    setkey(tsum, mpo)
+    
+    # Calculate total households from the reweighter outputs
+    pums <- fread(paste0(inpath, 'PUMS', vintage, '_', mid, '.csv'))
+    setkey(pums, SERIALNO, SPORDER)
+
+    x <- fread(paste0(outpath, 'weights_final_', scen, '_', mid, '_', yr, '.csv')) |> select(SERIALNO, SPORDER, new_WGTP) |> mutate(mpo = mid) |> setDT()
+    setkey(x, SERIALNO, SPORDER)
+    xp <- pums[x]
+    fwrite(xp, paste0(outpath, '/reweighted_PUMS_', scen, '_', reb, '_', mid, '_', hdshp, '_', yr, '.csv'))
+    rw <- xp[SPORDER == 1, lapply(.SD, sum), .(mpo), .SDcols = c('WGTP', 'new_WGTP')]
+    rw[, rw_HH := round(new_WGTP)][, pums_baseline_hh := round(WGTP)]
+    setkey(rw, mpo)
+    comp <- tsum[rw]
+    comp.out <- comp[,.(year,mpo,pums_baseline_hh, TARGET,rw_HH)]
+    comp.out[,diff:= TARGET - rw_HH]
+    fwrite(comp.out,paste0(outpath,'reweighter_QC_', scen, '_', reb, '_', mid, '_', hdshp, '_', yr,' .csv'))
+    comp.dt <- rbind(comp.dt,comp.out)
+
+  }
+}
+
+fwrite(comp.dt,paste0(workpath, scen, '/Output_Files/reweighter_QC_all_RPAs_all_years_', scen, '_', hdshp,' .csv'))
+
+comp.dt[abs(diff)>1]
+}
+```
+
+# 5.2 - Scenario 2/3/4
+
+```{r}
+c0 <- data.table()
+comp.dt <- data.table()
+if(scen %in% c('Scenario_2','Scenario_3','Scenario_4')){
+for (yr in c(2020)){
+  for (mid in mpos) {
+    inpath <- paste0(input_path, mid, '/')
+    outpath <- paste0(output_path, mid, '/')
+    
+    # Use Scenario 1 outputs for 2020 
+    file.copy(paste0(workpath, 'Scenario_1/Output_Files_UPDATE/', mid, '/reweighted_PUMS_Scenario_1_', reb, '_', mid, '_acs1721_', yr, '.csv'),paste0(outpath, 'reweighted_PUMS_', scen, '_', reb, '_', mid, '_', hdshp, '_', yr, '.csv'), overwrite = T)
+  }
+}
+# 
+for (yr in c(2025)){
+  for (mid in mpos) {
+    inpath <- paste0(input_path, mid, '/')
+    outpath <- paste0(output_path, mid, '/')
+
+    # Use unaffected outputs for 2025
+    file.copy(paste0(workpath, scen, '/Output_Files/', mid, '/reweighted_PUMS_',scen,'_', reb, '_', mid, '_scen2_', yr, '.csv'),paste0(outpath, '/reweighted_PUMS_', scen, '_', reb, '_', mid, '_', hdshp, '_', yr, '.csv'), overwrite = T)
+  }
+}
+for (yr in c(2030,2035,2040,2045,2050)){
+#for (yr in c(2035)){
+  for (mid in mpos) {
+    inpath <- paste0(input_path, mid, '/')
+    outpath <- paste0(output_path, mid, '/')
+    
+    
+    # Calculate total households from the reweighter outputs
+  
+      pums <- fread(paste0(inpath, 'PUMS', vintage, '_', scen, '_', mid, '_', yr, '.csv'))
+    setkey(pums, SERIALNO, SPORDER)
+
+    x <- fread(paste0(outpath, 'weights_final_', scen, '_', mid, '_', yr, '.csv')) |> select(SERIALNO, SPORDER, new_WGTP) |> mutate(mpo = mid) |> setDT()
+    setkey(x, SERIALNO, SPORDER)
+    xp <- pums[x]
+    fwrite(xp, paste0(outpath, 'reweighted_PUMS_', scen, '_', reb, '_', mid, '_', hdshp, '_', yr, '.csv'))
+    rw <- xp[SPORDER == 1, lapply(.SD, sum), .(mpo), .SDcols = c('WGTP', 'new_WGTP')]
+    rw[, rw_HH := round(new_WGTP)][, pums_baseline_hh := round(WGTP)]
+    setkey(rw, mpo)
+    
+    r1 <- xp[SPORDER == 1, lapply(.SD, sum), .(mpo,AgeCat,HHtype), .SDcols = c('WGTP', 'new_WGTP')]
+    r1[, new_WGTP := round(new_WGTP)][, WGTP := round(WGTP)]
+    r1[,AgeCat:=paste0('x == ',AgeCat)]
+    r1[,HHtype:=paste0('x == ',HHtype)]
+    setkey(r1, mpo,AgeCat,HHtype)
+    # Summarize total households by mpo from target inputs to reweighter
+    target <- fread(paste0(ctrltotal.path, 'hhtype.targetfile.', reb, '.', scen, '.hdshp.', hdshp, '.y', yr, '.csv')) |>
+      filter(RPA == mid) |> rename(mpo=RPA) |> setDT()
+    setkey(target,mpo,AgeCat,HHtype)
+    
+    cc <- r1[target]
+    cc[,diff:=new_WGTP-TARGET]
+    
+    
+    tsum <- target[, lapply(.SD, sum), mpo, .SDcols = 'TARGET']
+    tsum[, TARGET := round(TARGET)][,year:=yr]
+    #setnames(tsum, 'RPA', 'mpo')
+    setkey(tsum, mpo)
+    
+    comp <- tsum[rw]
+    comp.out <- comp[,.(year,mpo,pums_baseline_hh, TARGET,rw_HH)]
+    comp.out[,diff:= TARGET - rw_HH]
+    fwrite(comp.out,paste0(outpath,'reweighter_QC_', scen, '_', reb, '_', mid, '_', hdshp, '_', yr,'.csv'))
+    comp.dt <- rbind(comp.dt,comp.out)
+    c0 <- rbind(c0,cc)
+  }
+}
+
+fwrite(comp.dt,paste0(output_path,'reweighter_QC_all_RPAs_all_years_', scen, '_', hdshp,'.csv'))
+fwrite(c0,paste0(output_path,'reweighter_QC_all_RPAs_by_AgeCat_HHtype_all_years_', scen, '_', hdshp,'.csv'))
+
+comp.dt[abs(diff)>1]
+c0[diff!=0]
+}
+```
+
+# 6 - Create summary tables of reweighted households
+
+```{r}
+
+for (yr in c(2020,2025,2030,2035,2040,2045,2050)){
+# for (yr in c(2040,2030)){
+# for (yr in c(2040,2045,2050)){
+  sw <- data.table()
+  for (mid in mpos){
+    inp <- paste0(output_path, mid, '/')
+    dt <- fread(paste0(inp, 'reweighted_PUMS_', scen, '_', reb, '_', mid, '_', hdshp, '_', yr, '.csv'))
+    dt[, year:=yr][,reb:=reb][,hdshp:=hdshp][,scen:=scen]
+    sw <- rbind(sw,dt)
+  }
+ fwrite(sw,paste0(output_path,'/reweighted_PUMS_', scen, '_', reb, '_', hdshp, '_', yr, '.csv'))
+ }
+```
+
+# 7 - Vacancy and Unit Demand post-model calculations
+
+# 7.1 - Scenario 1
+
+```{r}
+
+
+if (scen == 'Scenario_1') {
+  # Set residential vacancy rate targets
+  # Load in the actual 2020 unit counts and vacancy rates from Census 2020 DHC
+  
+  munis <- mapcdatakeys::all_muni_data_keys |>
+    select(muni_id, muni_name, cosub_cn20, cmtyp08, mapc, mpo, rpa_acr) |>
+    mutate(GEOID = as.character(cosub_cn20))
+  
+  vars <- load_variables(2020, 'dhc') |> setDT()
+  vs <- vars[grepl('VACANCY', concept), name]
+  ns <- vars[grepl('VACANCY', concept), gsub(':', '', gsub(' ', '_', (gsub(
+    ',', '', gsub(':!!', '_', (gsub(' !!', '', (
+      label
+    ))))
+  ))))]
+  
+  ten <- c('H10_002N', 'H10_010N') # Vacant owner-occupied units, Vacant renter-occupied units
+  
+  vs <- c('H1_001N', 'P20_001N', vs, ten)
+  
+  d1 <-
+    get_decennial(
+      year = 2020,
+      sumfile = 'dhc',
+      state = 'MA',
+      geography = 'county subdivision',
+      variables = vs
+    ) |>
+    pivot_wider(names_from = 'variable') |>
+    select(-NAME) |>
+    setDT()
+  setnames(
+    d1,
+    c(
+      'GEOID',
+      'total_units',
+      'total_households',
+      gsub('Total', 'Vacant', ns),
+      'own_occ_units',
+      'rent_occ_units'
+    )
+  )
+  
+  m2 <- munis |> select(GEOID, muni_id, muni_name, mpo, rpa_acr, cmtyp08)
+  dhc <- d1 |>
+    left_join(m2, by = 'GEOID') |>
+    filter(!is.na(muni_id)) |>
+    mutate(
+      total_available_units = total_households + Vacant_For_rent + Vacant_For_sale_only,
+      total_unavailable_units = total_units - total_available_units,
+      total_available_rental_units = Vacant_For_rent + rent_occ_units,
+      total_available_owner_units = Vacant_For_sale_only + own_occ_units,
+      rent_ratio = total_available_rental_units / total_available_units,
+      own_ratio = total_available_owner_units / total_available_units,
+      total_unavailable_rental_units = round(total_unavailable_units * rent_ratio),
+      total_unavailable_owner_units = round(total_unavailable_units * own_ratio),
+      total_rental_units = total_available_rental_units + total_unavailable_rental_units,
+      total_owner_units = total_available_owner_units + total_unavailable_owner_units,
+      total_available_vacant_units = Vacant_For_sale_only + Vacant_For_rent,
+      vac_rate_avail = round(total_available_vacant_units / total_available_units, 3),
+      rent_vac_rate_avail = round(Vacant_For_rent / total_available_rental_units, 3),
+      own_vac_rate_avail = round(Vacant_For_sale_only / total_available_owner_units, 3),
+      vac_rate_total = round(total_available_vacant_units / total_units, 3),
+      rent_vac_rate_total = round(Vacant_For_rent / total_rental_units, 3),
+      own_vac_rate_total = round(Vacant_For_sale_only / total_owner_units, 3)
+    ) |>
+    rename(
+      total_vacant_units = Vacant,
+      vacant_available_to_rent = Vacant_For_rent,
+      vacant_rented_not_occ = Vacant_Rented_not_occupied,
+      vacant_available_to_own = Vacant_For_sale_only,
+      vacant_sold_not_occ = Vacant_Sold_not_occupied,
+      vacant_seasonal = Vacant_For_seasonal_recreational_or_occasional_use,
+      vacant_migrant = Vacant_For_migrant_workers,
+      vacant_other = Vacant_Other_vacant
+    )
+  
+  cs <- c(
+    'total_units',
+    'total_households',
+    'total_vacant_units',
+    'total_available_units',
+    'total_available_vacant_units',
+    'own_occ_units',
+    'rent_occ_units',
+    'vacant_sold_not_occ',
+    'vacant_rented_not_occ',
+    'total_rental_units',
+    'total_owner_units',
+    'total_available_rental_units',
+    'vacant_available_to_rent',
+    'total_available_owner_units',
+    'vacant_available_to_own'
+  )
+  
+  
+  dsum101 <- dhc[, lapply(.SD, sum), rpa_acr, .SDcols = (cs)] |>
+    mutate(
+      vac_rate_avail = round(total_available_vacant_units / total_available_units, 3),
+      rent_vac_rate_avail = round(vacant_available_to_rent / total_available_rental_units, 3),
+      own_vac_rate_avail = round(vacant_available_to_own / total_available_owner_units, 3),
+      vac_rate_total = round(total_available_vacant_units / total_units, 3),
+      rent_vac_rate_total = round(vacant_available_to_rent / total_rental_units, 3),
+      own_vac_rate_total = round(vacant_available_to_own / total_owner_units, 3),
+      all_unit_rental_vac_rate = round(1 - (rent_occ_units / total_rental_units), 3),
+      all_unit_owner_vac_rate = round(1 - (own_occ_units / total_owner_units), 3)
+    )
+  fwrite(
+    dsum101,
+    paste0(
+      workpath,
+      'MAPC101_all_RPA_available_vacancy_rates_by_tenure.csv'
+    )
+  )
+  
+  vax <- dsum101[, .(
+    rpa_acr,
+    total_units,
+    total_households,
+    own_occ_units,
+    rent_occ_units,
+    total_owner_units,
+    total_available_owner_units,
+    vacant_available_to_own,
+    total_rental_units,
+    total_available_rental_units,
+    vacant_available_to_rent,
+    own_vac_rate_total,
+    rent_vac_rate_total,
+    vac_rate_total
+  )]
+  
+  # Load reweighted future households data
+  dt <- data.table()
+    for (yr in c(2020, 2025, 2035)) {
+  # for (yr in c(2020, 2025, 2030, 2035, 2040, 2045, 2050)) {
+    tmp <- fread(
+      paste0(
+        workpath,
+        scen,
+        '/Output_Files/reweighted_PUMS_',
+        scen,
+        '_',
+        reb,
+        '_',
+        hdshp,
+        '_',
+        yr,
+        '.csv'
+      )
+    ) |>
+      select(year,
+             reb,
+             hdshp,
+             scen,
+             mpo,
+             SERIALNO,
+             SPORDER,
+             AgeCat,
+             tenure,
+             TEN,
+             new_WGTP)
+    dt <- rbind(dt, tmp)
+  }
+  
+  hh.ten <- dt |>
+    filter(SPORDER == 1) |>
+    mutate(tenure = case_when(TEN %in% 1:2 ~ 'own', TEN %in% 3:4 ~ 'rent')) |>
+    group_by(year, mpo, AgeCat, tenure) |>
+    count(wt = new_WGTP, name = 'hh') |>
+    ungroup() |>
+    # mutate(hh = round(hh)) |>
+    pivot_wider(
+      names_from = c(tenure, year),
+      id_cols = c(mpo, AgeCat),
+      values_from = hh
+    ) |>
+    mutate(AgeCat = paste0('x == ', AgeCat)) |>
+    setDT()
+  setkey(hh.ten, mpo, AgeCat)
+  
+  ten.r <- fread(paste0(ctrltotal.path, "tenure_rates.pums.", hdshp, ".csv"))
+  
+  setnames(ten.r, 'rpa_acr', 'mpo')
+  
+  ten.r[tenure == 'x == 1', tenure := 'own']
+  ten.r[tenure == 'x == 2', tenure := 'rent']
+  
+  ten.rw <- ten.r |> pivot_wider(
+    names_from = tenure,
+    id_cols = c(mpo, AgeCat),
+    values_from = freq
+  ) %>% setDT()
+  ten.rw[is.na(ten.rw)] <- 0
+  ten.rw[, own := round(own, 2)][, rent := round(rent, 2)]
+  ten.rw[, age_range := rep(
+    c(
+      '15-19',
+      '20-24',
+      '25-29',
+      '30-34',
+      '35-39',
+      '40-44',
+      '45-49',
+      '50-54',
+      '55-59',
+      '60-64',
+      '65-69',
+      '70-74',
+      '75-79',
+      '80-84',
+      '85+'
+    ),
+    13
+  )]
+  setnames(ten.rw,
+           c(
+             'mpo',
+             'AgeCat',
+             'owner share acs2021',
+             'renter share acs2021',
+             'Age Range'
+           ))
+  setkey(ten.rw, mpo, AgeCat)
+  
+  hh.ten.age <- ten.rw[hh.ten]
+  hh.ten.age[, Scenario := scen]
+  hh.ten.age <- hh.ten.age |> relocate(`Age Range`, .after = AgeCat) |> relocate(Scenario, .before =
+                                                                                   mpo)
+  hh.ten.age[is.na(hh.ten.age)] <- 0
+  
+  hh <- dt |>
+    filter(SPORDER == 1) |>
+    mutate(tenure = case_when(TEN %in% 1:2 ~ 'own', TEN %in% 3:4 ~ 'rent')) |>
+    group_by(year, mpo, tenure) |>
+    count(wt = new_WGTP, name = 'hh') |>
+    ungroup() |>
+    # mutate(hh = round(hh)) |>
+    setDT()
+  uw <- hh |>
+    pivot_wider(
+      id_cols = 'mpo',
+      names_from = c('tenure', 'year'),
+      values_from = 'hh'
+    ) |>
+    left_join(vax, by = c('mpo' = 'rpa_acr')) |>
+    setDT()
+  nm <- names(uw)[grepl('_20', names(uw))]
+  setnames(uw, nm, paste0('households_', nm))
+  
+  uw[, rent_target := rent_vac_rate_total][, own_target := own_vac_rate_total]
+  
+  uw[, own_units_needed_in_2025 := round(households_own_2025 / (1 - own_target))]
+  uw[, own_units_needed_in_2035 := round(households_own_2035 / (1 - own_target))]
+  # uw[, own_units_needed_in_2050 := round(households_own_2050 / (1 - own_target))]
+  uw[, rent_units_needed_in_2025 := round(households_rent_2025 / (1 - rent_target))]
+  uw[, rent_units_needed_in_2035 := round(households_rent_2035 / (1 - rent_target))]
+  # uw[, rent_units_needed_in_2050 := round(households_rent_2050 / (1 - rent_target))]
+  
+  uw[, new_owner_units_needed_2020_to_2025 := own_units_needed_in_2025 - total_available_owner_units]
+  uw[, new_rental_units_needed_2020_to_2025 := rent_units_needed_in_2025 - total_available_rental_units]
+  
+  uw[, new_owner_units_needed_2025_to_2035 := own_units_needed_in_2035 - own_units_needed_in_2025]
+  uw[, new_rental_units_needed_2025_to_2035 := rent_units_needed_in_2035 - rent_units_needed_in_2025]
+  
+  # uw[, new_owner_units_needed_2035_to_2050 := own_units_needed_in_2050 - own_units_needed_in_2035]
+  # uw[, new_rental_units_needed_2035_to_2050 := rent_units_needed_in_2050 - rent_units_needed_in_2035]
+  
+  # uw[, new_owner_units_needed_2020_to_2050 := own_units_needed_in_2050 - total_available_owner_units]
+  # uw[, new_rental_units_needed_2020_to_2050 := rent_units_needed_in_2050 - total_available_rental_units]
+  
+  uw[, total_new_units_needed_2020_to_2025 := new_owner_units_needed_2020_to_2025 +
+       new_rental_units_needed_2020_to_2025]
+  
+  uw[, total_new_units_needed_2025_to_2035 := new_owner_units_needed_2025_to_2035 +
+       new_rental_units_needed_2025_to_2035]
+  
+  # uw[, total_new_units_needed_2035_to_2050 := new_owner_units_needed_2035_to_2050 +
+  #      new_rental_units_needed_2035_to_2050]
+  
+  # uw[, total_new_units_needed_2020_to_2050 := new_owner_units_needed_2020_to_2050 +
+  #      new_rental_units_needed_2020_to_2050]
+  uw[, scenario := scen]
+  
+  setnames(uw, 'vac_rate_total', 'combined_vacancy_rate_2020')
+  
+  outfile <- uw[, .(
+    scenario,
+    mpo,
+    total_units,
+    total_owner_units,
+    total_rental_units,
+    total_available_owner_units,
+    total_available_rental_units,
+    vacant_available_to_own,
+    vacant_available_to_rent,
+    own_vac_rate_total,
+    rent_vac_rate_total,
+    own_target,
+    rent_target,
+    combined_vacancy_rate_2020,
+    own_occ_units,
+    rent_occ_units,
+    households_own_2020,
+    households_rent_2020,
+    households_own_2025,
+    households_rent_2025,
+    # households_own_2030,
+    # households_rent_2030,
+    households_own_2035,
+    households_rent_2035,
+    # households_own_2040,
+    # households_rent_2040,
+    # households_own_2045,
+    # households_rent_2045,
+    # households_own_2050,
+    # households_rent_2050,
+    own_units_needed_in_2025,
+    own_units_needed_in_2035,
+    # own_units_needed_in_2050,
+    rent_units_needed_in_2025,
+    rent_units_needed_in_2035,
+    # rent_units_needed_in_2050,
+    new_owner_units_needed_2020_to_2025,
+    new_rental_units_needed_2020_to_2025,
+    new_owner_units_needed_2025_to_2035,
+    new_rental_units_needed_2025_to_2035,
+    # new_owner_units_needed_2035_to_2050,
+    # new_rental_units_needed_2035_to_2050,
+    # new_owner_units_needed_2020_to_2050,
+    # new_rental_units_needed_2020_to_2050,
+    total_new_units_needed_2020_to_2025,
+    total_new_units_needed_2025_to_2035
+    # total_new_units_needed_2035_to_2050,
+    # total_new_units_needed_2020_to_2050
+  )]
+  
+  setnames(
+    outfile,
+    c(
+      'own_target',
+      'rent_target',
+      'total_units',
+      'total_owner_units',
+      'total_rental_units',
+      'total_available_owner_units',
+      'total_available_rental_units',
+      'vacant_available_to_own',
+      'vacant_available_to_rent',
+      'own_vac_rate_total',
+      'rent_vac_rate_total',
+      'own_occ_units',
+      'rent_occ_units'
+    ),
+    c(
+      'own_target_vacancy_rate',
+      'rent_target_vacancy_rate',
+      'total_units_2020',
+      'total_owner_units_2020',
+      'total_rental_units_2020',
+      'total_available_owner_units_2020',
+      'total_available_rental_units_2020',
+      'vacant_available_to_own_2020',
+      'vacant_available_to_rent_2020',
+      'owner_unit_vacancy_rate_2020',
+      'rental_unit_vacancy_rate_2020',
+      'Census 2020 owner-occupied households',
+      'Census 2020 renter-occupied households'
+    )
+  )
+  
+  setnames(outfile, names(outfile), gsub('_', ' ', names(outfile)))
+  s2 <- copy(outfile)
+  s2[, mpo := NULL]
+  swide <- s2[, lapply(.SD, sum, na.rm = T), scenario]
+  swide[, mpo := 'Statewide']
+  of <- rbind(outfile, swide)
+  of[mpo == 'Statewide', `owner unit vacancy rate 2020` := `vacant available to own 2020` / `total available owner units 2020`]
+  of[mpo == 'Statewide', `rental unit vacancy rate 2020` := `vacant available to rent 2020` / `total available rental units 2020`]
+  of[mpo == 'Statewide', `combined vacancy rate 2020` := (`vacant available to own 2020` + `vacant available to rent 2020`) / (`total available owner units 2020` + `total available rental units 2020`)]
+  # of[,`own target vacancy rate`:=own_target]
+  # of[,`rent target vacancy rate`:=rent_target]
+  of[, `Change in Households 2020 - 2035` := (`households own 2035` + `households rent 2035`) - (`households own 2020` + `households rent 2020`)]
+  # of[, `Change in Households 2020 - 2050` := (`households own 2050` + `households rent 2050`) - (`households own 2020` + `households rent 2020`)]
+  
+  
+  fwrite(of,
+         paste0(
+           output_path,
+           'output.tbl_',
+           scen,
+           '_unit_demand_estimates.csv'
+         ))
+  fwrite(of,
+         paste0(
+           deliv_path,
+           'output.tbl_',
+           scen,
+           '_unit_demand_estimates.csv'
+         ))
+  # fwrite(hh.ten.age,paste0(workpath, scen, '/Output_Files/output.tbl_',scen,'_households_by_age_by_tenure.csv'))
+  
+}
+```
+
+# 7.2 - Scenario 2 and 3
+
+```{r}
+
+if(scen %in% c('Scenario_2','Scenario_3')){
+
+  shel <- fread(paste0(workpath,'shelter.hh_rpa.csv'))
+  setnames(shel,c('mpo','hh.shel'))
+  shel[,tenure:='rent']
+  
+  
+  shel.age <- fread(paste0(workpath,'shelter.hh_rpa.agegroup.csv'))
+  setnames(shel.age,c('mpo','age_group','hh.shel'))
+  setkey(shel.age,mpo,age_group)
+  
+  
+  target_rent_rate <- 0.074
+  target_own_rate <- 0.015
+  # Set residential vacancy rate targets
+# Load in the actual 2020 unit counts and vacancy rates from Census 2020 DHC
+
+munis <- mapcdatakeys::all_muni_data_keys |>
+  select(muni_id, muni_name, cosub_cn20, cmtyp08, mapc, mpo, rpa_acr) |>
+  mutate(GEOID = as.character(cosub_cn20)) 
+
+vars <- load_variables(2020, 'dhc') |> setDT()
+vs <- vars[grepl('VACANCY', concept), name]
+ns <- vars[grepl('VACANCY', concept), gsub(':', '', gsub(' ', '_', (gsub(
+  ',', '', gsub(':!!', '_', (gsub(' !!', '', (
+    label
+  ))))
+))))]
+
+ten <- c('H10_002N','H10_010N') # Vacant owner-occupied units, Vacant renter-occupied units
+
+vs <- c('H1_001N', 'P20_001N', vs, ten)
+
+d1 <-
+  get_decennial(
+    year = 2020,
+    sumfile = 'dhc',
+    state = 'MA',
+    geography = 'county subdivision',
+    variables = vs
+  ) |>
+  pivot_wider(names_from = 'variable') |>
+  select(-NAME) |>
+  setDT()
+setnames(d1, c('GEOID', 'total_units', 'total_households', gsub('Total','Vacant',ns), 'own_occ_units', 'rent_occ_units'))
+
+m2 <- munis |> select(GEOID, muni_id, muni_name, mpo, rpa_acr, cmtyp08)
+dhc <- d1 |>
+  left_join(m2, by = 'GEOID') |>
+  filter(!is.na(muni_id)) |> 
+  mutate(
+    total_available_units = total_households + Vacant_For_rent + Vacant_For_sale_only,
+    total_unavailable_units = total_units - total_available_units,
+    total_available_rental_units = Vacant_For_rent + rent_occ_units,
+    total_available_owner_units = Vacant_For_sale_only + own_occ_units,
+    rent_ratio = total_available_rental_units / total_available_units,
+    own_ratio = total_available_owner_units / total_available_units,
+    total_unavailable_rental_units = round(total_unavailable_units * rent_ratio),
+    total_unavailable_owner_units = round(total_unavailable_units * own_ratio),
+    total_rental_units = total_available_rental_units + total_unavailable_rental_units,
+    total_owner_units = total_available_owner_units + total_unavailable_owner_units,
+    total_available_vacant_units = Vacant_For_sale_only + Vacant_For_rent,
+    vac_rate_avail = round(total_available_vacant_units / total_available_units, 3),
+    rent_vac_rate_avail = round(Vacant_For_rent / total_available_rental_units,3),
+    own_vac_rate_avail = round(Vacant_For_sale_only / total_available_owner_units,3),
+    vac_rate_total = round(total_available_vacant_units / total_units, 3),
+    rent_vac_rate_total = round(Vacant_For_rent / total_rental_units,3),
+    own_vac_rate_total = round(Vacant_For_sale_only / total_owner_units,3)
+    ) |> 
+  rename(total_vacant_units=Vacant,
+         vacant_available_to_rent=Vacant_For_rent,
+         vacant_rented_not_occ=Vacant_Rented_not_occupied,
+         vacant_available_to_own=Vacant_For_sale_only,
+         vacant_sold_not_occ=Vacant_Sold_not_occupied,
+         vacant_seasonal=Vacant_For_seasonal_recreational_or_occasional_use,
+         vacant_migrant=Vacant_For_migrant_workers,
+         vacant_other=Vacant_Other_vacant)
+ 
+cs <- c(
+  'total_units',
+  'total_households',
+  'total_vacant_units',
+  'total_available_units',
+  'total_available_vacant_units',
+  'own_occ_units',
+  'rent_occ_units',
+  'vacant_sold_not_occ',
+  'vacant_rented_not_occ',
+  'total_rental_units',
+  'total_owner_units',
+  'total_available_rental_units',
+  'vacant_available_to_rent',
+  'total_available_owner_units',
+  'vacant_available_to_own'
+)
+
+
+dsum101 <- dhc[,lapply(.SD,sum),rpa_acr,.SDcols=(cs)] |> 
+  mutate(
+    vac_rate_avail = round(total_available_vacant_units / total_available_units, 3),
+    rent_vac_rate_avail = round(vacant_available_to_rent / total_available_rental_units,3),
+    own_vac_rate_avail = round(vacant_available_to_own / total_available_owner_units,3),
+    vac_rate_total = round(total_available_vacant_units / total_units, 3),
+    rent_vac_rate_total = round(vacant_available_to_rent / total_rental_units,3),
+    own_vac_rate_total = round(vacant_available_to_own / total_owner_units,3),
+    all_unit_rental_vac_rate = round(1 - (rent_occ_units / total_rental_units),3),
+    all_unit_owner_vac_rate = round(1 - (own_occ_units / total_owner_units),3)
+    )
+fwrite(dsum101,paste0(workpath,'MAPC101_all_RPA_available_vacancy_rates_by_tenure.csv'))
+
+vax <- dsum101[,.(rpa_acr,total_units, total_households, own_occ_units,rent_occ_units,total_owner_units, total_available_owner_units, vacant_available_to_own, total_rental_units, total_available_rental_units, vacant_available_to_rent, own_vac_rate_total, rent_vac_rate_total, vac_rate_total)]
+
+# Load reweighted future households data
+dt <- data.table()
+
+# for (yr in c(2020,2025,2030,2035,2040,2045,2050)){
+for (yr in c(2020,2025,2035)){
+  tmp <- fread(paste0(output_path,'reweighted_PUMS_', scen, '_', reb, '_',hdshp,'_', yr, '.csv')) |> 
+    select(year,reb,hdshp,scen,mpo,SERIALNO,SPORDER,AgeCat,tenure,TEN,new_WGTP)
+  dt <- rbind(dt,tmp)
+}
+  
+  hh.ten <- dt |> 
+    filter(SPORDER==1) |> 
+    mutate(tenure = case_when(
+      TEN %in% 1:2 ~ 'own',
+      TEN %in% 3:4 ~ 'rent')) |> 
+    group_by(year,mpo,AgeCat,tenure) |> 
+    count(wt=new_WGTP, name='hh') |> 
+    ungroup() |> 
+    # mutate(hh = round(hh)) |> 
+    pivot_wider(names_from = c(tenure,year), id_cols = c(mpo,AgeCat), values_from = hh) |> 
+    mutate(AgeCat = paste0('x == ',AgeCat)) |>
+    setDT()
+  setkey(hh.ten,mpo,AgeCat)
+  
+  ten.r <- fread(paste0(ctrltotal.path, "tenure_rates.pums.",hdshp,".csv"))
+  setnames(ten.r,'rpa_acr','mpo')
+  ten.r[tenure=='x == 1',tenure:='own']
+  ten.r[tenure=='x == 2',tenure:='rent']
+  
+  ten.rw <- ten.r |> pivot_wider(names_from = tenure, id_cols = c(mpo,AgeCat), values_from = freq) %>% setDT()
+  ten.rw[is.na(ten.rw)] <- 0
+  ten.rw[,own:=round(own,2)][,rent:=round(rent,2)]
+  ten.rw[,age_group:=rep(c('15-19','20-24','25-29','30-34','35-39','40-44','45-49','50-54','55-59','60-64','65-69','70-74','75-79','80-84','85+'),13)]
+  
+  setkey(ten.rw,mpo,age_group)
+  ten.rw <- shel.age[ten.rw]
+  ten.rw[is.na(ten.rw)] <- 0
+  
+  setnames(ten.rw,c('mpo','Age Range','hh.shel','AgeCat','renter share acs2021','owner share acs2021'))
+  setkey(ten.rw,mpo,AgeCat)
+  setkey(hh.ten,mpo,AgeCat)
+  
+hh.ten.age <- ten.rw[hh.ten]
+hh.ten.age <- hh.ten.age |> 
+  mutate(Scenario = scen,
+         # rent_2030 = rent_2030 + hh.shel,
+         rent_2035 = rent_2035 + hh.shel,
+         # rent_2040 = rent_2040 + hh.shel,
+         # rent_2045 = rent_2045 + hh.shel,
+         # rent_2050 = rent_2050 + hh.shel
+         ) |> 
+  relocate(`Age Range`,.after=AgeCat) |> 
+  relocate(own_2020,.before=rent_2020) |> 
+  relocate(own_2025,.before=rent_2025) |> 
+  relocate(Scenario,.before=mpo)
+
+hh.ten.age[is.na(hh.ten.age)] <- 0
+
+
+  hh <- dt |> 
+    filter(SPORDER==1) |> 
+    mutate(tenure = case_when(
+      TEN %in% 1:2 ~ 'own',
+      TEN %in% 3:4 ~ 'rent')) |> 
+    group_by(year,mpo,tenure) |> 
+    count(wt=new_WGTP, name='hh') |> 
+    ungroup() |> 
+    # mutate(hh = round(hh)) |> 
+    setDT() 
+  setkey(hh,mpo,tenure)  
+  setkey(shel,mpo,tenure)
+  
+  hh <- shel[hh]
+  hh[is.na(hh.shel),hh.shel:=0]
+  hh[year>2025 & tenure=='rent',hh:=hh+hh.shel]
+  hh[,hh.shel:=NULL]
+  
+  uw <- hh |> 
+    pivot_wider(id_cols = 'mpo', names_from = c('tenure','year'), values_from = 'hh') |>
+    left_join(vax, by=c('mpo'='rpa_acr')) |> 
+    setDT()
+nm <- names(uw)[grepl('_20',names(uw))]
+setnames(uw,nm,paste0('households_',nm))
+
+uw[,rent_target25:=rent_vac_rate_total][,own_target25:=own_vac_rate_total]
+uw[,rent_target:=target_rent_rate][,own_target:=target_own_rate]
+
+uw[, own_units_needed_in_2025 := round(households_own_2025 / (1 - own_target25))]
+uw[, own_units_needed_in_2035 := round(households_own_2035 / (1 - own_target))]
+# uw[, own_units_needed_in_2050 := round(households_own_2050 / (1 - own_target))]
+uw[, rent_units_needed_in_2025 := round(households_rent_2025 / (1 - rent_target25))]
+uw[, rent_units_needed_in_2035 := round(households_rent_2035 / (1 - rent_target))]
+# uw[, rent_units_needed_in_2050 := round(households_rent_2050 / (1 - rent_target))]
+
+uw[,new_owner_units_needed_2020_to_2025 := own_units_needed_in_2025 - total_available_owner_units]
+uw[,new_rental_units_needed_2020_to_2025 := rent_units_needed_in_2025 - total_available_rental_units]
+
+uw[,new_owner_units_needed_2025_to_2035 := own_units_needed_in_2035 - own_units_needed_in_2025]
+uw[,new_rental_units_needed_2025_to_2035 := rent_units_needed_in_2035 - rent_units_needed_in_2025]
+
+# uw[,new_owner_units_needed_2035_to_2050 := own_units_needed_in_2050 - own_units_needed_in_2035]
+# uw[,new_rental_units_needed_2035_to_2050 := rent_units_needed_in_2050 - rent_units_needed_in_2035]
+
+# uw[,new_owner_units_needed_2020_to_2050 := own_units_needed_in_2050 - total_available_owner_units]
+# uw[,new_rental_units_needed_2020_to_2050 := rent_units_needed_in_2050 - total_available_rental_units]
+
+uw[,total_new_units_needed_2020_to_2025 := new_owner_units_needed_2020_to_2025+new_rental_units_needed_2020_to_2025]
+
+uw[,total_new_units_needed_2025_to_2035 := new_owner_units_needed_2025_to_2035+new_rental_units_needed_2025_to_2035]
+
+# uw[,total_new_units_needed_2035_to_2050 := new_owner_units_needed_2035_to_2050+new_rental_units_needed_2035_to_2050]
+# uw[,total_new_units_needed_2020_to_2050 := new_owner_units_needed_2020_to_2050+new_rental_units_needed_2020_to_2050]
+
+uw[,scenario:=scen]
+
+setnames(uw,'vac_rate_total','combined_vacancy_rate_2020')
+
+# outfile <- uw[,.(scenario,mpo,total_units,total_owner_units,total_rental_units,total_available_owner_units,total_available_rental_units,vacant_available_to_own,vacant_available_to_rent,own_vac_rate_total,rent_vac_rate_total,own_target,rent_target,combined_vacancy_rate_2020,own_occ_units,rent_occ_units,households_own_2020,households_rent_2020,households_own_2025,households_rent_2025,households_own_2030,households_rent_2030,households_own_2035,households_rent_2035,households_own_2040,households_rent_2040,households_own_2045,households_rent_2045,households_own_2050,households_rent_2050,own_units_needed_in_2025,own_units_needed_in_2035,own_units_needed_in_2050,rent_units_needed_in_2025,rent_units_needed_in_2035,rent_units_needed_in_2050,new_owner_units_needed_2020_to_2025,new_rental_units_needed_2020_to_2025,new_owner_units_needed_2025_to_2035,new_rental_units_needed_2025_to_2035
+# ,new_owner_units_needed_2035_to_2050,new_rental_units_needed_2035_to_2050
+# ,new_owner_units_needed_2020_to_2050,new_rental_units_needed_2020_to_2050,total_new_units_needed_2020_to_2025
+# ,total_new_units_needed_2025_to_2035
+# ,total_new_units_needed_2035_to_2050
+# ,total_new_units_needed_2020_to_2050)]
+
+# 
+# setnames(outfile,c('own_target','rent_target','total_units','total_owner_units','total_rental_units','total_available_owner_units','total_available_rental_units','vacant_available_to_own','vacant_available_to_rent','own_vac_rate_total','rent_vac_rate_total','own_occ_units','rent_occ_units'),c('own_target_vacancy_rate','rent_target_vacancy_rate','total_units_2020','total_owner_units_2020','total_rental_units_2020','total_available_owner_units_2020','total_available_rental_units_2020','vacant_available_to_own_2020','vacant_available_to_rent_2020','owner_unit_vacancy_rate_2020','rental_unit_vacancy_rate_2020','Census 2020 owner-occupied households','Census 2020 renter-occupied households'))
+
+outfile <- uw[, .(
+  scenario,
+  mpo,
+  total_units,
+  total_owner_units,
+  total_rental_units,
+  total_available_owner_units,
+  total_available_rental_units,
+  vacant_available_to_own,
+  vacant_available_to_rent,
+  own_vac_rate_total,
+  rent_vac_rate_total,
+  own_target,
+  rent_target,
+  combined_vacancy_rate_2020,
+  own_occ_units,
+  rent_occ_units,
+  households_own_2020,
+  households_rent_2020,
+  households_own_2025,
+  households_rent_2025,
+  # households_own_2030,
+  # households_rent_2030,
+  households_own_2035,
+  households_rent_2035,
+  # households_own_2040,
+  # households_rent_2040,
+  # households_own_2045,
+  # households_rent_2045,
+  # households_own_2050,
+  # households_rent_2050,
+  own_units_needed_in_2025,
+  own_units_needed_in_2035,
+  # own_units_needed_in_2050,
+  rent_units_needed_in_2025,
+  rent_units_needed_in_2035,
+  # rent_units_needed_in_2050,
+  new_owner_units_needed_2020_to_2025,
+  new_rental_units_needed_2020_to_2025,
+  new_owner_units_needed_2025_to_2035,
+  new_rental_units_needed_2025_to_2035,
+  # new_owner_units_needed_2035_to_2050,
+  # new_rental_units_needed_2035_to_2050,
+  # new_owner_units_needed_2020_to_2050,
+  # new_rental_units_needed_2020_to_2050,
+  total_new_units_needed_2020_to_2025,
+  total_new_units_needed_2025_to_2035
+  # total_new_units_needed_2035_to_2050,
+  # total_new_units_needed_2020_to_2050
+)]
+
+setnames(
+  outfile,
+  c(
+    'own_target',
+    'rent_target',
+    'total_units',
+    'total_owner_units',
+    'total_rental_units',
+    'total_available_owner_units',
+    'total_available_rental_units',
+    'vacant_available_to_own',
+    'vacant_available_to_rent',
+    'own_vac_rate_total',
+    'rent_vac_rate_total',
+    'own_occ_units',
+    'rent_occ_units'
+  ),
+  c(
+    'own_target_vacancy_rate',
+    'rent_target_vacancy_rate',
+    'total_units_2020',
+    'total_owner_units_2020',
+    'total_rental_units_2020',
+    'total_available_owner_units_2020',
+    'total_available_rental_units_2020',
+    'vacant_available_to_own_2020',
+    'vacant_available_to_rent_2020',
+    'owner_unit_vacancy_rate_2020',
+    'rental_unit_vacancy_rate_2020',
+    'Census 2020 owner-occupied households',
+    'Census 2020 renter-occupied households'
+  )
+)
+setnames(outfile,names(outfile),gsub('_',' ',names(outfile)))
+s2 <- copy(outfile)
+s2[,mpo:=NULL]
+swide <- s2[,lapply(.SD,sum,na.rm=T),scenario]
+swide[,mpo:='Statewide']
+of <- rbind(outfile,swide)
+of[mpo=='Statewide',`owner unit vacancy rate 2020`:=`vacant available to own 2020` / `total available owner units 2020`]
+of[mpo=='Statewide',`rental unit vacancy rate 2020`:=`vacant available to rent 2020` / `total available rental units 2020`]
+of[mpo=='Statewide',`combined vacancy rate 2020`:=(`vacant available to own 2020` + `vacant available to rent 2020`) / (`total available owner units 2020` + `total available rental units 2020`)]
+of[,`own target vacancy rate`:=target_own_rate]
+of[,`rent target vacancy rate`:=target_rent_rate]
+of[,`Change in Households 2020 - 2035`:=(`households own 2035` + `households rent 2035`) - (`households own 2020` + `households rent 2020`)]
+# of[,`Change in Households 2020 - 2050`:=(`households own 2050` + `households rent 2050`) - (`households own 2020` + `households rent 2020`)]
+
+
+fwrite(of, paste0(output_path,'output.tbl_',scen,'_unit_demand_estimates.csv'))
+# fwrite(hh.ten.age,paste0(output_path,'output.tbl_',scen,'_households_by_age_by_tenure.csv'))
+
+fwrite(of, paste0(deliv_path,'output.tbl_',scen,'_unit_demand_estimates.csv'))
+# fwrite(hh.ten.age,paste0(deliv_path,'output.tbl_',scen,'_households_by_age_by_tenure.csv'))
+
+}
+
+
+```
+
+# 7.2 - Scenario 4
+
+```{r}
+
+if(scen %in% c('Scenario_4')){
+
+  target_rent_rate <- 0.074
+  target_own_rate <- 0.015
+  # Set residential vacancy rate targets
+# Load in the actual 2020 unit counts and vacancy rates from Census 2020 DHC
+
+munis <- mapcdatakeys::all_muni_data_keys |>
+  select(muni_id, muni_name, cosub_cn20, cmtyp08, mapc, mpo, rpa_acr) |>
+  mutate(GEOID = as.character(cosub_cn20)) 
+
+vars <- load_variables(2020, 'dhc') |> setDT()
+vs <- vars[grepl('VACANCY', concept), name]
+ns <- vars[grepl('VACANCY', concept), gsub(':', '', gsub(' ', '_', (gsub(
+  ',', '', gsub(':!!', '_', (gsub(' !!', '', (
+    label
+  ))))
+))))]
+
+ten <- c('H10_002N','H10_010N') # Vacant owner-occupied units, Vacant renter-occupied units
+
+vs <- c('H1_001N', 'P20_001N', vs, ten)
+
+d1 <-
+  get_decennial(
+    year = 2020,
+    sumfile = 'dhc',
+    state = 'MA',
+    geography = 'county subdivision',
+    variables = vs
+  ) |>
+  pivot_wider(names_from = 'variable') |>
+  select(-NAME) |>
+  setDT()
+setnames(d1, c('GEOID', 'total_units', 'total_households', gsub('Total','Vacant',ns), 'own_occ_units', 'rent_occ_units'))
+
+m2 <- munis |> select(GEOID, muni_id, muni_name, mpo, rpa_acr, cmtyp08)
+dhc <- d1 |>
+  left_join(m2, by = 'GEOID') |>
+  filter(!is.na(muni_id)) |> 
+  mutate(
+    total_available_units = total_households + Vacant_For_rent + Vacant_For_sale_only,
+    total_unavailable_units = total_units - total_available_units,
+    total_available_rental_units = Vacant_For_rent + rent_occ_units,
+    total_available_owner_units = Vacant_For_sale_only + own_occ_units,
+    rent_ratio = total_available_rental_units / total_available_units,
+    own_ratio = total_available_owner_units / total_available_units,
+    total_unavailable_rental_units = round(total_unavailable_units * rent_ratio),
+    total_unavailable_owner_units = round(total_unavailable_units * own_ratio),
+    total_rental_units = total_available_rental_units + total_unavailable_rental_units,
+    total_owner_units = total_available_owner_units + total_unavailable_owner_units,
+    total_available_vacant_units = Vacant_For_sale_only + Vacant_For_rent,
+    vac_rate_avail = round(total_available_vacant_units / total_available_units, 3),
+    rent_vac_rate_avail = round(Vacant_For_rent / total_available_rental_units,3),
+    own_vac_rate_avail = round(Vacant_For_sale_only / total_available_owner_units,3),
+    vac_rate_total = round(total_available_vacant_units / total_units, 3),
+    rent_vac_rate_total = round(Vacant_For_rent / total_rental_units,3),
+    own_vac_rate_total = round(Vacant_For_sale_only / total_owner_units,3)
+    ) |> 
+  rename(total_vacant_units=Vacant,
+         vacant_available_to_rent=Vacant_For_rent,
+         vacant_rented_not_occ=Vacant_Rented_not_occupied,
+         vacant_available_to_own=Vacant_For_sale_only,
+         vacant_sold_not_occ=Vacant_Sold_not_occupied,
+         vacant_seasonal=Vacant_For_seasonal_recreational_or_occasional_use,
+         vacant_migrant=Vacant_For_migrant_workers,
+         vacant_other=Vacant_Other_vacant)
+ 
+cs <- c(
+  'total_units',
+  'total_households',
+  'total_vacant_units',
+  'total_available_units',
+  'total_available_vacant_units',
+  'own_occ_units',
+  'rent_occ_units',
+  'vacant_sold_not_occ',
+  'vacant_rented_not_occ',
+  'total_rental_units',
+  'total_owner_units',
+  'total_available_rental_units',
+  'vacant_available_to_rent',
+  'total_available_owner_units',
+  'vacant_available_to_own'
+)
+
+
+dsum101 <- dhc[,lapply(.SD,sum),rpa_acr,.SDcols=(cs)] |> 
+  mutate(
+    vac_rate_avail = round(total_available_vacant_units / total_available_units, 3),
+    rent_vac_rate_avail = round(vacant_available_to_rent / total_available_rental_units,3),
+    own_vac_rate_avail = round(vacant_available_to_own / total_available_owner_units,3),
+    vac_rate_total = round(total_available_vacant_units / total_units, 3),
+    rent_vac_rate_total = round(vacant_available_to_rent / total_rental_units,3),
+    own_vac_rate_total = round(vacant_available_to_own / total_owner_units,3),
+    all_unit_rental_vac_rate = round(1 - (rent_occ_units / total_rental_units),3),
+    all_unit_owner_vac_rate = round(1 - (own_occ_units / total_owner_units),3)
+    )
+fwrite(dsum101,paste0(workpath,'MAPC101_all_RPA_available_vacancy_rates_by_tenure.csv'))
+
+vax <- dsum101[,.(rpa_acr,total_units, total_households, own_occ_units,rent_occ_units,total_owner_units, total_available_owner_units, vacant_available_to_own, total_rental_units, total_available_rental_units, vacant_available_to_rent, own_vac_rate_total, rent_vac_rate_total, vac_rate_total)]
+
+# Load reweighted future households data
+dt <- data.table()
+
+# for (yr in c(2020,2025,2030,2035,2040,2045,2050)){
+for (yr in c(2020,2025,2035)){
+  tmp <- fread(paste0(output_path,'reweighted_PUMS_', scen, '_', reb, '_',hdshp,'_', yr, '.csv')) |> 
+    select(year,reb,hdshp,scen,mpo,SERIALNO,SPORDER,AgeCat,tenure,TEN,new_WGTP)
+  dt <- rbind(dt,tmp)
+}
+  
+  hh.ten <- dt |> 
+    filter(SPORDER==1) |> 
+    mutate(tenure = case_when(
+      TEN %in% 1:2 ~ 'own',
+      TEN %in% 3:4 ~ 'rent')) |> 
+    group_by(year,mpo,AgeCat,tenure) |> 
+    count(wt=new_WGTP, name='hh') |> 
+    ungroup() |> 
+    # mutate(hh = round(hh)) |> 
+    pivot_wider(names_from = c(tenure,year), id_cols = c(mpo,AgeCat), values_from = hh) |> 
+    mutate(AgeCat = paste0('x == ',AgeCat)) |>
+    setDT()
+  setkey(hh.ten,mpo,AgeCat)
+  
+  ten.r <- fread(paste0(ctrltotal.path, "tenure_rates.pums.",hdshp,".csv"))
+  setnames(ten.r,'rpa_acr','mpo')
+  ten.r[tenure=='x == 1',tenure:='own']
+  ten.r[tenure=='x == 2',tenure:='rent']
+  
+  ten.rw <- ten.r |> pivot_wider(names_from = tenure, id_cols = c(mpo,AgeCat), values_from = freq) %>% setDT()
+  ten.rw[is.na(ten.rw)] <- 0
+  ten.rw[,own:=round(own,2)][,rent:=round(rent,2)]
+  ten.rw[,age_group:=rep(c('15-19','20-24','25-29','30-34','35-39','40-44','45-49','50-54','55-59','60-64','65-69','70-74','75-79','80-84','85+'),13)]
+  
+  setkey(ten.rw,mpo,age_group)
+  ten.rw[is.na(ten.rw)] <- 0
+  
+  setnames(ten.rw,c('mpo','AgeCat','renter share acs2021','owner share acs2021','Age Range'))
+  setkey(ten.rw,mpo,AgeCat)
+  setkey(hh.ten,mpo,AgeCat)
+  
+hh.ten.age <- ten.rw[hh.ten]
+hh.ten.age <- hh.ten.age |> 
+  mutate(Scenario = scen) |> 
+  relocate(`Age Range`,.after=AgeCat) |> 
+  relocate(own_2020,.before=rent_2020) |> 
+  relocate(own_2025,.before=rent_2025) |> 
+  relocate(Scenario,.before=mpo)
+
+hh.ten.age[is.na(hh.ten.age)] <- 0
+
+
+  hh <- dt |> 
+    filter(SPORDER==1) |> 
+    mutate(tenure = case_when(
+      TEN %in% 1:2 ~ 'own',
+      TEN %in% 3:4 ~ 'rent')) |> 
+    group_by(year,mpo,tenure) |> 
+    count(wt=new_WGTP, name='hh') |> 
+    ungroup() |> 
+    # mutate(hh = round(hh)) |> 
+    setDT() 
+  setkey(hh,mpo,tenure)  
+  
+  uw <- hh |> 
+    pivot_wider(id_cols = 'mpo', names_from = c('tenure','year'), values_from = 'hh') |>
+    left_join(vax, by=c('mpo'='rpa_acr')) |> 
+    setDT()
+nm <- names(uw)[grepl('_20',names(uw))]
+setnames(uw,nm,paste0('households_',nm))
+
+uw[,rent_target25:=rent_vac_rate_total][,own_target25:=own_vac_rate_total]
+uw[,rent_target:=target_rent_rate][,own_target:=target_own_rate]
+
+uw[, own_units_needed_in_2025 := round(households_own_2025 / (1 - own_target25))]
+uw[, own_units_needed_in_2035 := round(households_own_2035 / (1 - own_target))]
+# uw[, own_units_needed_in_2050 := round(households_own_2050 / (1 - own_target))]
+uw[, rent_units_needed_in_2025 := round(households_rent_2025 / (1 - rent_target25))]
+uw[, rent_units_needed_in_2035 := round(households_rent_2035 / (1 - rent_target))]
+# uw[, rent_units_needed_in_2050 := round(households_rent_2050 / (1 - rent_target))]
+
+uw[,new_owner_units_needed_2020_to_2025 := own_units_needed_in_2025 - total_available_owner_units]
+uw[,new_rental_units_needed_2020_to_2025 := rent_units_needed_in_2025 - total_available_rental_units]
+
+uw[,new_owner_units_needed_2025_to_2035 := own_units_needed_in_2035 - own_units_needed_in_2025]
+uw[,new_rental_units_needed_2025_to_2035 := rent_units_needed_in_2035 - rent_units_needed_in_2025]
+
+# uw[,new_owner_units_needed_2035_to_2050 := own_units_needed_in_2050 - own_units_needed_in_2035]
+# uw[,new_rental_units_needed_2035_to_2050 := rent_units_needed_in_2050 - rent_units_needed_in_2035]
+
+# uw[,new_owner_units_needed_2020_to_2050 := own_units_needed_in_2050 - total_available_owner_units]
+# uw[,new_rental_units_needed_2020_to_2050 := rent_units_needed_in_2050 - total_available_rental_units]
+
+uw[,total_new_units_needed_2020_to_2025 := new_owner_units_needed_2020_to_2025+new_rental_units_needed_2020_to_2025]
+
+uw[,total_new_units_needed_2025_to_2035 := new_owner_units_needed_2025_to_2035+new_rental_units_needed_2025_to_2035]
+
+# uw[,total_new_units_needed_2035_to_2050 := new_owner_units_needed_2035_to_2050+new_rental_units_needed_2035_to_2050]
+# uw[,total_new_units_needed_2020_to_2050 := new_owner_units_needed_2020_to_2050+new_rental_units_needed_2020_to_2050]
+
+uw[,scenario:=scen]
+
+setnames(uw,'vac_rate_total','combined_vacancy_rate_2020')
+
+# outfile <- uw[,.(scenario,mpo,total_units,total_owner_units,total_rental_units,total_available_owner_units,total_available_rental_units,vacant_available_to_own,vacant_available_to_rent,own_vac_rate_total,rent_vac_rate_total,own_target,rent_target,combined_vacancy_rate_2020,own_occ_units,rent_occ_units,households_own_2020,households_rent_2020,households_own_2025,households_rent_2025,households_own_2030,households_rent_2030,households_own_2035,households_rent_2035,households_own_2040,households_rent_2040,households_own_2045,households_rent_2045,households_own_2050,households_rent_2050,own_units_needed_in_2025,own_units_needed_in_2035,own_units_needed_in_2050,rent_units_needed_in_2025,rent_units_needed_in_2035,rent_units_needed_in_2050,new_owner_units_needed_2020_to_2025,new_rental_units_needed_2020_to_2025,new_owner_units_needed_2025_to_2035,new_rental_units_needed_2025_to_2035
+# ,new_owner_units_needed_2035_to_2050,new_rental_units_needed_2035_to_2050
+# ,new_owner_units_needed_2020_to_2050,new_rental_units_needed_2020_to_2050,total_new_units_needed_2020_to_2025
+# ,total_new_units_needed_2025_to_2035
+# ,total_new_units_needed_2035_to_2050
+# ,total_new_units_needed_2020_to_2050)]
+
+# 
+# setnames(outfile,c('own_target','rent_target','total_units','total_owner_units','total_rental_units','total_available_owner_units','total_available_rental_units','vacant_available_to_own','vacant_available_to_rent','own_vac_rate_total','rent_vac_rate_total','own_occ_units','rent_occ_units'),c('own_target_vacancy_rate','rent_target_vacancy_rate','total_units_2020','total_owner_units_2020','total_rental_units_2020','total_available_owner_units_2020','total_available_rental_units_2020','vacant_available_to_own_2020','vacant_available_to_rent_2020','owner_unit_vacancy_rate_2020','rental_unit_vacancy_rate_2020','Census 2020 owner-occupied households','Census 2020 renter-occupied households'))
+
+outfile <- uw[, .(
+  scenario,
+  mpo,
+  total_units,
+  total_owner_units,
+  total_rental_units,
+  total_available_owner_units,
+  total_available_rental_units,
+  vacant_available_to_own,
+  vacant_available_to_rent,
+  own_vac_rate_total,
+  rent_vac_rate_total,
+  own_target,
+  rent_target,
+  combined_vacancy_rate_2020,
+  own_occ_units,
+  rent_occ_units,
+  households_own_2020,
+  households_rent_2020,
+  households_own_2025,
+  households_rent_2025,
+  # households_own_2030,
+  # households_rent_2030,
+  households_own_2035,
+  households_rent_2035,
+  # households_own_2040,
+  # households_rent_2040,
+  # households_own_2045,
+  # households_rent_2045,
+  # households_own_2050,
+  # households_rent_2050,
+  own_units_needed_in_2025,
+  own_units_needed_in_2035,
+  # own_units_needed_in_2050,
+  rent_units_needed_in_2025,
+  rent_units_needed_in_2035,
+  # rent_units_needed_in_2050,
+  new_owner_units_needed_2020_to_2025,
+  new_rental_units_needed_2020_to_2025,
+  new_owner_units_needed_2025_to_2035,
+  new_rental_units_needed_2025_to_2035,
+  # new_owner_units_needed_2035_to_2050,
+  # new_rental_units_needed_2035_to_2050,
+  # new_owner_units_needed_2020_to_2050,
+  # new_rental_units_needed_2020_to_2050,
+  total_new_units_needed_2020_to_2025,
+  total_new_units_needed_2025_to_2035
+  # total_new_units_needed_2035_to_2050,
+  # total_new_units_needed_2020_to_2050
+)]
+
+setnames(
+  outfile,
+  c(
+    'own_target',
+    'rent_target',
+    'total_units',
+    'total_owner_units',
+    'total_rental_units',
+    'total_available_owner_units',
+    'total_available_rental_units',
+    'vacant_available_to_own',
+    'vacant_available_to_rent',
+    'own_vac_rate_total',
+    'rent_vac_rate_total',
+    'own_occ_units',
+    'rent_occ_units'
+  ),
+  c(
+    'own_target_vacancy_rate',
+    'rent_target_vacancy_rate',
+    'total_units_2020',
+    'total_owner_units_2020',
+    'total_rental_units_2020',
+    'total_available_owner_units_2020',
+    'total_available_rental_units_2020',
+    'vacant_available_to_own_2020',
+    'vacant_available_to_rent_2020',
+    'owner_unit_vacancy_rate_2020',
+    'rental_unit_vacancy_rate_2020',
+    'Census 2020 owner-occupied households',
+    'Census 2020 renter-occupied households'
+  )
+)
+setnames(outfile,names(outfile),gsub('_',' ',names(outfile)))
+s2 <- copy(outfile)
+s2[,mpo:=NULL]
+swide <- s2[,lapply(.SD,sum,na.rm=T),scenario]
+swide[,mpo:='Statewide']
+of <- rbind(outfile,swide)
+of[mpo=='Statewide',`owner unit vacancy rate 2020`:=`vacant available to own 2020` / `total available owner units 2020`]
+of[mpo=='Statewide',`rental unit vacancy rate 2020`:=`vacant available to rent 2020` / `total available rental units 2020`]
+of[mpo=='Statewide',`combined vacancy rate 2020`:=(`vacant available to own 2020` + `vacant available to rent 2020`) / (`total available owner units 2020` + `total available rental units 2020`)]
+of[,`own target vacancy rate`:=target_own_rate]
+of[,`rent target vacancy rate`:=target_rent_rate]
+of[,`Change in Households 2020 - 2035`:=(`households own 2035` + `households rent 2035`) - (`households own 2020` + `households rent 2020`)]
+# of[,`Change in Households 2020 - 2050`:=(`households own 2050` + `households rent 2050`) - (`households own 2020` + `households rent 2020`)]
+
+
+fwrite(of, paste0(output_path,'output.tbl_',scen,'_unit_demand_estimates.csv'))
+# fwrite(hh.ten.age,paste0(output_path,'output.tbl_',scen,'_households_by_age_by_tenure.csv'))
+
+fwrite(of, paste0(deliv_path,'output.tbl_',scen,'_unit_demand_estimates.csv'))
+# fwrite(hh.ten.age,paste0(deliv_path,'output.tbl_',scen,'_households_by_age_by_tenure.csv'))
+
+}
+
+
+```
+
+# 8 - Population Post-Processor
+
+# 8.1 - Post-processor - population difference calculation
+
+```{r}
+#| eval: false
+
+
+# Set Year
+
+# yr = 2025
+# for (yr in c(2030,2040,2045,2050)){
+for (yr in c(2030)){
+# Load UMDI HHpop comparison data
+
+umdi <- fread(paste0(ctrltotal.path,'pop.in.hhds.MAPC101_by.RPA.ageCAT6.csv'))
+
+setnames(
+  umdi,
+  c(
+    'mpo',
+    'ageCAT6',
+    'year',
+    'pop',
+    'umdi_hh_pop'
+  )
+)
+
+umdi <-
+  umdi[, lapply(.SD, sum, na.rm = T), .(year, mpo, ageCAT6), .SDcols = c('umdi_hh_pop')]
+umdi[, umdi_hh_pop := round(umdi_hh_pop)]
+umdi <- umdi[year > 2020]
+setkey(umdi, mpo, year, ageCAT6)
+
+##  CALCULATE differences in HHpop by age between UMDI/Control Totals and reweighter Outputs
+
+    dx <- fread(paste0(output_path,'/reweighted_PUMS_', scen, '_', reb, '_', hdshp, '_', yr, '.csv'))
+    pums <- fread(paste0(workpath,'PUMS_data/PUMS2021_PINCP.csv'))
+    if(!'PINCP' %in% names(dx)){
+      dx <- dx |> left_join(pums, by=c('SERIALNO','SPORDER'))
+    }
+    dx[PINCP<0 | is.na(PINCP),PINCP:=0]
+    dx[, c("WGT1", "WGT2") := tstrsplit(new_WGTP, ".", fixed=TRUE)]
+    dx[,WGT1:=as.numeric(WGT1)]
+    dx[is.na(WGT2),WGT2:=0]
+    dx[,WGT2:=as.numeric(paste0('0.',WGT2))]
+    
+    dfrac <- dx[WGT2>0]
+    dfrac[,new_WGTP:=WGT2]
+    dfrac[,hid:=paste0(SERIALNO,'_',mpo,'_frac')]
+    
+    xr <- dx[rep(1:.N,WGT1)]
+    xr[,new_WGTP:=1]
+    setorder(xr,SERIALNO,SPORDER)
+    xr[,ss:=seq_along(.I),.(SERIALNO,SPORDER)]
+    xr[, hid := paste(SERIALNO, mpo, ss, sep = '_')]
+    xr[,ss:=NULL]
+    dt <- rbind(xr,dfrac)
+    dt[,pop:=new_WGTP]
+    dt[,pid:=paste0(hid,'_',SPORDER)]
+    dt[,person_num:=SPORDER][,age:=AGEP]
+    saveRDS(dt,paste0(output_path,'expanded_reweighted_PUMS_',yr,'.rds'))
+    uspop <- dt[,lapply(.SD,sum),.(mpo,year,ageCAT6),.SDcols='pop']
+    setkey(uspop, mpo, year, ageCAT6)
+    adiff <- umdi[uspop]
+    adiff[, diff := pop - umdi_hh_pop]
+    setnames(adiff, 'pop', 'urbansim_hh_pop')
+    fwrite(adiff, paste0(output_path,'umdi_pop_age_difference_',yr,'.csv'))
+rm(xr,dt,dx,dfrac);gc()
+
+message(paste(yr,'Complete'))
+
+}
+
+
+```
+
+# 8.2a - Person duplication function (Most recent)
+
+```{r}
+#| eval: false
+
+# Function that creates subsets of households to sample from for replicate/delete adjustments
+cx <- function(x) {
+  sub1 <- x[ageCAT6 == 1  & children > 1 & ageHHder>17]
+  add1 <- x[ageCAT6 == 1  & children < 4 &
+              adults > 1 & ageHHder %in% 20:60]
+  sub2 <- x[ageCAT6 == 2  & children > 1 & ageHHder>17]
+  add2 <- x[ageCAT6 == 2  & children < 4 &
+              adults > 1 & ageHHder %in% 20:60]
+  sub3 <- x[ageCAT6 == 3  & children > 1 & ageHHder>17]
+  add3 <- x[ageCAT6 == 3  & children < 4 &
+              adults > 1 & ageHHder %in% 20:60]
+  sub4 <-
+    x[(ageCAT6 == 4  &
+         HHT == 3 &
+         persons > 2 & person_num > 1) | (ageCAT6 == 4 &
+                            HHT == 1 & children > 1 & person_num > 1 & ageHHder>17)]
+  add4 <-
+    x[(ageCAT6 == 4  &
+         HHT == 1 &
+         children < 4 &
+         adults > 1 &
+         ageHHder %in% 25:50 &
+         person_num > 1) |
+        (ageCAT6 == 4  & ageHHder < 44 & HHT == 3 & persons < 6 &
+           person_num > 1)]
+  
+  sub5 <-
+    x[(ageCAT6 == 5  &
+         HHT == 3 &
+         persons > 2 &
+         person_num > 1) | (ageCAT6 == 5 &
+                              HHT == 1 & adults >= 2 &
+                              person_num > 1)]
+  add5 <- x[ageCAT6 == 5  & HHT == 3 &
+              persons >= 2  & persons<8 & ageHHder %in% 20:44]
+  
+  sub6 <-
+    x[(ageCAT6 == 6  &
+         HHT == 3 &
+         persons > 2 &
+         person_num > 1) |
+        (ageCAT6 == 6  & HHT == 1 & adults >= 2 &
+           person_num > 1)]
+  add6 <- x[ageCAT6 == 6  & HHT == 3 &
+              persons >= 2  & persons<8 & ageHHder %in% 20:44]
+  
+  sub7 <-
+    x[(ageCAT6 == 7  &
+         HHT == 3 &
+         persons > 2 &
+         person_num > 1) |
+        (ageCAT6 == 7  & HHT == 1 & adults >= 2 &
+           person_num > 1)]
+  add7 <- x[ageCAT6 == 7  & HHT == 3 &
+              persons >= 2  & persons<8 & ageHHder %in% 20:44]
+  
+  sub8 <-
+    x[(ageCAT6 == 8  &
+         HHT == 3 &
+         persons > 2 &
+         person_num > 1) |
+        (ageCAT6 == 8  & HHT == 1 & adults >= 2 &
+           person_num > 1)]
+  add8 <- x[ageCAT6 == 8  & HHT == 3 &
+              persons >= 2  & persons<8 & ageHHder %in% 24:49]
+  
+  sub9 <-
+    x[(ageCAT6 == 9  &
+         HHT == 3 &
+         persons > 2 &
+         person_num > 1) | (ageCAT6 == 9 &
+                              HHT == 1 & adults >= 2 &
+                              person_num > 1)]
+  add9 <- x[ageCAT6 == 9  & HHT == 3 &
+              persons >= 2  & persons<8 & ageHHder %in% 30:54]
+  
+  sub10 <-
+    x[(ageCAT6 == 10 &
+         HHT == 3 &
+         persons > 2 &
+         person_num > 1) |
+        (ageCAT6 == 10 & HHT == 1 & adults >= 2 &
+           person_num > 1)]
+  add10 <- x[ageCAT6 == 10 &
+               HHT == 3 & persons >= 2  & persons<8 & ageHHder %in% 40:59]
+  
+  sub11 <-
+    x[(ageCAT6 == 11 &
+         HHT == 3 &
+         persons > 2 &
+         person_num > 1) |
+        (ageCAT6 == 11 &
+           HHT == 1 & adults >= 2 & person_num > 1)]
+  add11 <- x[ageCAT6 == 11 &
+               HHT == 3 & persons >= 2  & persons<8 & ageHHder %in% 40:64]
+  sub12 <-
+    x[(ageCAT6 == 12 &
+         HHT == 3 &
+         persons > 2 &
+         person_num > 1) |
+        (ageCAT6 == 12 &
+           HHT == 1 & adults >= 2 & person_num > 1)]
+  add12 <- x[ageCAT6 == 12  &
+               HHT == 3 & persons >= 2  & persons<8 & ageHHder %in% 45:69]
+  sub13 <-
+    x[(ageCAT6 == 13 &
+         HHT == 3 &
+         persons > 2 &
+         person_num > 1) |
+        (ageCAT6 == 13  &
+           HHT == 1 & adults >= 2 & person_num > 1)]
+  add13 <- x[ageCAT6 == 13  &
+               HHT == 3 & persons >= 2 & ageHHder %in% 50:74]
+  
+  sub14 <-
+    x[(ageCAT6 == 14  &
+         HHT == 3 &
+         persons > 2 &
+         person_num > 1) |
+        (ageCAT6 == 14  &
+           HHT == 1 & adults >= 2 & person_num > 1)]
+  add14 <- x[ageCAT6 == 14 &
+               HHT > 1 & persons >= 2 & persons<8 ]
+  sub15 <-
+    x[(ageCAT6 == 15 &
+         HHT == 3 &
+         persons > 2 &
+         person_num > 1) |
+        (ageCAT6 == 15  &
+           HHT == 1 & adults >= 2 & person_num > 1)]
+  add15 <- x[ageCAT6 == 15 &
+               HHT > 1 & persons >= 2 & persons<8 ]
+  sub16 <-
+    x[(ageCAT6 == 16 &
+         HHT == 3 &
+         persons > 2 &
+         person_num > 1) |
+        (ageCAT6 == 16 &
+           HHT == 1 & adults >= 2 & person_num > 1)]
+  add16 <- x[ageCAT6 == 16 &
+               HHT > 1 & persons >= 2 & persons<8 ]
+  sub17 <-
+    x[(ageCAT6 == 17 &
+         HHT == 3 &
+         persons > 2 &
+         person_num > 1) |
+        (ageCAT6 == 17 &
+           HHT == 1 & adults >= 2 & person_num > 1)]
+  add17 <- x[ageCAT6 == 17 &
+               HHT > 1 & persons >= 2 & persons<8 ]
+  sub18 <-
+    x[(ageCAT6 == 18 &
+         HHT == 3 &
+         persons > 2 &
+         person_num > 1) |
+        (ageCAT6 == 18 &
+           HHT == 1 & adults >= 2 & person_num > 1)]
+  add18 <- x[ageCAT6 == 18 &
+               HHT > 1 & persons >= 2 & persons<8 ]
+  
+  add.sample <<-
+    list(
+      add1,
+      add2,
+      add3,
+      add4,
+      add5,
+      add6,
+      add7,
+      add8,
+      add9,
+      add10,
+      add11,
+      add12,
+      add13,
+      add14,
+      add15,
+      add16,
+      add17,
+      add18
+    )
+  sub.sample <<-
+    list(
+      sub1,
+      sub2,
+      sub3,
+      sub4,
+      sub5,
+      sub6,
+      sub7,
+      sub8,
+      sub9,
+      sub10,
+      sub11,
+      sub12,
+      sub13,
+      sub14,
+      sub15,
+      sub16,
+      sub17,
+      sub18
+    )
+  
+}
+```
+
+# 8.2 - Person duplication function (SHoP)
+
+```{r}
+#| eval: false
+
+# Function that creates subsets of households to sample from for replicate/delete adjustments
+cx <- function(x) {
+  sub1 <- x[new_WGTP==1 & ageCAT6 == 1  & children > 1 & ageHHder>17]
+  add1 <- x[new_WGTP==1 & ageCAT6 == 1  & children < 4 &
+              adults > 1 & ageHHder %in% 20:60]
+  sub2 <- x[new_WGTP==1 & ageCAT6 == 2  & children > 1 & ageHHder>17]
+  add2 <- x[new_WGTP==1 & ageCAT6 == 2  & children < 4 &
+              adults > 1 & ageHHder %in% 20:60]
+  sub3 <- x[new_WGTP==1 & ageCAT6 == 3  & children > 1 & ageHHder>17]
+  add3 <- x[new_WGTP==1 & ageCAT6 == 3  & children < 4 &
+              adults > 1 & ageHHder %in% 20:60]
+  sub4 <-
+    x[(new_WGTP==1 & ageCAT6 == 4  &
+         HHT == 3 &
+         persons > 2 & persons<8 & person_num > 1) | (new_WGTP==1 & ageCAT6 == 4 &
+                            HHT == 1 & children > 1 & person_num > 1 & ageHHder>17)]
+  add4 <-
+    x[(new_WGTP==1 & ageCAT6 == 4  &
+         HHT == 1 &
+         children < 4 &
+         adults > 1 &
+         ageHHder %in% 25:50 &
+         person_num > 1) |
+        (new_WGTP==1 & ageCAT6 == 4  & ageHHder < 44 & HHT == 3 & persons < 6 &
+           person_num > 1)]
+  
+  sub5 <-
+    x[(new_WGTP==1 & ageCAT6 == 5  &
+         HHT == 3 &
+         persons > 2  & persons<8 &
+         person_num > 1) | (new_WGTP==1 & ageCAT6 == 5 &
+                              HHT == 1 & adults >= 2 &
+                              person_num > 1)]
+  add5 <- x[ageCAT6 == 5  & HHT == 3 &
+              persons >= 2  & persons<8 & ageHHder %in% 20:44]
+  
+  sub6 <-
+    x[(new_WGTP==1 & ageCAT6 == 6  &
+         HHT == 3 &
+         persons > 2  & persons<8 &
+         person_num > 1) |
+        (new_WGTP==1 & ageCAT6 == 6  & HHT == 1 & adults >= 2 &
+           person_num > 1)]
+  add6 <- x[ageCAT6 == 6  & HHT == 3 &
+              persons >= 2  & persons<8 & ageHHder %in% 20:44]
+  
+  sub7 <-
+    x[(new_WGTP==1 & ageCAT6 == 7  &
+         HHT == 3 &
+         persons > 2  & persons<8 &
+         person_num > 1) |
+        (new_WGTP==1 & ageCAT6 == 7  & HHT == 1 & adults >= 2 &
+           person_num > 1)]
+  add7 <- x[new_WGTP==1 & ageCAT6 == 7  & HHT == 3 &
+              persons >= 2  & persons<8 & ageHHder %in% 20:44]
+  
+  sub8 <-
+    x[(new_WGTP==1 & ageCAT6 == 8  &
+         HHT == 3 &
+         persons > 2  & persons<8 &
+         person_num > 1) |
+        (new_WGTP==1 & ageCAT6 == 8  & HHT == 1 & adults >= 2 &
+           person_num > 1)]
+  add8 <- x[ageCAT6 == 8  & HHT == 3 &
+              persons >= 2  & persons<8 & ageHHder %in% 24:49]
+  
+  sub9 <-
+    x[(new_WGTP==1 & ageCAT6 == 9  &
+         HHT == 3 &
+         persons > 2  & persons<8 &
+         person_num > 1) | (new_WGTP==1 & ageCAT6 == 9 &
+                              HHT == 1 & adults >= 2 &
+                              person_num > 1)]
+  add9 <- x[new_WGTP==1 & ageCAT6 == 9  & HHT == 3 &
+              persons >= 2  & persons<8 & ageHHder %in% 30:54]
+  
+  sub10 <-
+    x[(new_WGTP==1 & ageCAT6 == 10 &
+         HHT == 3 &
+         persons > 2  & persons<8 &
+         person_num > 1) |
+        (new_WGTP==1 & ageCAT6 == 10 & HHT == 1 & adults >= 2 &
+           person_num > 1)]
+  add10 <- x[ageCAT6 == 10 &
+               HHT == 3 & persons >= 2  & persons<8 & ageHHder %in% 40:59]
+  
+  sub11 <-
+    x[(new_WGTP==1 & ageCAT6 == 11 &
+         HHT == 3 &
+         persons > 2  & persons<8 &
+         person_num > 1) |
+        (new_WGTP==1 & ageCAT6 == 11 &
+           HHT == 1 & adults >= 2 & person_num > 1)]
+  add11 <- x[ageCAT6 == 11 &
+               HHT == 3 & persons >= 2  & persons<8 & ageHHder %in% 40:64]
+  sub12 <-
+    x[(new_WGTP==1 & ageCAT6 == 12 &
+         HHT == 3 &
+         persons > 2  & persons<8 &
+         person_num > 1) |
+        (new_WGTP==1 & ageCAT6 == 12 &
+           HHT == 1 & adults >= 2 & person_num > 1)]
+  add12 <- x[new_WGTP==1 & ageCAT6 == 12  &
+               HHT == 3 & persons >= 2  & persons<8 & ageHHder %in% 45:69]
+  sub13 <-
+    x[(new_WGTP==1 & ageCAT6 == 13  &
+         HHT == 3 &
+         persons > 2  & persons<8 &
+         person_num > 1) |
+        (new_WGTP==1 & ageCAT6 == 13  &
+           HHT == 1 & adults >= 2 & person_num > 1)]
+  add13 <- x[ageCAT6 == 13  &
+               HHT == 3 & persons >= 2 & ageHHder %in% 50:74]
+  
+  sub14 <-
+    x[(new_WGTP==1 & ageCAT6 == 14  &
+         HHT == 3 &
+         persons > 2  & persons<8 &
+         person_num > 1) |
+        (new_WGTP==1 & ageCAT6 == 14  &
+           HHT == 1 & adults >= 2 & person_num > 1)]
+  add14 <- x[ageCAT6 == 14 &
+               HHT > 1 & persons >= 2 & persons<8 ]
+  sub15 <-
+    x[(new_WGTP==1 & ageCAT6 == 15 &
+         HHT == 3 &
+         persons > 2  & persons<8 &
+         person_num > 1) |
+        (new_WGTP==1 & ageCAT6 == 15  &
+           HHT == 1 & adults >= 2 & person_num > 1)]
+  add15 <- x[new_WGTP==1 & ageCAT6 == 15 &
+               HHT > 1 & persons >= 2 & persons<8 ]
+  sub16 <-
+    x[(new_WGTP==1 & ageCAT6 == 16 &
+         HHT == 3 &
+         persons > 2  & persons<8 &
+         person_num > 1) |
+        (new_WGTP==1 & ageCAT6 == 16 &
+           HHT == 1 & adults >= 2 & person_num > 1)]
+  add16 <- x[ageCAT6 == 16 &
+               HHT > 1 & persons >= 2 & persons<8 ]
+  sub17 <-
+    x[(new_WGTP==1 & ageCAT6 == 17 &
+         HHT == 3 &
+         persons > 2  & persons<8 &
+         person_num > 1) |
+        (new_WGTP==1 & ageCAT6 == 17 &
+           HHT == 1 & adults >= 2 & person_num > 1)]
+  add17 <- x[new_WGTP==1 & ageCAT6 == 17 &
+               HHT > 1 & persons >= 2 & persons<8 ]
+  sub18 <-
+    x[(new_WGTP==1 & ageCAT6 == 18 &
+         HHT == 3 &
+         persons > 2  & persons<8 &
+         person_num > 1) |
+        (new_WGTP==1 & ageCAT6 == 18 &
+           HHT == 1 & adults >= 2 & person_num > 1)]
+  add18 <- x[ageCAT6 == 18 &
+               HHT > 1 & persons >= 2 & persons<8 ]
+  
+  add.sample <<-
+    list(
+      add1,
+      add2,
+      add3,
+      add4,
+      add5,
+      add6,
+      add7,
+      add8,
+      add9,
+      add10,
+      add11,
+      add12,
+      add13,
+      add14,
+      add15,
+      add16,
+      add17,
+      add18
+    )
+  sub.sample <<-
+    list(
+      sub1,
+      sub2,
+      sub3,
+      sub4,
+      sub5,
+      sub6,
+      sub7,
+      sub8,
+      sub9,
+      sub10,
+      sub11,
+      sub12,
+      sub13,
+      sub14,
+      sub15,
+      sub16,
+      sub17,
+      sub18
+    )
+  
+}
+```
+
+# 8.3 - Post-processor 04 - run person duplication/subtraction
+
+```{r}
+
+# for (yr in c(2030,2040,2045,2050)){
+for (yr in c(2030)){
+  
+flaglist <- data.table()
+
+adiff <- fread(paste0(output_path,'umdi_pop_age_difference_',yr,'.csv'))
+adiff[,diff:=round(diff)]
+
+
+dt <- readRDS(paste0(output_path,'expanded_reweighted_PUMS_',yr,'.rds')) |> 
+                mutate(
+      child = case_when(AGEP < 18 ~ 1,
+                        AGEP >= 18 ~ 0)) |>  
+      setDT()
+  dt[, children := sum(child), hid]
+  dt[child == 0, adult := 1]
+  dt[, adults := sum(adult,na.rm=T), hid]
+  dt[ageCAT6 == 1, age1 := .N, hid]
+  dt[ageCAT6 == 2, age2 := .N, hid]
+  dt[ageCAT6 == 3, age3 := .N, hid]
+  dt[ageCAT6 == 4, age4 := .N, hid]
+  dt[ageCAT6 == 5, age5 := .N, hid]
+  dt[ageCAT6 == 6, age6 := .N, hid]
+  dt[ageCAT6 == 7, age7 := .N, hid]
+  dt[ageCAT6 == 8, age8 := .N, hid]
+  dt[ageCAT6 == 9, age9 := .N, hid]
+  dt[ageCAT6 == 10, age10 := .N, hid]
+  dt[ageCAT6 == 11, age11 := .N, hid]
+  dt[ageCAT6 == 12, age12 := .N, hid]
+  dt[ageCAT6 == 13, age13 := .N, hid]
+  dt[ageCAT6 == 14, age14 := .N, hid]
+  dt[ageCAT6 == 15, age15 := .N, hid]
+  dt[ageCAT6 == 16, age16 := .N, hid]
+  dt[ageCAT6 == 17, age17 := .N, hid]
+  dt[ageCAT6 == 18, age18 := .N, hid]
+  dt[, person_num:=SPORDER]
+  dt[, sporder := SPORDER]
+  dt[SPORDER == 1, ageHH := AGEP]
+  dt[, ageHHder := max(ageHH, na.rm = T), hid]
+  dt[, persons := max(SPORDER), hid]
+  dt[SPORDER == 1, ht := HHtype]
+  dt[, HHT := max(ht, na.rm = T), hid]
+  
+  
+  addon <- data.table()
+  delflag <- data.table()
+  
+  for (m in mpos) {
+    swm <- dt[mpo == m]
+    cx(swm)
+    
+    for (i in 1:3) {
+      diff <- adiff[mpo == m & ageCAT6 == i & year == yr, diff]
+      if (diff < 0) {
+        sN <- abs(diff)
+        m1 <- add.sample[[i]]
+        if (lun(m1$pid) < sN) {
+          m1 <- swm[ageCAT6 == i  & children < 4 &
+                       adults >= 1 & ageHHder %in% 20:60]
+        }
+        if (lun(m1$pid) < sN) {
+          m1 <- swm[ageCAT6 == i  & children <= 4]
+        }
+        if (lun(m1$pid) < sN) {
+          m1 <- swm[ageCAT6 == i]
+        }
+        hhs <- sample(unique(m1$hid), min(lun(m1$hid), sN))
+        if (lun(m1$hid) < sN) {
+          flaglist <-
+            c(flaglist, data.table(
+              flag = paste0(
+                'WARNING - Insufficient sample size for duplication ',
+                m,
+                ' ',
+                yr,
+                ' - ',
+                'ageCAT == ',
+                i
+              )
+            ))
+          message(
+            paste0(
+              'WARNING - Insufficient sample size for duplication ',
+              m,
+              ' ',
+              yr,
+              ' - ',
+              'ageCAT == ',
+              i
+            )
+          )
+        }
+        samp <- m1[hid %in% hhs & ageCAT6 == i]
+        samp1 <- samp[get(paste0('age', i)) == 1]
+        samp2 <-
+          samp[get(paste0('age', i)) > 1, .SD[sample(.N, 1)], hid]
+        addon <- rbind(addon, samp1, samp2)
+      }
+      if (diff > 0) {
+        sN <- abs(diff)
+        m1 <- sub.sample[[i]]
+        m1 <- m1[!hid %in% delflag$hid]
+        m1[,maxsp:=max(SPORDER),hid]
+        m1 <- m1[SPORDER==maxsp]
+        hhs <- sample(unique(m1$pid),  min(lun(m1$pid), sN))
+        if (lun(m1$pid) < sN) {
+          flaglist <-
+            c(flaglist, data.table(
+              flag = paste0(
+                'WARNING - Insufficient sample size for duplication ',
+                m,
+                ' ',
+                yr,
+                ' - ',
+                'ageCAT == ',
+                i,
+                ' --- diff = ',
+                diff,
+                ' --- sample = ',
+                dim(m1)[1]
+              )
+            ))
+          message(
+            paste0(
+              'WARNING - Insufficient sample size for duplication ',
+              m,
+              ' ',
+              yr,
+              ' - ',
+              'ageCAT == ',
+              i,
+              ' --- diff = ',
+              diff,
+              ' --- sample = ',
+              dim(m1)[1]
+            )
+          )
+        }
+        samp <- m1[pid %in% hhs]
+        samp[, delete := 1]
+        delflag <- rbind(delflag, samp[, .(pid, hid, delete)])
+      }
+    }
+    
+    for (i in 4) {
+      diff <- adiff[mpo == m & ageCAT6 == i & year == yr, diff]
+      if (diff < 0) {
+        sN <- abs(diff)
+        m1 <- add.sample[[i]]
+        hhs <- sample(unique(m1$hid), min(lun(m1$hid), sN))
+        if (lun(m1$hid) < sN) {
+          flaglist <-
+            c(flaglist, data.table(
+              flag = paste0(
+                'WARNING - Insufficient sample size for duplication ',
+                m,
+                ' ',
+                yr,
+                ' - ',
+                'ageCAT == ',
+                i
+              )
+            ))
+          message(
+            paste0(
+              'WARNING - Insufficient sample size for duplication ',
+              m,
+              ' ',
+              yr,
+              ' - ',
+              'ageCAT == ',
+              i
+            )
+          )
+        }
+        samp1 <-
+          m1[hid %in% hhs &
+               HHT == 1 & ageCAT6 == i, .SD[sample(.N, 1)], hid]
+        samp1[, age := sample(15:18, 1)]
+        samp2 <-
+          m1[hid %in% hhs &
+               HHT == 3 &
+               ageCAT6 == i, .SD[sample(.N, 1)], hid]
+        samp2[, age := 19][, ageCAT6 := 4]
+        addon <- rbind(addon, samp1, samp2)
+      }
+      if (diff > 0) {
+        sN <- abs(diff)
+        m1 <- sub.sample[[i]]
+        m1 <- m1[!hid %in% delflag$hid]
+        m1[,maxsp:=max(SPORDER),hid]
+        m1 <- m1[SPORDER==maxsp]
+        hhs <- sample(unique(m1$pid),  min(lun(m1$pid), sN))
+        if (lun(m1$pid) < sN) {
+          flaglist <-
+            c(flaglist, data.table(
+              flag = paste0(
+                'WARNING - Insufficient sample size for duplication ',
+                m,
+                ' ',
+                yr,
+                ' - ',
+                'ageCAT == ',
+                i,
+                ' --- diff = ',
+                diff,
+                ' --- sample = ',
+                dim(m1)[1]
+              )
+            ))
+          message(
+            paste0(
+              'WARNING - Insufficient sample size for duplication ',
+              m,
+              ' ',
+              yr,
+              ' - ',
+              'ageCAT == ',
+              i,
+              ' --- diff = ',
+              diff,
+              ' --- sample = ',
+              dim(m1)[1]
+            )
+          )
+        }
+        samp <- m1[pid %in% hhs]
+        samp[, delete := 1]
+        delflag <- rbind(delflag, samp[, .(pid, hid, delete)])
+      }
+    }
+    for (i in 5:10) {
+      diff <- adiff[mpo == m & ageCAT6 == i & year == yr, diff]
+      if (diff < 0) {
+        sN <- abs(diff)
+        if (m %in% c('CCC',
+                     'FRCOG',
+                     'MRPC',
+                     'MVC',
+                     'NPEDC',
+                     'NMCOG',
+                     'OCPC',
+                     'PVPC')) {
+          m1 <- swm[ageCAT6 == i & HHT == 3]
+          if (lun(m1$pid) < sN) {
+              m1 <- swm[ageCAT6 == i & HHT < 5]
+            }
+          hhs <- sample(unique(m1$pid), min(lun(m1$pid), sN))
+          samp <- m1[pid %in% hhs]
+          if (lun(m1$pid) < sN) {
+            flaglist <-
+              c(flaglist, data.table(
+                flag = paste0(
+                  'WARNING - Insufficient sample size for duplication ',
+                  m,
+                  ' ',
+                  yr,
+                  ' - ',
+                  'ageCAT == ',
+                  i,
+                  ' --- diff = ',
+                  diff,
+                  ' --- sample = ',
+                  dim(m1)[1]
+                )
+              ))
+            message(
+              paste0(
+                'WARNING - Insufficient sample size for duplication ',
+                m,
+                ' ',
+                yr,
+                ' - ',
+                'ageCAT == ',
+                i,
+                ' --- diff = ',
+                diff,
+                ' --- sample = ',
+                dim(m1)[1]
+              )
+            )
+          }
+        }
+        if (!m %in% c('CCC',
+                      'FRCOG',
+                      'MRPC',
+                      'MVC',
+                      'NPEDC',
+                      'NMCOG',
+                      'OCPC',
+                      'PVPC')) {
+          m1 <- add.sample[[i]]
+          hhs <- sample(unique(m1$pid), min(lun(m1$pid), sN))
+          if (lun(m1$pid) < sN) {
+            flaglist <-
+              c(flaglist, data.table(
+                flag = paste0(
+                  'WARNING - Insufficient sample size for duplication ',
+                  m,
+                  ' ',
+                  yr,
+                  ' - ',
+                  'ageCAT == ',
+                  i,
+                  ' --- diff = ',
+                  diff,
+                  ' --- sample = ',
+                  dim(m1)[1]
+                )
+              ))
+            message(
+              paste0(
+                'WARNING - Insufficient sample size for duplication ',
+                m,
+                ' ',
+                yr,
+                ' - ',
+                'ageCAT == ',
+                i,
+                ' --- diff = ',
+                diff,
+                ' --- sample = ',
+                dim(m1)[1]
+              )
+            )
+          }
+          samp <- m1[pid %in% hhs]
+        }
+        addon <- rbind(addon, samp)
+      }
+        if (diff > 0) {
+          sN <- abs(diff)
+          m1 <- sub.sample[[i]]
+          m1 <- m1[!hid %in% delflag$hid]
+          m1[,maxsp:=max(SPORDER),hid]
+          m1 <- m1[SPORDER==maxsp]
+          hhs <- sample(unique(m1$pid),  min(lun(m1$pid), sN))
+          if (lun(m1$pid) < sN) {
+            flaglist <-
+              c(flaglist, data.table(
+                flag = paste0(
+                  'WARNING - Insufficient sample size for duplication ',
+                  m,
+                  ' ',
+                  yr,
+                  ' - ',
+                  'ageCAT == ',
+                  i,
+                  ' --- diff = ',
+                  diff,
+                  ' --- sample = ',
+                  dim(m1)[1]
+                )
+              ))
+            message(
+              paste0(
+                'WARNING - Insufficient sample size for duplication ',
+                m,
+                ' ',
+                yr,
+                ' - ',
+                'ageCAT == ',
+                i,
+                ' --- diff = ',
+                diff,
+                ' --- sample = ',
+                dim(m1)[1]
+              )
+            )
+          }
+          samp <- m1[pid %in% hhs]
+          samp[, delete := 1]
+          delflag <- rbind(delflag, samp[, .(pid, hid, delete)])
+        }
+      }
+      
+      
+      for (i in 11:18) {
+        diff <- adiff[mpo == m & ageCAT6 == i & year == yr, diff]
+        if (diff < 0) {
+          sN <- abs(diff)
+          m1 <- add.sample[[i]]
+          hhs <- sample(unique(m1$pid), min(lun(m1$pid), sN))
+          if (lun(m1$pid) < sN) {
+            m1 <- swm[ageCAT6 == i & HHT == 3]
+          }
+          if (lun(m1$pid) < sN) {
+            m1 <- swm[ageCAT6 == i & HHT < 5]
+          }
+          if (lun(m1$pid) < sN) {
+            m1 <- swm[ageCAT6 == i]
+          }
+          if (lun(m1$pid) < sN) {
+            flaglist <-
+              c(flaglist, data.table(
+                flag = paste0(
+                  'WARNING - Insufficient sample size for duplication ',
+                  m,
+                  ' ',
+                  yr,
+                  ' - ',
+                  'ageCAT == ',
+                  i,
+                  ' --- diff = ',
+                  diff,
+                  ' --- sample = ',
+                  dim(m1)[1]
+                )
+              ))
+            message(
+              paste0(
+                'WARNING - Insufficient sample size for duplication ',
+                m,
+                ' ',
+                yr,
+                ' - ',
+                'ageCAT == ',
+                i,
+                ' --- diff = ',
+                diff,
+                ' --- sample = ',
+                dim(m1)[1]
+              )
+            )
+          }
+          samp <- m1[pid %in% hhs]
+          addon <- rbind(addon, samp)
+        }
+        if (diff > 0) {
+          sN <- abs(diff)
+          m1 <- sub.sample[[i]]
+          m1 <- m1[!hid %in% delflag$hid]
+          m1[,maxsp:=max(SPORDER),hid]
+          m1 <- m1[SPORDER==maxsp]
+          # if (lun(m1$pid) < sN){
+          #   m1 <- swm[ageCAT6 == i & person_num > 1]
+          # }
+          hhs <- sample(unique(m1$pid),  min(lun(m1$pid), sN))
+          if (lun(m1$pid) < sN) {
+            flaglist <-
+              c(flaglist, data.table(
+                flag = paste0(
+                  'WARNING - Insufficient sample size for duplication ',
+                  m,
+                  ' ',
+                  yr,
+                  ' - ',
+                  'ageCAT == ',
+                  i,
+                  ' --- diff = ',
+                  diff,
+                  ' --- sample = ',
+                  dim(m1)[1]
+                )
+              ))
+            message(
+              paste0(
+                'WARNING - Insufficient sample size for duplication ',
+                m,
+                ' ',
+                yr,
+                ' - ',
+                'ageCAT == ',
+                i,
+                ' --- diff = ',
+                diff,
+                ' --- sample = ',
+                dim(m1)[1]
+              )
+            )
+          }
+          samp <- m1[pid %in% hhs]
+          samp[, delete := 1]
+          delflag <- rbind(delflag, samp[, .(pid, hid, delete)])
+        }
+      }
+        message(paste0(m, ' complete ', yr))
+        rm(add.sample,sub.sample)
+    }
+  
+    # Join IDs of persons to delete back to main data.table and then delete those rows
+    setkey(delflag, pid)
+    setkey(dt, pid)
+    dt2 <- left_join(dt,delflag,by=c('pid','hid')) |> setDT()
+    
+    dt2 <- dt2[is.na(delete)]
+    
+    # Join person records to append to data.table
+    addon[, addflag := 1]
+    dt3 <- rbind(dt2, addon, fill = T)
+    
+    # Recalculate person and household characteristics
+    setorder(dt3, hid, person_num)
+    dt3[, person_num := 1:.N, hid]
+    dt3[, sporder := person_num]
+    dt3[, SPORDER := person_num]
+    dt3[, pid := paste0(hid, '_', person_num)]
+    dt3[, persons := .N, hid]
+    dt3[, workers := sum(worker), hid]
+    dt3[PINCP<0, PINCP:=0]
+    dt3[, pinc2021:= as.numeric(ADJINC) * PINCP]
+    dt3[, HINCP.adj.2021USD := sum(pinc2021), hid]
+    dt3[, HHsize:=max(sporder),hid]
+    dt3[, age:=AGEP]
+    
+    dt3 <- dt3 %>% mutate(
+      child = case_when(age < 18 ~ 1,
+                        age >= 18 ~ 0)) |>  
+      setDT()
+    # Count children and adults in each household
+    dt3[, children_in_HH := sum(child, na.rm = T), hid]
+    dt3[, children := sum(child, na.rm = T), hid]
+    dt3[child == 0, adult := 1][is.na(adult), adult := 0]
+    dt3[, adults := sum(adult, na.rm = T), hid]
+    dt3[,size2:=HHsize]
+    dt3[size2>7,size2:=7]
+    
+    # Persons by 5-yr age categories
+    dt3[age < 5 , ageCAT6 := 1]
+    dt3[age %in% 5:9 , ageCAT6 := 2]
+    dt3[age %in% 10:14 , ageCAT6 := 3]
+    dt3[age %in% 15:19 , ageCAT6 := 4]
+    dt3[age %in% 20:24 , ageCAT6 := 5]
+    dt3[age %in% 25:29 , ageCAT6 := 6]
+    dt3[age %in% 30:34 , ageCAT6 := 7]
+    dt3[age %in% 35:39 , ageCAT6 := 8]
+    dt3[age %in% 40:44 , ageCAT6 := 9]
+    dt3[age %in% 45:49 , ageCAT6 := 10]
+    dt3[age %in% 50:54 , ageCAT6 := 11]
+    dt3[age %in% 55:59 , ageCAT6 := 12]
+    dt3[age %in% 60:64 , ageCAT6 := 13]
+    dt3[age %in% 65:69 , ageCAT6 := 14]
+    dt3[age %in% 70:74 , ageCAT6 := 15]
+    dt3[age %in% 75:79 , ageCAT6 := 16]
+    dt3[age %in% 80:84 , ageCAT6 := 17]
+    dt3[age >= 85 , ageCAT6 := 18]
+    dt3[,HHtype:=HHT]
+    dt3[,WGTP:=new_WGTP]
+    
+    dt3 <- dt3 |> mutate(
+      HHtype.chk = case_when(
+      children >= 1 & persons > 1 ~ 1,
+      children == 0 & persons > 1 ~ 3,
+      persons == 1 ~ 5
+    )
+    ) |> setDT()
+    
+    bad <- dt3[HHT!=HHtype.chk]
+    
+    
+    cf <- dt3[,lapply(.SD,sum),ageCAT6,.SDcols='new_WGTP']
+    setnames(cf,'new_WGTP','pop_in_HH')
+    cf[,year:=yr][,pop_in_HH:=round(pop_in_HH)]
+    setkey(cf,ageCAT6)
+    ad <- adiff[year==yr,lapply(.SD,sum),ageCAT6,.SDcols = c('umdi_hh_pop','urbansim_hh_pop')]
+    setkey(ad,ageCAT6)
+    
+    cc <- ad[cf]
+    cc[,diff:=pop_in_HH-umdi_hh_pop]
+    
+    ct <- dt3[,lapply(.SD,sum),.(ageCAT6,HHT),.SDcols='new_WGTP']
+    setnames(ct,'new_WGTP','pop_in_HH')
+    ct[,year:=yr][,pop_in_HH:=round(pop_in_HH)]
+    setorder(ct,ageCAT6,HHT)
+    
+    mf <- dt3[,lapply(.SD,sum),.(mpo,ageCAT6),.SDcols='new_WGTP']
+    setnames(mf,'new_WGTP','pop_in_HH')
+    mf[,year:=yr][,pop_in_HH:=round(pop_in_HH)]
+    setkey(mf,mpo,ageCAT6)
+    md <- adiff[year==yr,lapply(.SD,sum),.(mpo,ageCAT6),.SDcols = c('umdi_hh_pop','urbansim_hh_pop')]
+    setkey(md,mpo,ageCAT6)
+    
+    mc <- md[mf]
+    mc[,diff:=pop_in_HH-umdi_hh_pop]
+    setnames(mc,c('mpo','ageCAT6','umdi_pop_in_HH','uncorrected_pop_in_HH','corrected_pop_in_HH','year','corrected_minus_umdi'))
+    fwrite(mc,paste0(output_path,'corrected_pop_vs_UMDI_by_ageCAT6_HHtype_',scen,'_',yr,'.csv'))
+    
+    saveRDS(
+      dt3,
+      paste0(output_path,
+        'processor_corrected_PUMS_',scen,'_',yr,'.rds'
+      )
+    )
+message(paste(yr,'Complete'))
+}
+```
+
+# 8.4 - Summary checks
+
+```{r}
+# # Type fix
+# 
+# d25 <- readRDS(paste0(output_path, 'pop_corrected_PUMS_', scen, '_2025.rds'))
+# d35 <- readRDS(paste0(output_path, 'pop_corrected_PUMS_', scen, '_2035.rds'))
+# 
+# htype <- d35[SPORDER==1,sum(WGTP),.(ageCAT6,HHtype)]
+# setnames(htype,'V1','HH')
+# setorder(htype,ageCAT6,HHtype)
+# 
+# hchild <- d35[SPORDER==1,sum(children),.(HHtype)]
+# setnames(hchild,'V1','HH')
+# setorder(hchild,HHtype)
+# 
+# hsize <- d35[SPORDER==1,sum(WGTP),.(HHsize)]
+# setnames(hsize,'V1','HH')
+# setorder(hsize,HHsize)
+
+
+```
+
+# Deprecated
+
+```{r}
+
+# 8.2 - Post-processor 03 - person shifts
+
+#| eval: false
+#   
+# 
+# for (yr in c(2035)){
+#   # adiff <- fread(paste0(output_path,'umdi_pop_age_difference_',yr,'.csv'))
+#   adiff <- fread(paste0(output_path,'umdi_pop_age_difference_',yr,'.csv'))
+#     
+#   adiff[,diff:=round(diff)]
+#   
+#   dt_shift <- data.table()
+#   #dt <- fread(paste0(output_path,'expanded_reweighted_PUMS_',yr,'.csv'))
+#   dt <- fread('C:/Users/gately/Desktop/Scenario_3/expanded_reweighted_PUMS_2035.csv')
+#   
+#   for (m in unique(adiff$mpo)) {
+#     
+#     swm <- dt[mpo==m]
+#     swm[,person_num:=SPORDER][,age:=AGEP]
+#     gc()
+#     diff <- adiff[mpo == m & year == yr]
+#     
+#     
+#     # ageCAT 2 and 3
+#     for (i in 2:3) {
+#       dlag <- diff[ageCAT6 == i - 1, diff]
+#       da <- diff[ageCAT6 == i, diff]
+#       dlead <- diff[ageCAT6 == i + 1, diff]
+#       
+#       if (da > 0 & dlag < 0 & dlead < 0) {
+#         if ((abs(dlag) + abs(dlead)) > da) {
+#           subN <- abs(round(da * (dlag / (dlag + dlead))))
+#           addN <- abs(round(da * (dlead / (dlag + dlead))))
+#         }
+#         else if ((abs(dlag) + abs(dlead)) <= da) {
+#           subN <- abs(dlag)
+#           addN <- abs(dlead)
+#         }
+#         tosub <-
+#           swm[ageCAT6 == i &
+#                 person_num > 1, sample(unique(pid), subN)]
+#         toadd <-
+#           swm[ageCAT6 == i &
+#                 person_num > 1, sample(unique(pid), addN)]
+#         swm[pid %in% tosub, `:=` (age = age - 5, ageCAT6 = ageCAT6 - 1)]
+#         swm[pid %in% toadd, `:=` (age = age + 5, ageCAT6 = ageCAT6 + 1)]
+#       }
+#       if (da > 0 & dlag < 0 & dlead > 0) {
+#         if (abs(dlag) > da) {
+#           subN <- abs(da)
+#         }
+#         else if (abs(dlag) <= da) {
+#           subN <- abs(dlag)
+#         }
+#         tosub <-
+#           swm[ageCAT6 == i &
+#                 person_num > 1, sample(unique(pid), subN)]
+#         swm[pid %in% tosub, `:=` (age = age - 5, ageCAT6 = ageCAT6 - 1)]
+#       }
+#       if (da > 0 & dlag > 0 & dlead < 0) {
+#         if (abs(dlead) > da) {
+#           addN <- abs(da)
+#         }
+#         else if (abs(dlead) <= da) {
+#           addN <- abs(dlead)
+#         }
+#         toadd <-
+#           swm[ageCAT6 == i &
+#                 person_num > 1, sample(unique(pid), addN)]
+#         swm[pid %in% toadd, `:=` (age = age + 5, ageCAT6 = ageCAT6 + 1)]
+#       }
+#       # Update age difference table
+#       newlag <- swm[ageCAT6 == i - 1, .N]
+#       newpop <- swm[ageCAT6 == i, .N]
+#       newlead <- swm[ageCAT6 == i + 1, .N]
+#       diff[ageCAT6 == i - 1, `:=`(urbansim_hh_pop = newlag, diff = newlag - umdi_hh_pop)]
+#       diff[ageCAT6 == i, `:=`(urbansim_hh_pop = newpop, diff = newpop - umdi_hh_pop)]
+#       diff[ageCAT6 == i + 1, `:=`(urbansim_hh_pop = newlead, diff = newlead - umdi_hh_pop)]
+#       suppressWarnings(rm(newlag,newpop,newlead,addN,subN,da,dlag,dlead,tosub,toadd))
+#       gc()
+#     }
+#     
+#     # ageCAT = 1
+#     da <- diff[ageCAT6 == 1, diff]
+#     dlead <- diff[ageCAT6 == 2, diff]
+#     if (da > 0 & dlead < 0) {
+#       if (abs(dlead) > da) {
+#         addN <- abs(da)
+#       }
+#       else if (abs(dlead) <= da) {
+#         addN <- abs(dlead)
+#       }
+#       toadd <-
+#         swm[ageCAT6 == 1 &
+#               person_num > 1, sample(unique(pid), addN)]
+#       swm[pid %in% toadd, `:=` (age = age + 5, ageCAT6 = ageCAT6 + 1)]
+#     }
+#     # Update age difference table
+#     newpop <- swm[ageCAT6 == 1, .N]
+#     newlead <- swm[ageCAT6 == 2, .N]
+#     diff[ageCAT6 == 1, `:=`(urbansim_hh_pop = newpop, diff = newpop - umdi_hh_pop)]
+#     diff[ageCAT6 == 2, `:=`(urbansim_hh_pop = newlead, diff = newlead - umdi_hh_pop)]
+#     suppressWarnings(rm(newlag,newpop,newlead,addN,subN,da,dlag,dlead,tosub,toadd))
+#     gc()
+#     
+#     # ageCAT = 4
+#     dlag <- diff[ageCAT6 == 3, diff]
+#     da <- diff[ageCAT6 == 4, diff]
+#     dlead <- diff[ageCAT6 == 5, diff]
+#     if (da > 0 & dlag < 0) {
+#       if (abs(dlag) > da) {
+#         subN <- abs(da)
+#       }
+#       else if (abs(dlag) <= da) {
+#         subN <- abs(dlag)
+#       }
+#       tosub <-
+#         swm[age %in% 15:18 &
+#               person_num > 1, sample(unique(pid), subN)]
+#       swm[pid %in% tosub, `:=` (age = age - 5, ageCAT6 = ageCAT6 - 1)]
+#     }
+#     # Update age difference table
+#     newpop <- swm[ageCAT6 == 4, .N]
+#     newlag <- swm[ageCAT6 == 3, .N]
+#     diff[ageCAT6 == 4, `:=`(urbansim_hh_pop = newpop, diff = newpop - umdi_hh_pop)]
+#     diff[ageCAT6 == 3, `:=`(urbansim_hh_pop = newlag, diff = newlag - umdi_hh_pop)]
+#     suppressWarnings(rm(newlag,newpop,newlead,addN,subN,da,dlag,dlead,tosub,toadd))
+#     gc()
+#     
+#     for (i in 6:17) {
+#       dlag <- diff[ageCAT6 == i - 1, diff]
+#       da <- diff[ageCAT6 == i, diff]
+#       dlead <- diff[ageCAT6 == i + 1, diff]
+#       
+#       if (da > 0 & dlag < 0 & dlead < 0) {
+#         if ((abs(dlag) + abs(dlead)) > da) {
+#           subN <- abs(round(da * (dlag / (dlag + dlead))))
+#           addN <- abs(round(da * (dlead / (dlag + dlead))))
+#         }
+#         else if ((abs(dlag) + abs(dlead)) <= da) {
+#           subN <- abs(dlag)
+#           addN <- abs(dlead)
+#         }
+#         tosub <-
+#           swm[ageCAT6 == i &
+#                 person_num > 1, sample(unique(pid), size=min(subN,lun(pid)))]
+#         toadd <-
+#           swm[ageCAT6 == i &
+#                 person_num > 1, sample(unique(pid), size=min(addN,lun(pid)))]
+#         swm[pid %in% tosub, `:=` (age = age - 5, ageCAT6 = ageCAT6 - 1)]
+#         swm[pid %in% toadd, `:=` (age = age + 5, ageCAT6 = ageCAT6 + 1)]
+#       }
+#       if (da > 0 & dlag < 0 & dlead > 0) {
+#         if (abs(dlag) > da) {
+#           subN <- abs(da)
+#         }
+#         else if (abs(dlag) <= da) {
+#           subN <- abs(dlag)
+#         }
+#         tosub <-
+#           swm[ageCAT6 == i &
+#                 person_num > 1, sample(unique(pid), size=min(subN,lun(pid)))]
+#         swm[pid %in% tosub, `:=` (age = age - 5, ageCAT6 = ageCAT6 - 1)]
+#       }
+#       # Update age difference table
+#       newpop <- swm[ageCAT6 == i, .N]
+#       newlag <- swm[ageCAT6 == i - 1, .N]
+#       newlead <- swm[ageCAT6 == i + 1, .N]
+#       diff[ageCAT6 == i - 1, `:=`(urbansim_hh_pop = newlag, diff = newlag - umdi_hh_pop)]
+#       diff[ageCAT6 == i, `:=`(urbansim_hh_pop = newpop, diff = newpop - umdi_hh_pop)]
+#       diff[ageCAT6 == i + 1, `:=`(urbansim_hh_pop = newlead, diff = newlead - umdi_hh_pop)]
+#       suppressWarnings(rm(newlag,newpop,newlead,addN,subN,da,dlag,dlead,tosub,toadd))
+#       gc()
+#       
+#     }
+#     
+#     # ageCAT = 5
+#     da <- diff[ageCAT6 == 5, diff]
+#     dlead <- diff[ageCAT6 == 6, diff]
+#     if (da > 0 & dlead < 0) {
+#       if (abs(dlead) > da) {
+#         addN <- abs(da)
+#       }
+#       else if (abs(dlead) <= da) {
+#         addN <- abs(dlead)
+#       }
+#       toadd <-
+#         swm[ageCAT6 == 5 &
+#               person_num > 1, sample(unique(pid), size=min(addN,lun(pid)))]
+#       swm[pid %in% toadd, `:=` (age = age + 5, ageCAT6 = ageCAT6 + 1)]
+#     }
+#     # Update age difference table
+#     newpop <- swm[ageCAT6 == 5, .N]
+#     newlead <- swm[ageCAT6 == 6, .N]
+#     diff[ageCAT6 == 5, `:=`(urbansim_hh_pop = newpop, diff = newpop - umdi_hh_pop)]
+#     diff[ageCAT6 == 6, `:=`(urbansim_hh_pop = newlead, diff = newlead - umdi_hh_pop)]
+#     
+#     suppressWarnings(rm(newlag,newpop,newlead,addN,subN,da,dlag,dlead,tosub,toadd))
+#     gc()
+#     
+#     # ageCAT = 18
+#     da <- diff[ageCAT6 == 18, diff]
+#     dlag <- diff[ageCAT6 == 17, diff]
+#     if (da > 0 & dlag < 0) {
+#       if (abs(dlag) > da) {
+#         subN <- abs(da)
+#       }
+#       else if (abs(dlag) <= da) {
+#         subN <- abs(dlag)
+#       }
+#       avail <-  swm[ageCAT6 == 18 &
+#                       person_num > 1, .N]
+#       tosub <-
+#         swm[ageCAT6 == 18 &
+#               person_num > 1, sample(unique(pid), min(avail, subN))]
+#       swm[pid %in% tosub, `:=` (age = age - 5, ageCAT6 = ageCAT6 - 1)]
+#     }
+#     if (da < 0 & dlag > 0) {
+#       if (abs(da) > dlag) {
+#         addN <- abs(dlag)
+#       }
+#       else if (abs(da) <= dlag) {
+#         addN <- abs(da)
+#       }
+#       toadd <-
+#         swm[ageCAT6 == 17 &
+#               person_num > 1, sample(unique(pid), size=min(addN,lun(pid)))]
+#       swm[pid %in% toadd, `:=` (age = age + 5, ageCAT6 = ageCAT6 + 1)]
+#     }
+#     # Update age difference table
+#     newpop <- swm[ageCAT6 == 18, .N]
+#     newlag <- swm[ageCAT6 == 17, .N]
+#     diff[ageCAT6 == 18, `:=`(urbansim_hh_pop = newpop, diff = newpop - umdi_hh_pop)]
+#     diff[ageCAT6 == 17, `:=`(urbansim_hh_pop = newlag, diff = newlag - umdi_hh_pop)]
+#     
+#     suppressWarnings(rm(newlag,newpop,newlead,addN,subN,da,dlag,dlead,tosub,toadd))
+#     gc()
+#     
+#     # Recalculate household characteristics
+#     # Persons by 5-yr age categories
+#     swm[age < 5 , ageCAT6 := 1]
+#     swm[age %in% 5:9 , ageCAT6 := 2]
+#     swm[age %in% 10:14 , ageCAT6 := 3]
+#     swm[age %in% 15:19 , ageCAT6 := 4]
+#     swm[age %in% 20:24 , ageCAT6 := 5]
+#     swm[age %in% 25:29 , ageCAT6 := 6]
+#     swm[age %in% 30:34 , ageCAT6 := 7]
+#     swm[age %in% 35:39 , ageCAT6 := 8]
+#     swm[age %in% 40:44 , ageCAT6 := 9]
+#     swm[age %in% 45:49 , ageCAT6 := 10]
+#     swm[age %in% 50:54 , ageCAT6 := 11]
+#     swm[age %in% 55:59 , ageCAT6 := 12]
+#     swm[age %in% 60:64 , ageCAT6 := 13]
+#     swm[age %in% 65:69 , ageCAT6 := 14]
+#     swm[age %in% 70:74 , ageCAT6 := 15]
+#     swm[age %in% 75:79 , ageCAT6 := 16]
+#     swm[age %in% 80:84 , ageCAT6 := 17]
+#     swm[age >= 85 , ageCAT6 := 18]
+#     # Count of persons by ageCAT6 in each HHd
+#     swm[ageCAT6 == 1, age1 := .N, hid]
+#     swm[ageCAT6 == 2, age2 := .N, hid]
+#     swm[ageCAT6 == 3, age3 := .N, hid]
+#     swm[ageCAT6 == 4, age4 := .N, hid]
+#     swm[ageCAT6 == 5, age5 := .N, hid]
+#     swm[ageCAT6 == 6, age6 := .N, hid]
+#     swm[ageCAT6 == 7, age7 := .N, hid]
+#     swm[ageCAT6 == 8, age8 := .N, hid]
+#     swm[ageCAT6 == 9, age9 := .N, hid]
+#     swm[ageCAT6 == 10, age10 := .N, hid]
+#     swm[ageCAT6 == 11, age11 := .N, hid]
+#     swm[ageCAT6 == 12, age12 := .N, hid]
+#     swm[ageCAT6 == 13, age13 := .N, hid]
+#     swm[ageCAT6 == 14, age14 := .N, hid]
+#     swm[ageCAT6 == 15, age15 := .N, hid]
+#     swm[ageCAT6 == 16, age16 := .N, hid]
+#     swm[ageCAT6 == 17, age17 := .N, hid]
+#     swm[ageCAT6 == 18, age18 := .N, hid]
+#     dt_shift <- rbind(dt_shift, swm)
+#     message(paste0(m, ' complete ', yr))
+#   }
+#   saveRDS(dt_shift,paste0(output_path,'pop_shifted_',scen,'_',yr,'.rds'))
+# }
+# 
+# # Recalculate age differences to UMDI
+# #fs <-
+# #  list.files(path = output_path,
+# #             pattern = 'pop_shifted_',
+# #             full.names = TRUE)
+# 
+# #readComp <- function(x) {
+# #    dt <- readRDS(x)
+# #    dt[, pop := 1]
+# #    dt <-
+# #      dt[, lapply(.SD, sum), .(mpo, year, ageCAT6), .SDcols = 'pop']
+# 
+# #  urbsim <- lapply(fs, readComp)
+# #  uspop <- rbindlist(urbsim)
+#   uspop <- dt_shift[, lapply(.SD, sum), .(mpo, year, ageCAT6), .SDcols = 'pop']
+#   uspop <- uspop[!is.na(mpo)]
+#   setkey(uspop, mpo, year, ageCAT6)
+#   # adiff <- umdi.swm[uspop]
+#   adiff <- umdi[uspop]
+#   adiff[, diff := pop - umdi_hh_pop]
+#   setnames(adiff, 'pop', 'urbansim_hh_pop')
+#   fwrite(adiff,paste0(output_path,'post_shift_umdi_pop_age_difference_',yr,'.csv'))
+# 
+# rm(dt_shift);gc()
+
+```
+
+```{r}
+# dt3[, pid := paste0(hid, '_', person_num)]
+# dt3 <- dt3 |> mutate(HHtype.chk = case_when(
+#   children >= 1 & persons > 1 ~ 1,
+#   children == 0 & persons > 1 ~ 3,
+#   persons == 1 ~ 5
+# )) |> setDT()
+# 
+# dt <- readRDS(paste0(output_path, 'expanded_reweighted_PUMS_', yr, '.rds')) |>
+#   mutate(child = case_when(AGEP < 18 ~ 1, AGEP >= 18 ~ 0)) |>
+#   setDT()
+# dt[, children := sum(child), hid]
+# dt[child == 0, adult := 1]
+# dt[, adults := sum(adult, na.rm = T), hid]
+# dt[ageCAT6 == 1, age1 := .N, hid]
+# dt[ageCAT6 == 2, age2 := .N, hid]
+# dt[ageCAT6 == 3, age3 := .N, hid]
+# dt[ageCAT6 == 4, age4 := .N, hid]
+# dt[ageCAT6 == 5, age5 := .N, hid]
+# dt[ageCAT6 == 6, age6 := .N, hid]
+# dt[ageCAT6 == 7, age7 := .N, hid]
+# dt[ageCAT6 == 8, age8 := .N, hid]
+# dt[ageCAT6 == 9, age9 := .N, hid]
+# dt[ageCAT6 == 10, age10 := .N, hid]
+# dt[ageCAT6 == 11, age11 := .N, hid]
+# dt[ageCAT6 == 12, age12 := .N, hid]
+# dt[ageCAT6 == 13, age13 := .N, hid]
+# dt[ageCAT6 == 14, age14 := .N, hid]
+# dt[ageCAT6 == 15, age15 := .N, hid]
+# dt[ageCAT6 == 16, age16 := .N, hid]
+# dt[ageCAT6 == 17, age17 := .N, hid]
+# dt[ageCAT6 == 18, age18 := .N, hid]
+# dt[, person_num := SPORDER]
+# dt[, sporder := SPORDER]
+# dt[SPORDER == 1, ageHH := AGEP]
+# dt[, ageHHder := max(ageHH, na.rm = T), hid]
+# dt[, persons := max(SPORDER), hid]
+# dt[SPORDER == 1, ht := HHtype]
+# dt[, HHT := max(ht, na.rm = T), hid]
+# dt <- dt |> mutate(HHtype.chk = case_when(
+#   children >= 1 & persons > 1 ~ 1,
+#   children == 0 & persons > 1 ~ 3,
+#   persons == 1 ~ 5
+# )) |> setDT()
+# bad <- dt[HHT != HHtype.chk]
+# 
+# fix <- dt3[HHT == 1 & children == 0, unique(hid)]
+# og <- dt[hid %in% fix]
+# 
+# kids <- og[child == 1, .(mpo, hid, pid, SERIALNO, SPORDER, AGEP, child, PINCP)]
+# kids[, min.sp := min(SPORDER), hid][, max.inc := max(PINCP), hid][, min.inc :=
+#                                                                     min(PINCP), hid]
+# kids <- kids[PINCP == max.inc]
+# kids[, min.sp := min(SPORDER), hid]
+# kid <- kids[SPORDER == min.sp]
+# kid[PINCP < 0, PINCP := 0]
+# kid[, inc.grp := cut(PINCP,
+#                      breaks = c(-Inf, 1000, 5000, 60000),
+#                      labels = c("1", "2", "3"))]
+# kid[, inc.grp := as.numeric(as.character(inc.grp))]
+# 
+# samp <- dt3[HHT == 1 & children > 1 & ageHHder > 17 & new_WGTP == 1]
+# samp[PINCP < 0, PINCP := 0]
+# samp[, inc.grp := cut(PINCP,
+#                       breaks = c(-Inf, 1000, 5000, 60000),
+#                       labels = c("1", "2", "3"))]
+# samp[, inc.grp := as.numeric(as.character(inc.grp))]
+# 
+# kid[, ID := paste(mpo, AGEP, sep = '_')]
+# samp[, ID := paste(mpo, AGEP, sep = '_')]
+# 
+# samp <- samp[ID %in% kid$ID]
+# samp[, hid.rep := .N, hid]
+# # s3 <- samp[hid.rep>2]
+# # s2 <- samp[hid.rep<=2]
+# #
+# # sdup <- unique(s2,by='hid')
+# #
+# # s4 <- rbind(s3,sdup)
+# s4 <- unique(samp, by = 'hid')
+# setkey(s4, ID)
+# 
+# kid[, id.cnt := .N, ID]
+# kt <- kid[, .(ID, id.cnt)] |> unique()
+# setkey(kt, ID)
+# 
+# s4 <- kt[s4]
+# 
+# nl <- data.table()
+# for (i in 1:lun(kt$ID)) {
+#   n <- kt[i, id.cnt]
+#   id <- kt[i, ID]
+#   sub <- s4[ID == id]
+#   nk <- sub[sample(.N, n)]
+#   nl <- rbind(nl, nk)
+#   message(paste0('ID ', i))
+# }
+# 
+# k2 <- kid |> select(ID, SERIALNO, mpo, hid, pid) |> setDT()
+# setnames(k2, paste0(names(k2), '.kid'))
+# setorder(nl, ID)
+# setorder(k2, ID.kid)
+# 
+# newk <- cbind(k2, nl)
+# newk[duplicated(pid)]
+# newk[ID != ID.kid]
+# 
+# dels <- newk$pid
+# newk[, `:=`(
+#   mpo = mpo.kid,
+#   SERIALNO = SERIALNO.kid,
+#   hid = hid.kid,
+#   pid = pid.kid
+# )]
+# newk[, `:=`(
+#   ID.kid = NULL,
+#   SERIALNO.kid = NULL,
+#   mpo.kid = NULL,
+#   hid.kid = NULL,
+#   pid.kid = NULL,
+#   id.cnt = NULL,
+#   inc.grp = NULL,
+#   hid.rep = NULL
+# )]
+# 
+# 
+# fix2 <- dt3[HHT == 3 & persons < 2, unique(hid)]
+# og2 <- dt[hid %in% fix2]
+# 
+# ads <- og2[child == 0 &
+#              SPORDER > 1 , .(mpo, hid, pid, SERIALNO, SPORDER, AGEP, child, PINCP)]
+# ads[, min.sp := min(SPORDER), hid]
+# ad <- ads[SPORDER == min.sp]
+# ad[PINCP < 0, PINCP := 0]
+# ad[, inc.grp := cut(PINCP,
+#                     breaks = c(-Inf, 1000, 5000, 60000),
+#                     labels = c("1", "2", "3"))]
+# kid[, inc.grp := as.numeric(as.character(inc.grp))]
+# 
+# samp <- dt3[HHT == 1 & children > 1 & ageHHder > 17 & new_WGTP == 1]
+# samp[PINCP < 0, PINCP := 0]
+# samp[, inc.grp := cut(PINCP,
+#                       breaks = c(-Inf, 1000, 5000, 60000),
+#                       labels = c("1", "2", "3"))]
+# samp[, inc.grp := as.numeric(as.character(inc.grp))]
+# 
+# kid[, ID := paste(mpo, AGEP, sep = '_')]
+# samp[, ID := paste(mpo, AGEP, sep = '_')]
+# 
+# samp <- samp[ID %in% kid$ID]
+# samp[, hid.rep := .N, hid]
+# # s3 <- samp[hid.rep>2]
+# # s2 <- samp[hid.rep<=2]
+# #
+# # sdup <- unique(s2,by='hid')
+# #
+# # s4 <- rbind(s3,sdup)
+# s4 <- unique(samp, by = 'hid')
+# setkey(s4, ID)
+# 
+# kid[, id.cnt := .N, ID]
+# kt <- kid[, .(ID, id.cnt)] |> unique()
+# setkey(kt, ID)
+# 
+# s4 <- kt[s4]
+# 
+# nl <- data.table()
+# for (i in 1:lun(kt$ID)) {
+#   n <- kt[i, id.cnt]
+#   id <- kt[i, ID]
+#   sub <- s4[ID == id]
+#   nk <- sub[sample(.N, n)]
+#   nl <- rbind(nl, nk)
+#   message(paste0('ID ', i))
+# }
+# 
+# k2 <- kid |> select(ID, SERIALNO, mpo, hid, pid) |> setDT()
+# setnames(k2, paste0(names(k2), '.kid'))
+# setorder(nl, ID)
+# setorder(k2, ID.kid)
+# 
+# newk <- cbind(k2, nl)
+# newk[duplicated(pid)]
+# newk[ID != ID.kid]
+# 
+# dels <- newk$pid
+# newk[, `:=`(
+#   mpo = mpo.kid,
+#   SERIALNO = SERIALNO.kid,
+#   hid = hid.kid,
+#   pid = pid.kid
+# )]
+# newk[, `:=`(
+#   ID.kid = NULL,
+#   SERIALNO.kid = NULL,
+#   mpo.kid = NULL,
+#   hid.kid = NULL,
+#   pid.kid = NULL,
+#   id.cnt = NULL,
+#   inc.grp = NULL,
+#   hid.rep = NULL
+# )]
+# 
+# 
+# dt4 <- dt3[!pid %in% dels]
+# dt5 <- rbind(dt4, newk)
+# 
+# setorder(dt5, hid, person_num)
+# dt5[, person_num := 1:.N, hid]
+# dt5[, sporder := person_num]
+# dt5[, SPORDER := person_num]
+# dt5[, pid := paste0(hid, '_', person_num)]
+# dt5[, persons := .N, hid]
+# dt5[, workers := sum(worker), hid]
+# dt5[, pinc2021 := as.numeric(ADJINC) * PINCP]
+# dt5[, HINCP.adj.2021USD := sum(pinc2021), hid]
+# dt5[, HHsize := max(sporder), hid]
+# dt5[, age := AGEP]
+# 
+# dt5 <- dt5 %>% mutate(child = case_when(age < 18 ~ 1, age >= 18 ~ 0)) |>
+#   setDT()
+# # Count children and adults in each household
+# dt5[, children_in_HH := sum(child, na.rm = T), hid]
+# dt5[, children := sum(child, na.rm = T), hid]
+# dt5[child == 0, adult := 1][is.na(adult), adult := 0]
+# dt5[, adults := sum(adult, na.rm = T), hid]
+# dt5[, size2 := HHsize]
+# dt5[size2 > 7, size2 := 7]
+# 
+# # Persons by 5-yr age categories
+# dt5[age < 5 , ageCAT6 := 1]
+# dt5[age %in% 5:9 , ageCAT6 := 2]
+# dt5[age %in% 10:14 , ageCAT6 := 3]
+# dt5[age %in% 15:19 , ageCAT6 := 4]
+# dt5[age %in% 20:24 , ageCAT6 := 5]
+# dt5[age %in% 25:29 , ageCAT6 := 6]
+# dt5[age %in% 30:34 , ageCAT6 := 7]
+# dt5[age %in% 35:39 , ageCAT6 := 8]
+# dt5[age %in% 40:44 , ageCAT6 := 9]
+# dt5[age %in% 45:49 , ageCAT6 := 10]
+# dt5[age %in% 50:54 , ageCAT6 := 11]
+# dt5[age %in% 55:59 , ageCAT6 := 12]
+# dt5[age %in% 60:64 , ageCAT6 := 13]
+# dt5[age %in% 65:69 , ageCAT6 := 14]
+# dt5[age %in% 70:74 , ageCAT6 := 15]
+# dt5[age %in% 75:79 , ageCAT6 := 16]
+# dt5[age %in% 80:84 , ageCAT6 := 17]
+# dt5[age >= 85 , ageCAT6 := 18]
+# 
+# dt6 <- dt5 |> mutate(HHtype.chk = case_when(
+#   children >= 1 & persons > 1 ~ 1,
+#   children == 0 & persons > 1 ~ 3,
+#   persons == 1 ~ 5
+# )) |> setDT()
+# 
+# dt6[HHtype != HHtype.chk]
+# 
+# saveRDS(dt6,
+#         paste0(output_path, 'child_pop_corrected_PUMS_', scen, '_', yr, '.rds'))
+```
