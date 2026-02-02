@@ -111,10 +111,12 @@ st_write(msf, paste0(sp.dir,'nmcog_munis.shp'), append=F)
 
 ```{r}
 
-# 968 square feet per job is the UrbanSim conversion rate when loading in new zoning shapefiles
+# 967 square feet per job is the UrbanSim conversion rate when loading in new zoning shapefiles
 
 # shapefile format for upload to old model platform is:
 
 # oid(int)  |  id(int)  |  max_dua (dbl)  | max_far (dbl)  | zoning (chr)
+
+# Use 967 square feet per job in the constraint conversion on UrbanCanvas
 
 ```
