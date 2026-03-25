@@ -24,8 +24,8 @@ pacman::p_load(
 
 # scen <- 'Scenario_1'
 # scen <- 'Scenario_2'
-# scen <- 'Scenario_3'
-scen <- 'Scenario_4'
+scen <- 'Scenario_3'
+# scen <- 'Scenario_4'
 
 
 # Set ACS / PUMS vintage

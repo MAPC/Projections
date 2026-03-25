@@ -26,10 +26,15 @@ options(scipen = 999)
 #
 set.seed(351)
 # Set paths
-# K drive path
-root <- 'K:/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/'
-# Conor somehow has an S drive path still
-# root <- 'S:/Network Shares/K Drive/DataServices/Projects/Current_Projects/Projections/Projections_2023/'
+
+# Paths
+if (grepl('VM',Sys.info()[['nodename']])){
+  base <- '//data-sync/Public/DataServices'
+} else {
+  base <- 'S:/Network Shares/K Drive/DataServices'
+}
+
+root <- paste0(base,'/Projects/Current_Projects/Projections/Projections_2023/')
 
 inpath <- paste0(root,'Data/03_UrbanSim/UrbanSim_Outputs/Microsim_outputs')
 
@@ -38,7 +43,7 @@ outpath <- paste0(root,'Data/04_Allocation_Results/Revised_Allocation_Sept2025/T
 sp.path <- paste0(root,'Data/04_Allocation_Results/Revised_Allocation_Sept2025/Spatial/Projections_2023_revised_webmap/') 
   
 
-# Revised Data with fix to Littleton MassBuilds projects that caused overestimated employment
+# Revised Data with fix to Littleton MassBuilds projects that caused overestimated employment (for update to website - 2026-03-25)
 MAPCM_run='run_213'
 SWM_run='state_run_113'
 ctps_run='run_113-213'
