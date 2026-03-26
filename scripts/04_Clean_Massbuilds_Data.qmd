@@ -36,8 +36,8 @@ lun <- function(x){length(unique(x))}
 
 # Massbuilds vintage year/month/day
 vintage = '20260324'
-domain = 'Statewide'
-# domain = 'MAPC'
+# domain = 'Statewide'
+domain = 'MAPC'
 
 # Paths
 if (grepl('VM',Sys.info()[['nodename']])){
@@ -374,25 +374,25 @@ if region_extent == 'Statewide':
     res_final.set_index('x').to_csv('{}.csv'.format(final_res_dev))
     non_res_final.set_index('x').to_csv('{}.csv'.format(final_nonres_dev))
 
-if region_extent == 'MAPC':
-    ### Filter development projects with mapc blocks. Comment out if this is run for MA-State
-    ### make the df into gdf
-    geometry = [Point(xy) for xy in zip(res_final.x, res_final.y)]
-    #crs = 'epsg:4326'
-    crs = {'init': 'epsg:4326'}
-    res_dev_gdf = GeoDataFrame(res_final, crs=crs, geometry=geometry)
-
-    geometry = [Point(xy) for xy in zip(non_res_final.x, non_res_final.y)]
-    #  crs = 'epsg:4326'
-    crs = {'init': 'epsg:4326'}
-    non_res_gdf = GeoDataFrame(non_res_final, crs=crs, geometry=geometry)
-
-    mapc_latlon = mapc_blocks.to_crs(crs)
-    res_mapc = gpd.sjoin(res_dev_gdf, mapc_latlon, op= 'intersects')
-    non_res_mapc = gpd.sjoin(non_res_gdf, mapc_latlon, op= 'intersects')
-
-    res_mapc[cols_res].set_index('x').to_csv('{}.csv'.format(final_res_dev))
-    non_res_mapc[cols_nonres].set_index('x').to_csv('{}.csv'.format(final_nonres_dev))
+# if region_extent == 'MAPC':
+#     ### Filter development projects with mapc blocks. Comment out if this is run for MA-State
+#     ### make the df into gdf
+#     geometry = [Point(xy) for xy in zip(res_final.x, res_final.y)]
+#     #crs = 'epsg:4326'
+#     crs = {'init': 'epsg:4326'}
+#     res_dev_gdf = GeoDataFrame(res_final, crs=crs, geometry=geometry)
+# 
+#     geometry = [Point(xy) for xy in zip(non_res_final.x, non_res_final.y)]
+#     #  crs = 'epsg:4326'
+#     crs = {'init': 'epsg:4326'}
+#     non_res_gdf = GeoDataFrame(non_res_final, crs=crs, geometry=geometry)
+# 
+#     mapc_latlon = mapc_blocks.to_crs(crs)
+#     res_mapc = gpd.sjoin(res_dev_gdf, mapc_latlon, op= 'intersects')
+#     non_res_mapc = gpd.sjoin(non_res_gdf, mapc_latlon, op= 'intersects')
+# 
+#     res_mapc[cols_res].set_index('x').to_csv('{}.csv'.format(final_res_dev))
+#     non_res_mapc[cols_nonres].set_index('x').to_csv('{}.csv'.format(final_nonres_dev))
 
 
 ```
