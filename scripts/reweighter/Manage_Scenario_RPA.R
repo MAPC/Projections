@@ -19,10 +19,10 @@ weights_file <- paste0(outpath,"weights_final_",scen,"_",mid,"_",yr,".csv")
 iter_file <- paste0(outpath,"iter_stats.csv")
 
 # Maximum number of iterations
-num_iters <- 1000
+num_iter <- 1000
 
 # Update factor for weights (Suggested default=.01)
-update_factor <- .01
+u_factor <- .01
 
 # Maximum deviation from targets (Suggested default=.5)
 max_norm <- .5
@@ -78,12 +78,14 @@ suppressPackageStartupMessages(library(dplyr))
 # inp <- data.table::fread(file=pums_file)
 inp <- pums_file
 # read the savefile RData object
-conditions <- read_rds(save_list_file)
+cond <- read_rds(save_list_file)
 # set the write flag. No reason to set this to TRUE.
-write_flag <- FALSE
+wflag <- FALSE
+random = FALSE
+seed = -1
 
 # run the algorithm
-weights <- random_descent_hh(inp, conditions, num_iters, update_factor,write_flag,
+weights <- random_descent_hh(inp, cond, num_iter, u_factor,wflag,
                              max_norm,iter_file,log_file,
                              random,seed)
 # write the weights to file

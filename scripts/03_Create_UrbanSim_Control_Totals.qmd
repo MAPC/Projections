@@ -27,6 +27,8 @@ pacman::p_load(
 scen <- 'Scenario_3'
 # scen <- 'Scenario_4'
 
+# reb <- 'MAPC101'
+reb <- 'MAPC97'
 
 # Set ACS / PUMS vintage
 vintage <-  2021
@@ -79,7 +81,7 @@ swm.ctrl <- data.table()
 
 # Statewide model
 for (yr in c(2020, 2025, 2030, 2035, 2040, 2045, 2050)){
-  dt <- readRDS(paste0(input_path, 'expanded_reweighted_PUMS_', yr, '.rds')) |>
+  dt <- readRDS(paste0(input_path, 'expanded_reweighted_PUMS_',reb,'_', yr, '.rds')) |>
     group_by(hid) |>
     mutate(HINCP = sum(PINCP)) |>
     ungroup() |>
@@ -179,7 +181,7 @@ for (yr in c(2020, 2025, 2030, 2035, 2040, 2045, 2050)){
   message(paste0('SWM Control Totals ', yr, ' Complete'))
 }
 
-saveRDS(swm.ctrl,paste0(output_path,'swm_control_totals_no_pop_correction_raw_5_year.rds'))
+saveRDS(swm.ctrl,paste0(output_path,'swm_control_totals_',reb,'_no_pop_correction_raw_5_year.rds'))
 
 
 ```
@@ -192,7 +194,7 @@ saveRDS(swm.ctrl,paste0(output_path,'swm_control_totals_no_pop_correction_raw_5_
 mapc.ctrl <- data.table()
 
 for (yr in c(2020, 2025, 2030, 2035, 2040, 2045, 2050)){
-  dt <- readRDS(paste0(input_path, 'expanded_reweighted_PUMS_', yr, '.rds')) |>
+  dt <- readRDS(paste0(input_path, 'expanded_reweighted_PUMS_',reb,'_', yr, '.rds')) |>
     group_by(hid) |> 
     mutate(HINCP = sum(PINCP)) |> 
     ungroup() |> 
@@ -289,7 +291,7 @@ for (yr in c(2020, 2025, 2030, 2035, 2040, 2045, 2050)){
   message(paste0('MAPCM Control Totals ', yr, ' Complete'))
 }
 
-saveRDS(mapc.ctrl, paste0(output_path,'mapcm_control_totals_no_pop_correction_raw_5_year.rds'))
+saveRDS(mapc.ctrl, paste0(output_path,'mapcm_control_totals_',reb,'_no_pop_correction_raw_5_year.rds'))
 
 
 
@@ -303,7 +305,7 @@ swm.ctrl.pp <- data.table()
 
 # Statewide model
 for (yr in c(2020, 2025, 2030, 2035, 2040, 2045, 2050)){
-  dt <- readRDS(paste0(input_path, 'processor_corrected_PUMS_',scen,'_',yr,'.rds')) |>
+  dt <- readRDS(paste0(input_path, 'processor_corrected_PUMS_',reb,'_',scen,'_',yr,'.rds')) |>
     group_by(hid) |> 
     mutate(HINCP = sum(PINCP)) |> 
     ungroup() |> 
@@ -404,7 +406,7 @@ for (yr in c(2020, 2025, 2030, 2035, 2040, 2045, 2050)){
   message(paste0('SWM Control Totals ', yr, ' Complete'))
 }
 
-saveRDS(swm.ctrl.pp, paste0(output_path,'swm_control_totals_pop_corrected_raw_5_year.rds'))
+saveRDS(swm.ctrl.pp, paste0(output_path,'swm_control_totals_',reb,'_pop_corrected_raw_5_year.rds'))
 
 ```
 
@@ -415,7 +417,7 @@ saveRDS(swm.ctrl.pp, paste0(output_path,'swm_control_totals_pop_corrected_raw_5_
 mapc.ctrl.pp <- data.table()
 
 for (yr in c(2020, 2025, 2030, 2035, 2040, 2045, 2050)){
-  dt <- readRDS(paste0(input_path, 'processor_corrected_PUMS_',scen,'_',yr,'.rds')) |>
+  dt <- readRDS(paste0(input_path, 'processor_corrected_PUMS_',reb,'_',scen,'_',yr,'.rds')) |>
     group_by(hid) |> 
     mutate(HINCP = sum(PINCP)) |> 
     ungroup() |> 
@@ -513,7 +515,7 @@ for (yr in c(2020, 2025, 2030, 2035, 2040, 2045, 2050)){
   message(paste0('MAPCM Control Totals ', yr, ' Complete'))
 }
 
-saveRDS(mapc.ctrl.pp, paste0(output_path,'mapcm_control_totals_pop_corrected_raw_5_year.rds'))
+saveRDS(mapc.ctrl.pp, paste0(output_path,'mapcm_control_totals_',reb,'_pop_corrected_raw_5_year.rds'))
 
 
 ```

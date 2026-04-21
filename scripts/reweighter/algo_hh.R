@@ -14,7 +14,7 @@ library(data.table)
 options(digits=20)
 # library(bit64)
 # import custom functions
-source("objective.R")
+source(here("scripts/reweighter/objective.R"))
 
 # randomized descent algoritm
 # INPUTS:-
@@ -165,7 +165,9 @@ random_descent_hh <- function(inp, cond, num_iter, u_factor, wflag,
             t_ids[[t]] <- cond[[b]][[t]][[7]]
             # add a new column containing the intermediate weights 
             data <- mutate(data, INTER=t_baselines[[t]])
-            data.table::fwrite(data, file=paste(table[[1]], ".csv", sep=""))
+            fl=paste(table[[1]], ".csv", sep="")
+            file.remove(fl)
+            data.table::fwrite(data, paste0(inpath,fl))
         }
         # save the baselines, targets and ids
         baselines[[b]] <- t_baselines

@@ -1,9 +1,14 @@
 ---
 title: "RPA_Reweighter"
 format: html
-editor: visual
+editor: source
 project: execute-dir: project
 ---
+##
+## NOTES - need to run Scenario 1 for 2020 with the MAPC97 config
+Need to run Scenario 3 for 2025 with the acs1721 headship rates instead of the scen2 rates
+to do this need to make new target files with acs1721 rates on Scen3 population for 2025
+
 
 ## RPA Reweighter
 
@@ -61,9 +66,6 @@ ctrltotal.path <- paste0(root, 'Current_Projects/Housing/StatewideHousingPlan/04
 
 workpath <- paste0(root, 'Current_Projects/Housing/StatewideHousingPlan/04_Analysis/Data/Working/Reweighter/')
 
-deliv_path <- paste0(root,'Current_Projects/Housing/StatewideHousingPlan/04_Analysis/Data/Final_Outputs/',scen,'/UPDATE_w_shelter2/')
-dir.create(deliv_path, showWarnings = F)
-
 input_path <- paste0(workpath, scen, '/Input_Files_UPDATE/') 
 output_path <- paste0(workpath, scen, '/Output_Files_UPDATE/') 
 
@@ -91,7 +93,7 @@ lun <- function(x){length(unique(x))}
 
 # 2 - Subset PUMS data for each RPA
 
-Formatted PUMS data is created by the *create_regional_control_totals.qmd* in section 6.2
+Formatted PUMS data is created by the *01_create_regional_control_totals.qmd* in section 6.2
 
 # 2.1 - Scenario 1
 
@@ -440,9 +442,8 @@ if (scen == 'Scenario_1') {
 source(here('scripts/reweighter/algo_hh.R'))
 
 if (scen %in% c('Scenario_2', 'Scenario_3', 'Scenario_4')) {
-  #for (yr in c(2025, 2030, 2035, 2040, 2045, 2050)) {
-  for (yr in c(2025)) {
-  # for (yr in c(2035)) {
+  # for (yr in c(2025, 2030, 2035, 2040, 2045, 2050)) {
+  for (yr in c(2035)) {
     for (mid in mpos) {
       infile1 <- paste0(workpath, 'Templates/reweighting_config_2021.json')
       outfile1 <- paste0(
@@ -668,8 +669,8 @@ for (yr in c(2025)){
     file.copy(paste0(workpath, scen, '/Output_Files/', mid, '/reweighted_PUMS_',scen,'_', reb, '_', mid, '_scen2_', yr, '.csv'),paste0(outpath, '/reweighted_PUMS_', scen, '_', reb, '_', mid, '_', hdshp, '_', yr, '.csv'), overwrite = T)
   }
 }
-# for (yr in c(2025,2030,2035,2040,2045,2050)){
-for (yr in c(2035)){
+for (yr in c(2030,2035,2040,2045,2050)){
+# for (yr in c(2030)){
   for (mid in mpos) {
     inpath <- paste0(input_path, mid, '/')
     outpath <- paste0(output_path, mid, '/')
@@ -728,8 +729,8 @@ c0[diff!=0]
 
 ```{r}
 
-#for (yr in c(2020,2025,2030,2035,2040,2045,2050)){
-for (yr in c(2020,2025,2035)){
+for (yr in c(2030,2035,2040,2045,2050)){
+# for (yr in c(2020,2025)){
   sw <- data.table()
   for (mid in mpos){
     inp <- paste0(output_path, mid, '/')
@@ -752,11 +753,11 @@ for (yr in c(2020,2025,2035)){
 # Set Year
 
 # yr = 2025
-# for (yr in c(2030,2040,2045,2050)){
-for (yr in c(2030)){
+for (yr in c(2030,2035,2040,2045,2050)){
+#for (yr in c(2035)){
 # Load UMDI HHpop comparison data
 
-umdi <- fread(paste0(ctrltotal.path,'pop.in.hhds.MAPC101_by.RPA.ageCAT6.csv'))
+umdi <- fread(paste0(ctrltotal.path,'pop.in.hhds.',reb,'_by.RPA.ageCAT6.csv'))
 
 setnames(
   umdi,
@@ -803,14 +804,14 @@ setkey(umdi, mpo, year, ageCAT6)
     dt[,pid:=paste0(hid,'_',SPORDER)]
     dt[,person_num:=SPORDER][,age:=AGEP]
     dt[,HINCP:=sum(PINCP),hid]
-    saveRDS(dt,paste0(output_path,'expanded_reweighted_PUMS_',yr,'.rds'))
+    saveRDS(dt,paste0(output_path,'expanded_reweighted_PUMS_',reb,'_',yr,'.rds'))
     uspop <- dt[,lapply(.SD,sum),.(mpo,year,ageCAT6),.SDcols='pop']
     uspop[,pop:=round(pop)]
     setkey(uspop, mpo, year, ageCAT6)
     adiff <- umdi[uspop]
     adiff[, diff := pop - umdi_hh_pop]
     setnames(adiff, 'pop', 'urbansim_hh_pop')
-    fwrite(adiff, paste0(output_path,'umdi_pop_age_difference_',yr,'.csv'))
+    fwrite(adiff, paste0(output_path,'umdi_pop_age_difference_',reb,'_',yr,'.csv'))
 rm(xr,dt,dx,dfrac);gc()
 
 message(paste(yr,'Complete'))
@@ -1035,16 +1036,16 @@ cx <- function(x) {
 
 ```{r}
 
-# for (yr in c(2030,2040,2045,2050)){
-for (yr in c(2030)){
+for (yr in c(2030,2035,2040,2045,2050)){
+# for (yr in c(2030)){
   
 flaglist <- data.table()
 
-adiff <- fread(paste0(output_path,'umdi_pop_age_difference_',yr,'.csv'))
+adiff <- fread(paste0(output_path,'umdi_pop_age_difference_',reb,'_',yr,'.csv'))
 adiff[,diff:=round(diff)]
 
 
-dt <- readRDS(paste0(output_path,'expanded_reweighted_PUMS_',yr,'.rds')) |> 
+dt <- readRDS(paste0(output_path,'expanded_reweighted_PUMS_',reb,'_',yr,'.rds')) |> 
                 mutate(
       child = case_when(AGEP < 18 ~ 1,
                         AGEP >= 18 ~ 0)) |>  
@@ -1607,17 +1608,26 @@ dt <- readRDS(paste0(output_path,'expanded_reweighted_PUMS_',yr,'.rds')) |>
     md <- adiff[year==yr,lapply(.SD,sum),.(mpo,ageCAT6),.SDcols = c('umdi_hh_pop','urbansim_hh_pop')]
     setkey(md,mpo,ageCAT6)
     
+  
     mc <- md[mf]
     mc[,diff:=pop_in_HH-umdi_hh_pop]
     setnames(mc,c('mpo','ageCAT6','umdi_pop_in_HH','uncorrected_pop_in_HH','corrected_pop_in_HH','year','corrected_minus_umdi'))
-    fwrite(mc,paste0(output_path,'corrected_pop_vs_UMDI_by_ageCAT6_HHtype_',scen,'_',yr,'.csv'))
+    
+    # if (reb=='MAPC101'){
+    #   setnames(dt3,'mpo','rpa_acr')
+    #   setnames(mc,'mpo','rpa_acr')
+    # }
+    
+    fwrite(mc,paste0(output_path,'corrected_pop_vs_UMDI_by_ageCAT6_HHtype_',reb,'_',scen,'_',yr,'.csv'))
+    
     
     saveRDS(
       dt3,
       paste0(output_path,
-        'processor_corrected_PUMS_',scen,'_',yr,'.rds'
+        'processor_corrected_PUMS_',reb,'_',scen,'_',yr,'.rds'
       )
     )
 message(paste(yr,'Complete'))
 }
 ```
+
