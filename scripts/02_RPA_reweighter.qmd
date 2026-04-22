@@ -59,10 +59,12 @@ root <- 'S:/Network Shares/K Drive/DataServices/Projects/'
 
 umdi.path <- paste0(root, 'Current_Projects/Housing/StatewideHousingPlan/04_Analysis/Data/Working/Regional_Control_Totals/UMDI/', scen, '/')
 
-if(scen %in% c('Scenario_2', 'Scenario_3', 'Scenario_4')){
+# if(scen %in% c('Scenario_2', 'Scenario_3', 'Scenario_4')){
+# ctrltotal.path <- paste0(root, 'Current_Projects/Housing/StatewideHousingPlan/04_Analysis/Data/Working/Regional_Control_Totals/', scen, '/UPDATE/')
+# } else { ctrltotal.path <- paste0(root, 'Current_Projects/Housing/StatewideHousingPlan/04_Analysis/Data/Working/Regional_Control_Totals/', scen, '/')
+# }
+
 ctrltotal.path <- paste0(root, 'Current_Projects/Housing/StatewideHousingPlan/04_Analysis/Data/Working/Regional_Control_Totals/', scen, '/UPDATE/')
-} else { ctrltotal.path <- paste0(root, 'Current_Projects/Housing/StatewideHousingPlan/04_Analysis/Data/Working/Regional_Control_Totals/', scen, '/')
-}
 
 workpath <- paste0(root, 'Current_Projects/Housing/StatewideHousingPlan/04_Analysis/Data/Working/Reweighter/')
 
@@ -99,7 +101,8 @@ Formatted PUMS data is created by the *01_create_regional_control_totals.qmd* in
 
 ```{r}
 if(scen=='Scenario_1') {
-  pums_data <- fread(paste0(workpath, 'PUMS_data/PUMS', vintage, '_formatted.csv')) |> filter(TYPEHUGQ == "1") |>
+  pums_data <- fread(paste0(workpath, 'PUMS_data/PUMS', vintage, '_formatted.csv')) |> 
+    filter(TYPEHUGQ == "1") |>
     mutate(AgeCat = ageCAT6)
   
   mapc.pumas <- pums_data[rpa_acr == 'MAPC', unique(PUMA)]
@@ -111,12 +114,12 @@ if(scen=='Scenario_1') {
     paste0(
       workpath,
       scen,
-      '/Input_Files/MAPC/PUMS2021_',
+      '/Input_Files_UPDATE/MAPC/PUMS2021_',
       scen,
       '_MAPC.csv'
     )
   )
-  message(paste0('MAPC 101 PUMS export complete ', yr))
+  message(paste0('MAPC 101 PUMS export complete '))
   # SWM join PUMA and export subsets
   for (m in unique(swm.pumas$rpa_acr)) {
     pums_data |>
@@ -125,7 +128,7 @@ if(scen=='Scenario_1') {
         paste0(
           workpath,
           scen,
-          '/Input_Files/',
+          '/Input_Files_UPDATE/',
           m,
           '/PUMS2021_',
           scen,
@@ -134,7 +137,7 @@ if(scen=='Scenario_1') {
           '.csv'
         )
       )
-    message(paste0(m, ' PUMS export complete ', yr))
+    message(paste0(m, ' PUMS export complete '))
   }
 }
 ```
@@ -352,84 +355,84 @@ if (scen == 'Scenario_1') {
       fwrite(mess, paste0(outpath, mid, '_', yr, '_complete.txt'))
     }
   }
-  for (yr in c(2025, 2030, 2035, 2040, 2045, 2050)) {
-    for (mid in mpos) {
-      # Set config
-      inpath <- paste0(input_path, mid, '/')
-      source(here('scripts/reweighter/read_config_RPA.R'))
-      message(paste0(mid, ' configuration complete'))
-      
-      # Set targets
-      outpath <- paste0(output_path, mid, '/')
-      dir.create(outpath, showWarnings = F)
-      template <- fread(paste0(workpath, 'Templates/AgeHHder_HHtype_template.csv')) |>
-        select(-BASELINE, -TARGET)
-      target <- fread(
-        paste0(
-          ctrltotal.path,
-          'hhtype.targetfile.',
-          reb,
-          '.',
-          scen,
-          '.hdshp.',
-          hdshp,
-          '.y',
-          yr,
-          '.csv'
-        )
-      ) |>
-        filter(RPA == mid) |>
-        select(-RPA) |> right_join(template, by = c('AgeCat', 'HHtype')) |> setDT()
-      target[AgeCat %in% c('x == 1', 'x == 2', 'x == 3'), `:=`(BASELINE =
-                                                                 0,
-                                                               INTER = 0,
-                                                               TARGET = 0)]
-      target[is.na(BASELINE), `:=`(BASELINE = 0,
-                                   INTER = 0,
-                                   TARGET = 0)]
-      setorder(target, AgeCat, HHtype)
-      fwrite(target, paste0(inpath, '/AgeHHder_HHtype.csv'))
-      
-      template2 <- fread(paste0(workpath, 'Templates/age_tenure_template.csv'))
-      target2 <- fread(
-        paste0(
-          ctrltotal.path,
-          "tenure.targetfile.",
-          reb,
-          ".",
-          scen,
-          '.hdshp.',
-          hdshp,
-          ".y",
-          yr,
-          ".csv"
-        )
-      ) |>
-        filter(RPA == mid) |>
-        select(-RPA) |>
-        right_join(template2, by = c('AgeCat', 'tenure')) |>
-        setDT()
-      
-      target2[is.na(BASELINE), `:=`(BASELINE = 0,
-                                    INTER = 0,
-                                    TARGET = 0)]
-      setorder(target2, AgeCat, tenure)
-      fwrite(target2, paste0(inpath, '/age_tenure.csv'))
-      
-      message(paste0(mid, ' targets set'))
-      
-      pums <- fread(paste0(inpath, 'PUMS', vintage, '_', mid, '.csv'))
-      if (scen == 'Scenario_2') {
-        pums[, SPORDER := SPORDER.adj][, SERIALNO := SERIALNO.adj]
-      }
-      
-      source(here('scripts/reweighter/Manage_Scenario_RPA.R'))
-      message(paste0(mid, ' reweighter complete'))
-      
-      mess <- data.table(txt = paste0(mid, ' reweighter complete'))
-      fwrite(mess, paste0(outpath, mid, '_', yr, '_complete.txt'))
-    }
-  }
+  # for (yr in c(2025, 2030, 2035, 2040, 2045, 2050)) {
+  #   for (mid in mpos) {
+  #     # Set config
+  #     inpath <- paste0(input_path, mid, '/')
+  #     source(here('scripts/reweighter/read_config_RPA.R'))
+  #     message(paste0(mid, ' configuration complete'))
+  #     
+  #     # Set targets
+  #     outpath <- paste0(output_path, mid, '/')
+  #     dir.create(outpath, showWarnings = F)
+  #     template <- fread(paste0(workpath, 'Templates/AgeHHder_HHtype_template.csv')) |>
+  #       select(-BASELINE, -TARGET)
+  #     target <- fread(
+  #       paste0(
+  #         ctrltotal.path,
+  #         'hhtype.targetfile.',
+  #         reb,
+  #         '.',
+  #         scen,
+  #         '.hdshp.',
+  #         hdshp,
+  #         '.y',
+  #         yr,
+  #         '.csv'
+  #       )
+  #     ) |>
+  #       filter(RPA == mid) |>
+  #       select(-RPA) |> right_join(template, by = c('AgeCat', 'HHtype')) |> setDT()
+  #     target[AgeCat %in% c('x == 1', 'x == 2', 'x == 3'), `:=`(BASELINE =
+  #                                                                0,
+  #                                                              INTER = 0,
+  #                                                              TARGET = 0)]
+  #     target[is.na(BASELINE), `:=`(BASELINE = 0,
+  #                                  INTER = 0,
+  #                                  TARGET = 0)]
+  #     setorder(target, AgeCat, HHtype)
+  #     fwrite(target, paste0(inpath, '/AgeHHder_HHtype.csv'))
+  #     
+  #     template2 <- fread(paste0(workpath, 'Templates/age_tenure_template.csv'))
+  #     target2 <- fread(
+  #       paste0(
+  #         ctrltotal.path,
+  #         "tenure.targetfile.",
+  #         reb,
+  #         ".",
+  #         scen,
+  #         '.hdshp.',
+  #         hdshp,
+  #         ".y",
+  #         yr,
+  #         ".csv"
+  #       )
+  #     ) |>
+  #       filter(RPA == mid) |>
+  #       select(-RPA) |>
+  #       right_join(template2, by = c('AgeCat', 'tenure')) |>
+  #       setDT()
+  #     
+  #     target2[is.na(BASELINE), `:=`(BASELINE = 0,
+  #                                   INTER = 0,
+  #                                   TARGET = 0)]
+  #     setorder(target2, AgeCat, tenure)
+  #     fwrite(target2, paste0(inpath, '/age_tenure.csv'))
+  #     
+  #     message(paste0(mid, ' targets set'))
+  #     
+  #     pums <- fread(paste0(inpath, 'PUMS', vintage, '_', mid, '.csv'))
+  #     if (scen == 'Scenario_2') {
+  #       pums[, SPORDER := SPORDER.adj][, SERIALNO := SERIALNO.adj]
+  #     }
+  #     
+  #     source(here('scripts/reweighter/Manage_Scenario_RPA.R'))
+  #     message(paste0(mid, ' reweighter complete'))
+  #     
+  #     mess <- data.table(txt = paste0(mid, ' reweighter complete'))
+  #     fwrite(mess, paste0(outpath, mid, '_', yr, '_complete.txt'))
+  #   }
+  # }
 }
 
 ```
@@ -443,7 +446,7 @@ source(here('scripts/reweighter/algo_hh.R'))
 
 if (scen %in% c('Scenario_2', 'Scenario_3', 'Scenario_4')) {
   # for (yr in c(2025, 2030, 2035, 2040, 2045, 2050)) {
-  for (yr in c(2035)) {
+  for (yr in c(2025)) {
     for (mid in mpos) {
       infile1 <- paste0(workpath, 'Templates/reweighting_config_2021.json')
       outfile1 <- paste0(
@@ -544,7 +547,7 @@ if (scen %in% c('Scenario_2', 'Scenario_3', 'Scenario_4')) {
 log.comp <- c()
 for (mid in mpos) {
   outpath <- paste0(output_path, mid, '/')
-  logs <- list.files(path = outpath, pattern ='logfile*')
+  logs <- list.files(path = outpath, pattern =paste0('logfile_',scen,"_",reb,))
   for (f in logs){
     df <- readLines(paste0(outpath,f))
     log.comp <- c(log.comp, if (length(
@@ -561,7 +564,7 @@ for (mid in mpos) {
     })
   }
 }
-fwrite(as.data.table(log.comp),paste0(output_path,'/reweighter_convergence_check.txt'))
+fwrite(as.data.table(log.comp),paste0(output_path,'/reweighter_convergence_check_',reb,'.txt'))
 
 
 
@@ -576,8 +579,8 @@ comp.dt <- data.table()
 if(scen=='Scenario_1'){
 for (yr in 2020){
   for (mid in mpos) {
-    inpath <- paste0(workpath, scen, '/Input_Files/', mid, '/')
-    outpath <- paste0(workpath, scen, '/Output_Files/', mid, '/')
+    inpath <- paste0(workpath, scen, '/Input_Files_UPDATE/', mid, '/')
+    outpath <- paste0(workpath, scen, '/Output_Files_UPDATE/', mid, '/')
     # Summarize total households by mpo from target inputs to reweighter
     target <- fread(paste0(ctrltotal.path, 'type.targetfile.', reb, '.', scen, '.hdshp.', hdshp, '.y', yr, '.csv')) |>
       filter(RPA == mid) |> setDT()
@@ -591,7 +594,7 @@ for (yr in 2020){
     pums <- fread(paste0(inpath, 'PUMS', vintage, '_', mid, '.csv'))
     setkey(pums, SERIALNO, SPORDER)
 
-    x <- fread(paste0(outpath, 'weights_final_', scen, '_', mid, '_', yr, '.csv')) |> select(SERIALNO, SPORDER, new_WGTP) |> mutate(mpo = mid) |> setDT()
+    x <- fread(paste0(outpath, 'weights_final_', scen, '_', reb, '_', mid, '_', yr, '.csv')) |> select(SERIALNO, SPORDER, new_WGTP) |> mutate(mpo = mid) |> setDT()
     setkey(x, SERIALNO, SPORDER)
     xp <- pums[x]
     fwrite(xp, paste0(outpath, '/reweighted_PUMS_', scen, '_', reb, '_', mid, '_', hdshp, '_', yr, '.csv'))
@@ -605,40 +608,40 @@ for (yr in 2020){
     comp.dt <- rbind(comp.dt,comp.out)
   }
 }
-for (yr in c(2025,2030,2035,2040,2045,2050)){
-  for (mid in mpos) {
-    inpath <- paste0(workpath, scen, '/Input_Files/', mid, '/')
-    outpath <- paste0(workpath, scen, '/Output_Files/', mid, '/')
-    # Summarize total households by mpo from target inputs to reweighter
-    target <- fread(paste0(ctrltotal.path, 'hhtype.targetfile.', reb, '.', scen, '.hdshp.', hdshp, '.y', yr, '.csv')) |>
-      filter(RPA == mid) |> setDT()
-    
-    tsum <- target[, lapply(.SD, sum), RPA, .SDcols = 'TARGET']
-    tsum[, TARGET := round(TARGET)][,year:=yr]
-    setnames(tsum, 'RPA', 'mpo')
-    setkey(tsum, mpo)
-    
-    # Calculate total households from the reweighter outputs
-    pums <- fread(paste0(inpath, 'PUMS', vintage, '_', mid, '.csv'))
-    setkey(pums, SERIALNO, SPORDER)
+# for (yr in c(2025,2030,2035,2040,2045,2050)){
+#   for (mid in mpos) {
+#     inpath <- paste0(workpath, scen, '/Input_Files/', mid, '/')
+#     outpath <- paste0(workpath, scen, '/Output_Files/', mid, '/')
+#     # Summarize total households by mpo from target inputs to reweighter
+#     target <- fread(paste0(ctrltotal.path, 'hhtype.targetfile.', reb, '.', scen, '.hdshp.', hdshp, '.y', yr, '.csv')) |>
+#       filter(RPA == mid) |> setDT()
+#     
+#     tsum <- target[, lapply(.SD, sum), RPA, .SDcols = 'TARGET']
+#     tsum[, TARGET := round(TARGET)][,year:=yr]
+#     setnames(tsum, 'RPA', 'mpo')
+#     setkey(tsum, mpo)
+#     
+#     # Calculate total households from the reweighter outputs
+#     pums <- fread(paste0(inpath, 'PUMS', vintage, '_', mid, '.csv'))
+#     setkey(pums, SERIALNO, SPORDER)
+# 
+#     x <- fread(paste0(outpath, 'weights_final_', scen, '_', reb,  '_', mid, '_', yr, '.csv')) |> select(SERIALNO, SPORDER, new_WGTP) |> mutate(mpo = mid) |> setDT()
+#     setkey(x, SERIALNO, SPORDER)
+#     xp <- pums[x]
+#     fwrite(xp, paste0(outpath, '/reweighted_PUMS_', scen, '_', reb, '_', mid, '_', hdshp, '_', yr, '.csv'))
+#     rw <- xp[SPORDER == 1, lapply(.SD, sum), .(mpo), .SDcols = c('WGTP', 'new_WGTP')]
+#     rw[, rw_HH := round(new_WGTP)][, pums_baseline_hh := round(WGTP)]
+#     setkey(rw, mpo)
+#     comp <- tsum[rw]
+#     comp.out <- comp[,.(year,mpo,pums_baseline_hh, TARGET,rw_HH)]
+#     comp.out[,diff:= TARGET - rw_HH]
+#     fwrite(comp.out,paste0(outpath,'reweighter_QC_', scen, '_', reb, '_', mid, '_', hdshp, '_', yr,' .csv'))
+#     comp.dt <- rbind(comp.dt,comp.out)
+# 
+#   }
+# }
 
-    x <- fread(paste0(outpath, 'weights_final_', scen, '_', mid, '_', yr, '.csv')) |> select(SERIALNO, SPORDER, new_WGTP) |> mutate(mpo = mid) |> setDT()
-    setkey(x, SERIALNO, SPORDER)
-    xp <- pums[x]
-    fwrite(xp, paste0(outpath, '/reweighted_PUMS_', scen, '_', reb, '_', mid, '_', hdshp, '_', yr, '.csv'))
-    rw <- xp[SPORDER == 1, lapply(.SD, sum), .(mpo), .SDcols = c('WGTP', 'new_WGTP')]
-    rw[, rw_HH := round(new_WGTP)][, pums_baseline_hh := round(WGTP)]
-    setkey(rw, mpo)
-    comp <- tsum[rw]
-    comp.out <- comp[,.(year,mpo,pums_baseline_hh, TARGET,rw_HH)]
-    comp.out[,diff:= TARGET - rw_HH]
-    fwrite(comp.out,paste0(outpath,'reweighter_QC_', scen, '_', reb, '_', mid, '_', hdshp, '_', yr,' .csv'))
-    comp.dt <- rbind(comp.dt,comp.out)
-
-  }
-}
-
-fwrite(comp.dt,paste0(workpath, scen, '/Output_Files/reweighter_QC_all_RPAs_all_years_', scen, '_', hdshp,' .csv'))
+fwrite(comp.dt,paste0(workpath, scen, '/Output_Files/reweighter_QC_all_RPAs_all_years_', scen,  '_', reb, '_', hdshp,' .csv'))
 
 comp.dt[abs(diff)>1]
 }
@@ -660,17 +663,18 @@ for (yr in c(2020)){
   }
 }
 # 
+# for (yr in c(2025)){
+#   for (mid in mpos) {
+#     inpath <- paste0(input_path, mid, '/')
+#     outpath <- paste0(output_path, mid, '/')
+# 
+#     # Use unaffected outputs for 2025
+#     file.copy(paste0(workpath, scen, '/Output_Files/', mid, '/reweighted_PUMS_',scen,'_', reb, '_', mid, '_scen2_', yr, '.csv'),paste0(outpath, '/reweighted_PUMS_', scen, '_', reb, '_', mid, '_', hdshp, '_', yr, '.csv'), overwrite = T)
+#   }
+# }
+#   
+# for (yr in c(2030,2035,2040,2045,2050)){
 for (yr in c(2025)){
-  for (mid in mpos) {
-    inpath <- paste0(input_path, mid, '/')
-    outpath <- paste0(output_path, mid, '/')
-
-    # Use unaffected outputs for 2025
-    file.copy(paste0(workpath, scen, '/Output_Files/', mid, '/reweighted_PUMS_',scen,'_', reb, '_', mid, '_scen2_', yr, '.csv'),paste0(outpath, '/reweighted_PUMS_', scen, '_', reb, '_', mid, '_', hdshp, '_', yr, '.csv'), overwrite = T)
-  }
-}
-for (yr in c(2030,2035,2040,2045,2050)){
-# for (yr in c(2030)){
   for (mid in mpos) {
     inpath <- paste0(input_path, mid, '/')
     outpath <- paste0(output_path, mid, '/')
@@ -681,7 +685,7 @@ for (yr in c(2030,2035,2040,2045,2050)){
       pums <- fread(paste0(inpath, 'PUMS', vintage, '_', scen, '_', mid, '_', yr, '.csv'))
     setkey(pums, SERIALNO, SPORDER)
 
-    x <- fread(paste0(outpath, 'weights_final_', scen, '_', mid, '_', yr, '.csv')) |> select(SERIALNO, SPORDER, new_WGTP) |> mutate(mpo = mid) |> setDT()
+    x <- fread(paste0(outpath, 'weights_final_', scen,  '_', reb, '_', mid, '_', yr, '.csv')) |> select(SERIALNO, SPORDER, new_WGTP) |> mutate(mpo = mid) |> setDT()
     setkey(x, SERIALNO, SPORDER)
     xp <- pums[x]
     fwrite(xp, paste0(outpath, 'reweighted_PUMS_', scen, '_', reb, '_', mid, '_', hdshp, '_', yr, '.csv'))
@@ -717,8 +721,8 @@ for (yr in c(2030,2035,2040,2045,2050)){
   }
 }
 
-fwrite(comp.dt,paste0(output_path,'reweighter_QC_all_RPAs_all_years_', scen, '_', hdshp,'.csv'))
-fwrite(c0,paste0(output_path,'reweighter_QC_all_RPAs_by_AgeCat_HHtype_all_years_', scen, '_', hdshp,'.csv'))
+fwrite(comp.dt,paste0(output_path,'reweighter_QC_all_RPAs_all_years_', scen, '_', reb,  '_', hdshp,'.csv'))
+fwrite(c0,paste0(output_path,'reweighter_QC_all_RPAs_by_AgeCat_HHtype_all_years_', scen,  '_', reb, '_', hdshp,'.csv'))
 
 comp.dt[abs(diff)>1]
 c0[diff!=0]
@@ -729,8 +733,8 @@ c0[diff!=0]
 
 ```{r}
 
-for (yr in c(2030,2035,2040,2045,2050)){
-# for (yr in c(2020,2025)){
+# for (yr in c(2030,2035,2040,2045,2050)){
+for (yr in c(2020)){
   sw <- data.table()
   for (mid in mpos){
     inp <- paste0(output_path, mid, '/')
@@ -752,8 +756,8 @@ for (yr in c(2030,2035,2040,2045,2050)){
 
 # Set Year
 
-# yr = 2025
-for (yr in c(2030,2035,2040,2045,2050)){
+for(yr in 2020){
+# for (yr in c(2030,2035,2040,2045,2050)){
 #for (yr in c(2035)){
 # Load UMDI HHpop comparison data
 
@@ -1036,8 +1040,8 @@ cx <- function(x) {
 
 ```{r}
 
-for (yr in c(2030,2035,2040,2045,2050)){
-# for (yr in c(2030)){
+# for (yr in c(2030,2035,2040,2045,2050)){
+for (yr in c(2020)){
   
 flaglist <- data.table()
 

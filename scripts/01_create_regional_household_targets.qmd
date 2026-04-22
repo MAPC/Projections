@@ -12,7 +12,7 @@ editor: visual
 # Set Scenario Names
 
 # Population Scenario
-scen <- 'Scenario_3'
+scen <- 'Scenario_1'
 # Headship rate Scenario
 hdshp <- 'acs1721'
 # hdshp <- 'scen2'
@@ -2198,7 +2198,8 @@ if (scen == "Scenario_1"){ # Scenario 1
   print("Using Headship Rates for Scenario 1.")
   
   hdsp.r <- headship_rates
-  ten.r <- fread(paste0(output_path, "tenure_rates.pums.",hdshp,".csv"))
+  ten.r <- fread(paste0(output_path, "tenure_rates.pums.",hdshp,".csv")) |> 
+    mutate(year=2020)
 
 } else if (scen %in% c("Scenario_2","Scenario_3","Scenario_4")){
   
@@ -2569,7 +2570,7 @@ if (scen == 'Scenario_1') {
   for (i in yrs) {
     if (i != 2020) {
       # Record when the process has finished for each year in the year list.
-      print(paste0("Generating MAPC101 Reweighter Target Files for ", i, "."))
+      print(paste0("Generating MAPC97 Reweighter Target Files for ", i, "."))
       
       #cFilter the projected households dataframe by year i
       tmp1 <- proj.hh.MAPC97_by.mpo.hhtype |>
@@ -2643,7 +2644,7 @@ if (scen == 'Scenario_1') {
     }
     if (i == 2020) {
       # Record when the process has finished for each year in the year list.
-      print(paste0("Generating MAPC101 Reweighter Target Files for ", i, "."))
+      print(paste0("Generating MAPC97 Reweighter Target Files for ", i, "."))
       
       # Join the projected households by year to the baseline file.
       target.age <- left_join(age_baseline,

@@ -7,22 +7,22 @@ setwd(inpath)
 version <- 'September 17, 2024'
 
 # Log text file that holds messages for this scenario
-log_file <- paste0(outpath,"logfile_",scen,"_",mid,"_",yr,".txt")
+log_file <- paste0(outpath,"logfile_",scen,"_",reb,"_",mid,"_",yr,".txt")
 
 #  Input PUMS extract csv file that was used by read_config_hh.R
 pums_file <- pums
 
 # Output csv file for the weights created by algo_hh.R
-weights_file <- paste0(outpath,"weights_final_",scen,"_",mid,"_",yr,".csv")
+weights_file <- paste0(outpath,"weights_final_",scen,"_",reb,"_",mid,"_",yr,".csv")
 
 # Output csv file for iteration statistics
 iter_file <- paste0(outpath,"iter_stats.csv")
 
 # Maximum number of iterations
-num_iter <- 1000
+num_iters <- 1000
 
 # Update factor for weights (Suggested default=.01)
-u_factor <- .01
+update_factor <- .01
 
 # Maximum deviation from targets (Suggested default=.5)
 max_norm <- .5
@@ -85,7 +85,7 @@ random = FALSE
 seed = -1
 
 # run the algorithm
-weights <- random_descent_hh(inp, cond, num_iter, u_factor,wflag,
+weights <- random_descent_hh(inp, cond, num_iters, update_factor,wflag,
                              max_norm,iter_file,log_file,
                              random,seed)
 # write the weights to file
