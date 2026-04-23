@@ -53,9 +53,15 @@ reb <- 'MAPC101'
 # List of RPA names
 mpos <- unlist(c(mapcdatakeys::all_muni_data_keys |> select(mpo) |> unique()))
 
+# Paths
+if (grepl('VM',Sys.info()[['nodename']])){
+  base <- '//data-sync/Public/DataServices'
+} else {
+  base <- 'S:/Network Shares/K Drive/DataServices'
+}
+
 # Root Directory
-root <- 'S:/Network Shares/K Drive/DataServices/Projects/'
-# root <- 'K:/DataServices/Projects/'
+root <- paste0(base,'/Projects/')
 
 umdi.path <- paste0(root, 'Current_Projects/Housing/StatewideHousingPlan/04_Analysis/Data/Working/Regional_Control_Totals/UMDI/', scen, '/')
 
@@ -445,8 +451,8 @@ if (scen == 'Scenario_1') {
 source(here('scripts/reweighter/algo_hh.R'))
 
 if (scen %in% c('Scenario_2', 'Scenario_3', 'Scenario_4')) {
-  # for (yr in c(2025, 2030, 2035, 2040, 2045, 2050)) {
-  for (yr in c(2025)) {
+  for (yr in c(2025, 2030, 2035, 2040, 2045, 2050)) {
+  # for (yr in c(2025)) {
     for (mid in mpos) {
       infile1 <- paste0(workpath, 'Templates/reweighting_config_2021.json')
       outfile1 <- paste0(
@@ -547,7 +553,7 @@ if (scen %in% c('Scenario_2', 'Scenario_3', 'Scenario_4')) {
 log.comp <- c()
 for (mid in mpos) {
   outpath <- paste0(output_path, mid, '/')
-  logs <- list.files(path = outpath, pattern =paste0('logfile_',scen,"_",reb,))
+  logs <- list.files(path = outpath, pattern =paste0('logfile_',scen,"_",reb))
   for (f in logs){
     df <- readLines(paste0(outpath,f))
     log.comp <- c(log.comp, if (length(
@@ -662,19 +668,52 @@ for (yr in c(2020)){
     file.copy(paste0(workpath, 'Scenario_1/Output_Files_UPDATE/', mid, '/reweighted_PUMS_Scenario_1_', reb, '_', mid, '_acs1721_', yr, '.csv'),paste0(outpath, 'reweighted_PUMS_', scen, '_', reb, '_', mid, '_', hdshp, '_', yr, '.csv'), overwrite = T)
   }
 }
-# 
+
+if(reb=='MAPC101') {
+  for (yr in c(2025)) {
+    for (mid in mpos) {
+      inpath <- paste0(input_path, mid, '/')
+      outpath <- paste0(output_path, mid, '/')
+
+      # Use unaffected outputs for 2025
+      file.copy(
+        paste0(
+          workpath,
+          scen,
+          '/Output_Files/',
+          mid,
+          '/reweighted_PUMS_',
+          scen,
+          '_',
+          reb,
+          '_',
+          mid,
+          '_scen2_',
+          yr,
+          '.csv'
+        ),
+        paste0(
+          outpath,
+          '/reweighted_PUMS_',
+          scen,
+          '_',
+          reb,
+          '_',
+          mid,
+          '_',
+          hdshp,
+          '_',
+          yr,
+          '.csv'
+        ),
+        overwrite = T
+      )
+    }
+  }
+}
+
+for (yr in c(2030,2035,2040,2045,2050)){
 # for (yr in c(2025)){
-#   for (mid in mpos) {
-#     inpath <- paste0(input_path, mid, '/')
-#     outpath <- paste0(output_path, mid, '/')
-# 
-#     # Use unaffected outputs for 2025
-#     file.copy(paste0(workpath, scen, '/Output_Files/', mid, '/reweighted_PUMS_',scen,'_', reb, '_', mid, '_scen2_', yr, '.csv'),paste0(outpath, '/reweighted_PUMS_', scen, '_', reb, '_', mid, '_', hdshp, '_', yr, '.csv'), overwrite = T)
-#   }
-# }
-#   
-# for (yr in c(2030,2035,2040,2045,2050)){
-for (yr in c(2025)){
   for (mid in mpos) {
     inpath <- paste0(input_path, mid, '/')
     outpath <- paste0(output_path, mid, '/')
@@ -705,6 +744,7 @@ for (yr in c(2025)){
     
     cc <- r1[target]
     cc[,diff:=new_WGTP-TARGET]
+    cc[,year:=yr]
     
     
     tsum <- target[, lapply(.SD, sum), mpo, .SDcols = 'TARGET']
@@ -725,7 +765,7 @@ fwrite(comp.dt,paste0(output_path,'reweighter_QC_all_RPAs_all_years_', scen, '_'
 fwrite(c0,paste0(output_path,'reweighter_QC_all_RPAs_by_AgeCat_HHtype_all_years_', scen,  '_', reb, '_', hdshp,'.csv'))
 
 comp.dt[abs(diff)>1]
-c0[diff!=0]
+
 }
 ```
 
@@ -733,8 +773,8 @@ c0[diff!=0]
 
 ```{r}
 
-# for (yr in c(2030,2035,2040,2045,2050)){
-for (yr in c(2020)){
+for (yr in c(2020,2025,2030,2035,2040,2045,2050)){
+# for (yr in c(2020)){
   sw <- data.table()
   for (mid in mpos){
     inp <- paste0(output_path, mid, '/')
@@ -754,11 +794,12 @@ for (yr in c(2020)){
 #| eval: false
 
 
-# Set Year
+# Set Year(s)
+#
+# Post-processing for year 2020 was done for Scenario 1 (both MAPC97 and MAPC101) and will be copied over from the Scenario 1 folder to the current scenario folder and renamed at the end of the 7.3 post-processor code block.
 
-for(yr in 2020){
-# for (yr in c(2030,2035,2040,2045,2050)){
-#for (yr in c(2035)){
+for (yr in c(2025,2030,2035,2040,2045,2050)){
+
 # Load UMDI HHpop comparison data
 
 umdi <- fread(paste0(ctrltotal.path,'pop.in.hhds.',reb,'_by.RPA.ageCAT6.csv'))
@@ -1040,9 +1081,9 @@ cx <- function(x) {
 
 ```{r}
 
-# for (yr in c(2030,2035,2040,2045,2050)){
-for (yr in c(2020)){
-  
+# for (yr in c(2020)){
+for (yr in c(2025,2030,2035,2040,2045,2050)){
+
 flaglist <- data.table()
 
 adiff <- fread(paste0(output_path,'umdi_pop_age_difference_',reb,'_',yr,'.csv'))
@@ -1633,5 +1674,71 @@ dt <- readRDS(paste0(output_path,'expanded_reweighted_PUMS_',reb,'_',yr,'.rds'))
     )
 message(paste(yr,'Complete'))
 }
+
+# Use processor-corrected outputs from Scenario 1 for 2020 for all Scenarios
+# copy file and rename
+file.copy(
+  paste0(
+    workpath,
+    'Scenario_1/Output_Files_UPDATE/processor_corrected_PUMS_',
+    reb,
+    '_Scenario_1_2020.rds'
+  ),
+  paste0(
+    output_path,
+    'processor_corrected_PUMS_',
+    reb,
+    '_',
+    scen,
+    '_2020.rds'
+  )
+)
+
 ```
 
+# QA of MAPC97 vs MAPC101
+
+```{r}
+
+vs <- data.table(mpo=mpos)
+
+for (yr in c(2030,2035,2040,2045,2050)){
+  x <- readRDS(paste0(output_path,'processor_corrected_PUMS_MAPC97_',scen,'_',yr,'.rds'))
+  hh <- x[SPORDER==1, round(sum(new_WGTP)), mpo] 
+  setnames(hh,c('mpo',paste0('hh_MAPC97_',yr)))
+  vs <- left_join(vs,hh,by='mpo')
+  rm(x);gc()
+}
+
+for (yr in c(2030,2035,2040,2045,2050)){
+  x <- readRDS(paste0(output_path,'processor_corrected_PUMS_MAPC101_',scen,'_',yr,'.rds'))
+  hh <- x[SPORDER==1, round(sum(new_WGTP)), mpo] 
+  setnames(hh,c('mpo',paste0('hh_MAPC101_',yr)))
+  vs <- left_join(vs,hh,by='mpo')
+  rm(x);gc()
+}
+
+vs <- vs |> 
+  mutate(diff2030 = hh_MAPC101_2030 - hh_MAPC97_2030,
+         diff2035 = hh_MAPC101_2035 - hh_MAPC97_2035,
+         diff2040 = hh_MAPC101_2040 - hh_MAPC97_2040,
+         diff2045 = hh_MAPC101_2045 - hh_MAPC97_2045,
+         diff2050 = hh_MAPC101_2050 - hh_MAPC97_2050
+         ) |> 
+  setDT()
+
+for (yr in c(2030, 2035, 2040, 2045, 2050)) {
+  x <- readRDS(
+    paste0(
+      "K:/DataServices/Projects/Current_Projects/Projections/Projections_2028/Data/01_Regional_Control_Totals/SHoP_Scenarios/Reweighter_Outputs/Scenario_3/bad_MAPC101/processor_corrected_PUMS_Scenario_3_",
+      yr,
+      ".rds"
+    ))
+    hh <- o30[SPORDER == 1, round(sum(new_WGTP)), mpo]
+    setnames(hh, c('mpo', paste0('oldSHoP_hh_MAPC101_', yr)))
+    vs <- left_join(vs, hh, by = 'mpo')
+    rm(x)
+    gc()
+}
+
+```
