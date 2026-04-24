@@ -1,0 +1,887 @@
+---
+title: "01.5_EA.PUMS.Subset"
+format: html
+editor: visual
+---
+
+# 0.1 - Set knitr path + root for inputs
+
+```{r}
+#Use when Rproject is open
+#root <- '../../../../Data/Working/Regional_Control_Totals/'
+
+# Base root. Toggle between S: and K: drive depending on mapped paths on your computer
+base <- "K:/DataServices/Projects/Current_Projects/"
+# base <- "S:/Network Shares/K Drive/DataServices/Projects/Current_Projects/"
+
+#General K drive filepath
+root <- paste0(base, "/Housing/StatewideHousingPlan/04_Analysis/Data/Working/Regional_Control_Totals/")
+
+# Reweighter files path
+rwt_path <- paste0(base, "Housing/StatewideHousingPlan/04_Analysis/Data/Working/Reweighter/")
+
+#PUMS K drive filepath
+pums_path <- paste0(base, "/Housing/StatewideHousingPlan/04_Analysis/Data/Working/PUMS/ipums_2021/")
+
+#Set output filepath
+output_path <- paste0(base, "/Housing/StatewideHousingPlan/04_Analysis/Data/Working/PUMS/outputs/")
+
+#Set knitr path
+knitr::opts_knit$set(root.dir = pums_path)
+```
+
+# 0.2 - Set package dependencies, set environment, set up data keys
+
+```{r}
+library(tidycensus)
+library(tidyverse)
+library(data.table)
+library(mapcdatakeys)
+library(janitor)
+library(readxl)
+library(here)
+
+# Remove scientific notation
+options(scipen = 999)
+# Set random seed
+set.seed(351)
+
+# Load Libraries for PUMS Analysis and PUMS API query functions
+# Sets seed and removes scientific notation
+# source(here("PUMS_Analysis/PUMS_Helper_Functions.R"))
+source("C:/Project_Work/statewidehousingplan/PUMS_Analysis/PUMS_Helper_Functions.R")
+
+# Load PUMA x RPA Crosswalk
+xw <- read_csv("C:/Project_Work/statewidehousingplan/PUMS_Analysis/PUMA10_RPA_crosswalk.csv") |> 
+  mutate(PUMA = str_pad(PUMA, 5, "left", pad = 0))
+
+```
+
+# 1.0 - Load and process PUMS Data
+
+NOTE: We use the CPI deflator time series to adjust PUMS income to 2013 dollars (for UrbanSim). ACS uses the Consumer Price Index for All Urban Consumers Retroactive Series (R-CPI-U-RS, details here: <https://www.bls.gov/cpi/research-series/r-cpi-u-rs-home.htm>) as opposed to the ASEC/Census which uses C-CPI-U (details here: [*https://www.census.gov/topics/income-poverty/income/guidance/current-vs-constant-dollars.html*](https://www.census.gov/topics/income-poverty/income/guidance/current-vs-constant-dollars.html){.uri}*)*
+
+```{r}
+# Set PUMS vintage final year for {tidycensus} API query.
+vintage <- 2021
+
+# List of PUMS variables
+variable_list <- c('RT', 'PUMA', 'ADJINC','NP','TYPEHUGQ','HHLDRAGEP','CIT', 'SCHL',
+                   'HHLDRRAC1P','HHLDRHISP', 'HHT', 'HHT2', 'HINCP','LNGI', 'NR', 'PSF','R18',
+                   'AGEP','RAC1P','OC','TEN', "SEX", "ESR", 'HISP', 'WKHP', 'HHLANP', 'LANP')
+
+# SEMP bottom coding has changed from $1 to $4 like WAGP
+
+# Query {tidycensus} for 2017-2021 5-Year PUMS data
+pums_data <- pums_query(var.list = variable_list, yr = vintage, srvy = "acs5")
+
+# Create a list of labels for the 
+ageCAT6.list <- c("00-04","05-09","10-14","15-19","20-24","25-29","30-34","35-39","40-44","45-49","50-54","55-59","60-64","65-69","70-74","75-79","80-84","85+")
+
+# Baseline Sample of 
+pums_EA <- pums_data |> 
+  mutate(
+    child_0004 = case_when(
+      AGEP %in% 0:4 ~ 1,
+      !AGEP %in% 0:4 ~ 0,
+      .default = 0
+    ),
+    child_0509 = case_when(
+      AGEP %in% 5:9 ~ 1,
+      !AGEP %in% 5:9 ~ 0,
+      .default = 0
+    ),
+    child_1014 = case_when(
+      AGEP %in% 10:14 ~ 1,
+      !AGEP %in% 10:14 ~ 0,
+      .default = 0
+    ),
+    child_1517 = case_when(
+      AGEP %in% 15:17 ~ 1,
+      !AGEP %in% 15:17 ~ 0,
+      .default = 0
+    ),
+    # Generate five-year age groupings to match UMDI population projections data.
+    ageCAT6 = cut(AGEP, breaks = c(-Inf, seq(4, 84, 5), Inf), labels = ageCAT6.list),
+  ) |> 
+  group_by(SERIALNO) |> 
+  mutate(
+    tot.child_0004 = sum(child_0004),
+    tot.child_0509 = sum(child_0509),
+    tot.child_1014 = sum(child_1014),
+    tot.child_1517 = sum(child_1517),
+  ) |> 
+  ungroup() |> 
+  mutate(
+    HINCP.adj = HINCP*as.numeric(ADJINC),
+    household.size = case_when(
+      NP == 1 ~ 1,
+      NP == 2 ~ 2,
+      NP == 3 ~ 3, 
+      NP == 4 ~ 4,
+      NP >= 5 ~ 5
+    ),
+    citizenship.status = case_when(
+      CIT %in% c(1,2,3,4) ~ 1,
+      CIT %in% c(5) ~ 0
+    )
+  ) |> 
+  filter(
+    TYPEHUGQ == 1 &
+    TEN %in% c(3,4) &
+    HINCP.adj <= 35000 
+  ) |> 
+    left_join(
+      xw,
+      by = c("PUMA"),
+      relationship = "many-to-many"
+    )
+
+# Need to know how many people are in the sample
+print(sum(pums_EA$PWGTP))
+# Persons in the sample - 689,526
+
+# Need to know how many households are in the sample
+test.EA <- pums_EA |> filter(SPORDER == 1)
+print(sum(test.EA$WGTP))
+# Households in the sample - 392,140
+
+# Some tables to understand the filtered subset of PUMS records
+tbl.language <- pums_EA |> 
+  filter(TYPEHUGQ == 1 & SPORDER == 1) |> 
+  group_by(HHLANP) |> 
+  summarise(hh = sum(WGTP)) |> 
+  ungroup()
+
+# Underestimates English pums(61%) v. expected(67.5%)
+# Overestimates Spanish pums(21%) v. expected(17.875%)
+# Underestimates Haitian pums(2%) v. expected(7.5%)
+
+tbl.hhsize.citizen <- pums_EA |> 
+  filter(TYPEHUGQ == 1 & SPORDER == 1) |> 
+  group_by(citizenship.status, household.size) |> 
+  summarise(hh = sum(WGTP)) |> 
+  ungroup()
+
+# Gets the distribution of Citizen and Non-Citizen pretty close: pums(88%/12%) v. expected(83%/17%)
+# Non-Citizens:
+# One Person HH = pums(38%) v. expected(7%)  -- 7% x 17% = 0.0119 (1.19%)
+# Two Person HH = pums(25%) v. expected(22%) -- 22% x 17% = 0.0374 (3.74%)
+# Three Person HH = pums(18.5%) v. expected(40%) -- 40% x 17% = 0.068 (6.8%)
+# Four Person HH = pums(12.6%) v. expected(21%) -- 21% x 17% = 0.357 (3.57%)
+# Five Person HH = pums(5.2%) v. expected(10%) -- 10% x 17% = 0.017 (1,7%)
+
+# Citizens:
+# One Person HH = pums(63%) v. expected(18%) -- 18% x 83% = 0.1494 (14.94%)
+# Two Person HH = pums(19.6%) v. expected(32%) -- 32% x 83% = 0.2656 (26.56%)
+# Three Person HH = pums(9.2%) v. expected(27%) -- 27% x 83% = 0.2241 (22.41%)
+# Four Person HH = pums(5.3%) v. expected(14%) -- 14% x 83% = 0.1162 (11.62%)
+# Five Person HH = pums(2.7%) v. expected(9%) -- 9% x 83% = 0.0747 (7.47%)
+
+# Household Size Splits
+# One Person: (0.1613) 16.13% --> 16%
+# Two Person: (0.303) 30.3% --> 30%
+# Three Person: (0.2921) 29.21% --> 30%
+# Four Person: (0.1519) 15.19% -- 15%
+# Five Person: (0.0917) 9.17% --> 9%
+
+hh.size_list <- c(0.1613, 0.303, 0.2921, 0.1519, 0.0917)
+
+# Determine the RPA distribution of EA applicants
+munis <- mapcdatakeys::all_muni_data_keys |> select(muni_name, rpa_acr)
+
+EA.pop <- read_xlsx(
+  "C:/Project_Work/Local_Data/Housing/SWHP/Scenarios/Scenario_4/AdditionalMigrants_2020-2024_MCD level shares.xlsx",
+  sheet = 1
+  )
+
+EA.pop <- EA.pop |> 
+  pivot_longer(
+    !MCD,
+    names_to = "AgeGroup",
+    values_to = "pop"
+  ) |> 
+  mutate(
+    AgeGroup = str_sub(AgeGroup, start = 3, end = 7)
+  ) |> 
+  group_by(
+    MCD,
+    AgeGroup
+  ) |> 
+  summarise(
+    pop = sum(pop)
+  ) |> 
+  ungroup() |> 
+  left_join(
+    munis,
+    by = c("MCD" = "muni_name")
+  ) |> 
+  group_by(
+    rpa_acr,
+    AgeGroup
+  ) |> 
+  summarise(
+    pop = sum(pop)
+  ) |> 
+  ungroup() |> 
+  group_by(
+    rpa_acr
+  ) |> 
+  mutate(
+    pop.rpa = round(sum(pop),0)
+  ) |> 
+  ungroup() |> 
+  mutate(
+    pop.state = sum(pop),
+    pct.rpa.pop = pop.rpa/pop.state
+  )
+
+print(sum(EA.pop$pop))
+
+# Percentage of EA applicants in each RPA
+EA.margin <- EA.pop |> 
+  select(rpa_acr, pct.rpa.pop) |> 
+  distinct(rpa_acr, .keep_all = TRUE)
+
+# Assumptions - 
+# 1. 100% of EA population is in households since we are assuming they are moving from, essentially, group quarters to housing units.
+
+# Determine the percent of the shelter population that is in households by 5-year age groups - the headship rate.
+# Load Population in Shelters for 2024
+Shelter.pop <- read_xlsx(
+  "C:/Project_Work/Local_Data/Housing/SWHP/Scenarios/Scenario_4/AdditionalMigrants_2020-2024_MCD level shares.xlsx",
+  sheet = 2
+  )
+
+# Clean shelter population data
+Shelter.pop <- Shelter.pop |> 
+  mutate(
+    # Remove "Ages " prefix from age groups and append leading zeros to single digit ages.
+    `Age Groups` = str_replace(`Age Groups`, "Ages ", ""),
+    AgeGroup = case_when(
+      `Age Groups` == "0-4" ~ "00-04",
+      `Age Groups` == "5-9" ~ "05-09",
+      .default = `Age Groups`
+    )
+  ) |> 
+  # Remove original age group variable
+  select(-c(`Age Groups`)) |> 
+  # Rename population variable
+  dplyr::rename(
+    pop = `Count of Individuals`
+  )
+
+# Load Shelter heads of household for 2024
+Shelter.HoH <- read_xlsx(
+  "C:/Project_Work/Local_Data/Housing/SWHP/Scenarios/Scenario_4/AdditionalMigrants_2020-2024_MCD level shares.xlsx",
+  sheet = 3
+  )
+
+# Clean shelter householder data
+Shelter.HoH <- Shelter.HoH |> 
+  mutate(
+    # Creates a five year age grouping variable
+    Age = as.numeric(Age),
+    AgeGroup = case_when(
+      Age %in% 0:4 ~ "00-04",
+      Age %in% 5:9 ~ "05-09",
+      Age %in% 10:14 ~ "10-14",
+      Age %in% 15:19 ~ "15-19",
+      Age %in% 20:24 ~ "20-24",
+      Age %in% 25:29 ~ "25-29",
+      Age %in% 30:34 ~ "30-34",
+      Age %in% 35:39 ~ "35-39",
+      Age %in% 40:44 ~ "40-44",
+      Age %in% 45:49 ~ "45-49",
+      Age %in% 50:54 ~ "50-54",
+      Age %in% 55:59 ~ "55-59",
+      Age %in% 60:64 ~ "60-64",
+      Age %in% 65:69 ~ "65-69",
+      Age %in% 70:74 ~ "70-74",
+      Age %in% 75:79 ~ "75-79",
+      Age %in% 80:84 ~ "80-84",
+      Age %in% 85:100 ~ "85+"
+    )
+  ) |> 
+  group_by(
+    AgeGroup
+  ) |> 
+  # Sums households to 5-year age grouping
+  summarise(
+    hh = sum(`Count of Individuals`)
+  ) |> 
+  ungroup() |> 
+  na.omit()
+
+# Join shelter population to shelter households 
+Shelter.total <- left_join(
+  Shelter.pop,
+  Shelter.HoH,
+  by = c("AgeGroup")
+) |> 
+  # Insert 0s for NAs + calculate headship rates
+  mutate(
+    across(everything(), ~replace_na(.x, 0))
+  ) |> 
+  relocate(AgeGroup)
+
+Shelter.hdsp.r <- Shelter.total |> 
+  # Insert 0s for NAs + calculate headship rates
+  mutate(
+    across(everything(), ~replace_na(.x, 0)),
+    hdsp.r = hh/pop
+ ) |> 
+  select(AgeGroup, hdsp.r)
+
+#
+
+rpa.list <- EA.margin |> select(rpa_acr) |> pull()
+
+Shelter.pop.rpa <- NULL
+
+for (i in rpa.list){
+  
+  print(paste0("Starting ",i,"."))
+  
+  tmp.margin <- EA.margin |> filter(rpa_acr == i)
+  
+  tmp.shelter <- bind_cols(
+    Shelter.total,
+    tmp.margin
+  )
+  
+  Shelter.pop.rpa <- bind_rows(Shelter.pop.rpa, tmp.shelter)
+  
+  rm(tmp.margin, tmp.shelter)
+  
+}
+
+Shelter.pop.rpa <- left_join(
+  Shelter.pop.rpa,
+  Shelter.hdsp.r,
+  by = c("AgeGroup"),
+  relationship = "many-to-many"
+) |> 
+  rowwise() |> 
+  mutate(
+    pop = pop*pct.rpa.pop,
+    hh = round(pop*hdsp.r, 0),
+    pop = round(pop, 0)
+  ) |>
+  relocate(
+    rpa_acr,
+    AgeGroup
+  )
+
+print(sum(Shelter.pop.rpa$pop))
+print(sum(Shelter.total$pop))
+
+print(sum(Shelter.pop.rpa$hh))
+print(sum(Shelter.HoH$hh))
+
+```
+
+# 2.0 - Sampling the PUMS records to match shelter households and approximate shelter population
+
+```{r echo=TRUE, results='hide'}
+# Sets the run number for the sampling
+run <- "run.2"
+
+# Creates a dataframe with the total population in each RPA.
+S.pop.RPA <- Shelter.pop.rpa |>
+  group_by(rpa_acr) |>
+  summarise(pop = sum(pop)) |>
+  ungroup()
+
+# Creates a dataframe of the shelter population and households by 5-year age group.
+S.hh.RPA.AG <- Shelter.pop.rpa |> 
+  select(-c(pct.rpa.pop, hdsp.r)) |> 
+  mutate(
+    hh = case_when(
+      rpa_acr == "OCPC" & AgeGroup == "15-19" ~ hh - 1,
+      rpa_acr == "OCPC" & AgeGroup == "20-24" ~ hh + 1,
+      .default = hh
+    )
+  )
+  
+# A list of 5-year age groups with households and population to loop through
+agegroup.list <- c("15-19","20-24","25-29","30-34","35-39","40-44","45-49","50-54","55-59","60-64","65-69","70-74","75-79")
+
+# Empty object to append RPA PUMS records
+full_sample.pums <- NULL
+#Empty object to append the full diagnostic list to.
+full_diagnostic.list <- NULL
+
+for (i in c("OCPC")) {
+  # Evaluate whether or not we've hit the population targets.
+  print(paste0("CURRENT RPA: ", i))
+  # Set the Population and Household Targets
+  pop.target <- S.pop.RPA |> filter(rpa_acr == i) |> select(pop) |> pull()
+  child_0004.target <- S.hh.RPA.AG |> filter(rpa_acr == i &  AgeGroup == "00-04") |> select(pop) |> pull()
+  child_0509.target <- S.hh.RPA.AG |> filter(rpa_acr == i & AgeGroup == "05-09") |> select(pop) |> pull()
+  child_1014.target <- S.hh.RPA.AG |> filter(rpa_acr == i & AgeGroup == "10-14") |> select(pop) |> pull()
+  child_1517.target <- S.hh.RPA.AG |> filter(rpa_acr == i & AgeGroup == "15-19") |> select(pop) |> pull()
+  
+  # Initial Diagnostics
+  # Time stamp of when the RPA loop begins
+  time_start <- lubridate::now()
+  # Set the number of initial number of iterations for RPA loop to 0
+  iteration <- 0
+  # Set empty dataframe to record the iteration number
+  iteration.list <- data.frame()
+  # Set empty dataframe to record the difference between sampled and target population for each iteration
+  pop.diff.list <- data.frame()
+  # Set empty dataframe to record the the total sampled population for each iteration
+  pop.total.list <- data.frame()
+  # Set empty dataframe to record the the total sampled households for each iteration
+  hh.total.list <- data.frame()
+  # Set empty dataframe to record the the total sampled children 0-4 for each iteration
+  child_0004.total.list <- data.frame()
+  # Set empty dataframe to record the the total sampled children 5-9 for each iteration
+  child_0509.total.list <- data.frame()
+  # Set empty dataframe to record the the total sampled children 10-14 for each iteration
+  child_1014.total.list <- data.frame()
+  # Set empty dataframe to record the the total sampled children 15-19 each iteration
+  child_1517.total.list <- data.frame()
+
+  # Set an empty dataframe for sampled PUMS records to be appended for each RPA
+  partial_sample.pums <- NULL
+  
+  # A repeat loop (works like a while loop). The Age Group for loop will repeat until a condition is met.
+  # The conditions for this repeat loop:
+  # - 500 iterations of the repeat loop are reached.
+  repeat {
+    
+    # Set objects to record total population and households for each RPA run
+    pop.total <- 0
+    hh.total <- 0
+    child_0004.total <- 0
+    child_0509.total <- 0
+    child_1014.total <- 0
+    child_1517.total <- 0
+    # Add one for each successive iteration and print the iteration number
+    iteration <- iteration + 1
+    print(paste0("Iteration: ", iteration, "."))
+    
+    for (j in agegroup.list) {
+      # Print the RPA and Age Group which is being sampled.
+      print(paste0("Sampling for ", i, " Age Group ", j, "."))
+      
+      # Set the household target for each RPA x Age Group pair for sampling. Print the household target.
+      hh.target <- S.hh.RPA.AG |> filter(rpa_acr == i & AgeGroup == j) |> select(hh) |> pull()
+      print(paste0("Household Target: ", hh.target))
+      # Create a household target for some household size (1 person, 2 person, and 3+ person)
+      hh.target.1 <- round(hh.target*hh.size_list[1], 0)
+      hh.target.2 <- round(hh.target*(hh.size_list[2] + hh.size_list[3] + hh.size_list[4] + hh.size_list[5]), 0)
+      # Filters the PUMS records to those in the RPA with a householder in the specified Age Group by household size.
+      tmp.pums.1 <- pums_EA |> filter(rpa_acr == i & ageCAT6 == j & SPORDER == 1 & NP == 1)
+      tmp.pums.2 <- pums_EA |> filter(rpa_acr == i & ageCAT6 == j & SPORDER == 1 & NP >= 2)
+      # Samples households with replacement equal to the number of households in the target (for RPA and Age Group and household size). Adds the iteration number to the dataset.
+      sample.pums.1 <- slice_sample(tmp.pums.1, n = hh.target.1, replace = TRUE) |> mutate(iter = iteration)
+      sample.pums.2 <- slice_sample(tmp.pums.2, n = hh.target.2, replace = TRUE) |> mutate(iter = iteration)
+      
+      # Bind all samples together into one dataframe.
+      sample.pums <- bind_rows(sample.pums.1, sample.pums.2)
+      
+      # Records temporary information about the sampled PUMS records.
+      tmp.pop <- as.numeric(sum(sample.pums$NP))
+      tmp.hh <- as.numeric(nrow(sample.pums))
+      tmp.child_0004 <- as.numeric(sum(sample.pums$tot.child_0004))
+      tmp.child_0509 <- as.numeric(sum(sample.pums$tot.child_0509))
+      tmp.child_1014 <- as.numeric(sum(sample.pums$tot.child_1014))
+      tmp.child_1517 <- as.numeric(sum(sample.pums$tot.child_1517))
+      
+      # Adds the temporary information for each Age Group run to the RPA total objects
+      pop.total <- pop.total + tmp.pop
+      hh.total <- hh.total + tmp.hh
+      child_0004.total <- child_0004.total + tmp.child_0004
+      child_0509.total <- child_0509.total + tmp.child_0509
+      child_1014.total <- child_1014.total + tmp.child_1014
+      child_1517.total <- child_1517.total + tmp.child_1517
+      
+      # Append sample PUMS records to the RPA partial record.
+      partial_sample.pums <- bind_rows(partial_sample.pums, sample.pums)
+      
+      # Remove objects that need to be refreshed with each repeat. 
+      rm(tmp.pums.1, tmp.pums.2, sample.pums, tmp.pop, tmp.hh, tmp.child_0004, tmp.child_0509, tmp.child_1014, tmp.child_1517)
+      
+      # Prints the progression of population and households totals as each Age Group is looped through
+      print(paste0("Population: ", pop.total))
+      print(paste0("Households: ", hh.total))
+      print(paste0("Children Aged 0-4: ", child_0004.total))
+      print(paste0("Children Aged 5-9: ", child_0509.total))
+      print(paste0("Children Aged 10-14: ", child_1014.total))
+      print(paste0("Children Aged 15-19: ", child_1517.total))
+      
+    }
+    
+    # Diagnostics
+    print(paste0("Difference between Population Target and Population Sample: ", pop.target - pop.total))
+    # List of population, difference between target pop and sampled pop, and the iteration
+    pop.diff <- as.data.frame(pop.target - pop.total)
+    pop.diff.list <- bind_rows(pop.diff.list, pop.diff)
+    pop.total <- as.data.frame(pop.total)
+    pop.total.list <- bind_rows(pop.total.list, pop.total)
+    hh.total <- as.data.frame(hh.total)
+    hh.total.list <- bind_rows(hh.total.list, hh.total)
+    child_0004.total <- as.data.frame(child_0004.total)
+    child_0004.total.list <- bind_rows(child_0004.total.list, child_0004.total)
+    child_0509.total <- as.data.frame(child_0509.total)
+    child_0509.total.list <- bind_rows(child_0509.total.list, child_0509.total)
+    child_1014.total <- as.data.frame(child_1014.total)
+    child_1014.total.list <- bind_rows(child_1014.total.list, child_1014.total)
+    child_1517.total <- as.data.frame(child_1517.total)
+    child_1517.total.list <- bind_rows(child_1517.total.list, child_1517.total)
+    iter <- as.data.frame(iteration)
+    iteration.list <- bind_rows(iteration.list, iter)
+    # Print a break between iterations for easier visual inspection
+    print(paste0("============================================="))
+    
+    # Break condition for the repeat loop. Runs for 500 iterations and then moves to the next RPA.
+   if (iteration > 500) {break}
+    
+  }
+  
+  # Time Diagnostics
+  # Time when the loop ends
+  time_end <- lubridate::now()
+  # Calculates the interval between the beginning of the RPA loop and the end
+  time_elapsed <- lubridate::interval(time_start, time_end)
+  # Prints the interval
+  print(time_elapsed[1])
+  
+  # Append the partial RPA sample PUMS records to an object outside of the loop which records the full set of PUMS records.
+  full_sample.pums <- bind_rows(full_sample.pums, partial_sample.pums)
+  # Create a dataframe of all sampling diagnostics for each RPA loop
+  diagnostic.list <- bind_cols(iteration.list, pop.total.list, pop.diff.list, hh.total.list, child_0004.total.list, child_0509.total.list, child_1014.total.list, child_1517.total.list) |> 
+    mutate(rpa_acr = i)
+  # Append the full RPA diagnostic dataframe to a master dataframe which will hold all diagnostic statistics
+  full_diagnostic.list <- bind_rows(full_diagnostic.list, diagnostic.list)
+  
+}
+
+# Write full sample of pums records to a .csv
+write.csv(
+  full_sample.pums,
+  paste0("C:/Project_Work/Local_Data/Housing/SWHP/Scenarios/Scenario_4/full.shelter.pums.sample_",run,".csv"),
+  row.names = FALSE
+)
+
+# Write full diagnostic list to a .csv
+write.csv(
+  full_diagnostic.list,
+  paste0("C:/Project_Work/Local_Data/Housing/SWHP/Scenarios/Scenario_4/full.shelter.pums.diagnostic_",run,".csv"),
+  row.names = FALSE
+)
+
+# Clean up the environment
+rm(full_sample.pums, full_diagnostic.list)
+
+```
+
+# 3.0 Evaluate Run Diagnostics
+
+```{r}
+tmp.1 <- read.csv("C:/Project_Work/Local_Data/Housing/SWHP/Scenarios/Scenario_4/full.shelter.pums.diagnostic_BRPCtoNMCOGrun.1.csv")
+tmp.2 <- read.csv("C:/Project_Work/Local_Data/Housing/SWHP/Scenarios/Scenario_4/full.shelter.pums.diagnostic_PVPCandSRPEDDrun.1.csv")
+tmp.3 <- read.csv("C:/Project_Work/Local_Data/Housing/SWHP/Scenarios/Scenario_4/full.shelter.pums.diagnostic_OCPCrun.1.csv")
+
+full.diagnostics <- bind_rows(tmp.1, tmp.2, tmp.3)
+
+rm(tmp.1, tmp.2, tmp.3)
+
+for (i in c("MAPC")) {
+  
+  tmp.pop <- S.pop.RPA |> filter(rpa_acr == i)
+  
+  pop.graph <- full.diagnostics |>
+    filter(rpa_acr == i) |>
+    ggplot() +
+    geom_density(aes(x = pop.total)) +
+    geom_vline(xintercept = as.numeric(tmp.pop[2]), linetype = "dashed", color = "red") +
+    theme_minimal() +
+    theme()
+  
+}
+
+pop.graph
+
+sample_choice.BRPC <- full.diagnostics |> 
+  filter(rpa_acr == "BRPC") |> 
+  filter(pop.total == 77) |> 
+  rowwise() |> 
+  mutate(
+    child.total = sum(child_0004.total, child_0509.total, child_1014.total, child_1517.total)
+  ) |>
+  group_by(rpa_acr) |> 
+  slice_max(child.total, with_ties = TRUE) |> 
+  ungroup() |> 
+  select(-c(child.total))
+
+sample_choice.CCC <- full.diagnostics |> 
+  filter(rpa_acr == "CCC") |> 
+  slice_max(pop.total, with_ties = TRUE) |> 
+  rowwise() |> 
+  mutate(
+    child.total = sum(child_0004.total, child_0509.total, child_1014.total, child_1517.total)
+  ) |> 
+  group_by(rpa_acr) |> 
+  slice_max(child.total, with_ties = TRUE) |> 
+  ungroup() |> 
+  select(-c(child.total))
+
+
+sample_choice.general <- full.diagnostics |> 
+  filter(!rpa_acr %in% c("BRPC", "CCC")) |> 
+  group_by(rpa_acr) |> 
+  slice_max(pop.total, with_ties = TRUE) |> 
+  ungroup()
+
+sample_choice <- bind_rows(sample_choice.BRPC, sample_choice.CCC, sample_choice.general)
+
+rm(sample_choice.BRPC, sample_choice.CCC, sample_choice.general)
+#==========
+# Read in the 
+tmp.1 <- read_csv("C:/Project_Work/Local_Data/Housing/SWHP/Scenarios/Scenario_4/full.shelter.pums.sample_BRPCtoNMCOGrun.1.csv")
+tmp.2 <- read_csv("C:/Project_Work/Local_Data/Housing/SWHP/Scenarios/Scenario_4/full.shelter.pums.sample_PVPCandSRPEDDrun.1.csv")
+tmp.3 <- read_csv("C:/Project_Work/Local_Data/Housing/SWHP/Scenarios/Scenario_4/full.shelter.pums.sample_OCPCrun.1.csv")
+
+full.sample.pums <- bind_rows(tmp.1, tmp.2, tmp.3)
+
+rm(tmp.1, tmp.2, tmp.3)
+
+choice.pums <- NULL
+
+for (i in rpa.list) {
+  
+  tmp.sc <- sample_choice |> filter(rpa_acr == i) |> select(iteration) |> pull() |> as.numeric()
+  
+  tmp.ps <- full.sample.pums |> filter(rpa_acr == i)
+  
+  tmp <- tmp.ps |> filter(iter == tmp.sc)
+  
+  choice.pums <- bind_rows(choice.pums, tmp)
+  
+  rm(tmp.sc, tmp.ps, tmp)
+  
+}
+
+# List of SERIALNO in the PUMS records selected to represent the shelter population
+choice.pums_SERIALNO <- choice.pums |> select(SERIALNO) |> pull() |> unique()
+
+choice.pums_number <- choice.pums |> group_by(SERIALNO) |> summarise(num = n()) |> ungroup()
+
+# Number of PUMS household records
+print(sum(choice.pums_number$num))
+# Number of unique serialno's (must match the list of unique serialno's in choice.pums_SERIALNO)
+print(length(unique(choice.pums_number$SERIALNO)))
+
+```
+
+# 4.0 Select all PUMS records for each SERIALNO
+
+```{r}
+# Select the full household records from PUMS using the SERIALNO of the households in the sample.
+shelter.pums <- pums_EA |>
+  filter(rpa_acr %in% rpa.list) |> 
+  filter(SERIALNO %in% choice.pums_SERIALNO) |> 
+  # Join the dataframe with information (num) about how many times the SERIALNO needs to duplicated
+  left_join(
+    choice.pums_number,
+    by = c("SERIALNO"),
+    relationship = "many-to-many"
+  ) |>
+  # Duplicate PUMS records in accordance to how many times they show up in the sample outpu
+  uncount(num) |>
+  mutate(
+    # Gives each row a number
+    ID = row_number()
+  ) |> 
+  group_by(SERIALNO, SPORDER) |> 
+  mutate(
+    # RANK represents the number of duplicates present in the sample
+    RANK = rank(ID, na.last = TRUE, ties.method = "first")
+  ) |> 
+  ungroup() |> 
+  mutate(
+    # New SERIALNO which makes duplicate records unique
+    SERIALNO.adj = paste0(SERIALNO,".",RANK,".shelter"),
+    # New household weight set to 1
+    new_WGTP = 1,
+    # New person weight set to 1
+    new_PWGTP = 1
+  )
+
+#================
+# QA on the shelter data
+hh.test <- shelter.pums |> 
+  filter(SPORDER == 1)
+
+```
+
+# 5.0 Shelter PUMS Data Cleaning
+
+```{r}
+shelter.pums_cleaned <- shelter.pums |> 
+  # General Data Cleaning
+  mutate(
+    # Renaming the 5-year age group variable.# Generate five-year age groupings to match UMDI population projections data.
+    ageCAT6 = cut(AGEP, breaks = c(-Inf, seq(4, 84, 5), Inf), labels = 1:18),
+    AgeCat = ageCAT6,
+    # Generate a custom age grouping
+    # Levels are (0) 0-14; (4) 15 to 19; (5) 20 to 24; (6) 25 to 34; (7) 35 to 44; (8) 45 to 54; (9) 55 to 64 (10) 65 to 74 (11) 75+
+    PAGEC2 = cut(AGEP, breaks = c(-Inf, 14, 19, 24, 34, 44, 54, 64, 74, 79, 84, Inf), labels = c(0, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13)),
+    # Generate ten-year age groupings 
+    # ageCAT4 is the 2020 decennial census age breaks for age of householder - used for 2020 base year control total reweighter targets
+    ageCAT4 = case_when(
+      AGEP %in% 15:24 ~ 1,
+      AGEP %in% 25:34 ~ 2,
+      AGEP %in% 35:44 ~ 3,
+      AGEP %in% 45:54 ~ 4,
+      AGEP %in% 55:59 ~ 5,
+      AGEP %in% 60:64 ~ 6,
+      AGEP %in% 65:74 ~ 7,
+      AGEP %in% 75:84 ~ 8,
+      AGEP >= 85 ~ 9
+    ), 
+    # Creates a tenure grouping for reweighter file:
+    tenure = case_when(# Owned with a mortgage or free and clear -> "1"
+      TEN %in% c('1', '2') ~ 1,
+      # Rented or occupied without payment of rent -> "2"
+      TEN %in% c('3', '4') ~ 2,
+      .default = 999
+    ), 
+    # Creates a tenure grouping for:
+    TEN_Group = case_when(# Owned with a mortgage or free and clear -> "Own"
+      TEN %in% c('1', '2') ~ "Own",
+      # Rented or occupied without payment of rent -> "Rent"
+      TEN %in% c('3', '4') ~ "Rent",
+      .default = "Unknown"
+    ), 
+    # Counts as Worker
+    # NOTE - Categories are:
+    # (0) under 16 or not in labor force
+    # (1) in labor force or non-civilian worker
+    worker = case_when(
+      (ESR == "b" | ESR == 6) ~ 0,
+      (ESR == 1 | ESR == 2 | ESR == 3 | ESR == 4 | ESR == 5) ~ 1,
+      is.na(ESR) ~ 0
+    ),
+    # Categorizing Civilian Labor Force or not
+    # NOTE: Categories ar
+    # (0) under 16 or non-civilian
+    # (1) in labor force
+    # (2) not in labor force
+    lf = case_when(
+      ESR == "b" | ESR == 4 | ESR == 5  ~ 0,
+      ESR == 1 | ESR == 2 | ESR == 3  ~ 1,
+      ESR == 6 ~ 2,
+      is.na(ESR) ~ 0
+    ),
+    # Counts as person
+    person = case_when(
+      SPORDER != 0 ~ 1,
+      SPORDER == 0 ~ 0
+    ),
+    # Create a household flag for whether there is a child in a household.
+    child = case_when(
+      AGEP < 18 ~ 1,
+      AGEP >= 18 ~ 0,
+      .default = 0
+    ),
+    # Householder Race Groupings.
+    RACE_Group = case_when(
+      RAC1P == "1" ~ "White Alone",
+      RAC1P == "2" ~ "Black or African American Alone",
+      RAC1P %in% c("3", "4", "5") ~ "AIAN Alone",
+      RAC1P == "6" ~ "Asian Alone",
+      RAC1P == "7" ~ "NHPI Alone",
+      RAC1P == "8" ~ "Some Other Race Alone",
+      RAC1P == "9" ~ "Two or More Races Alone",
+      .default = "Unknown"
+    ),
+    # Householder Hispanic/Non-Hispanic Groupings
+    HISP_Group = case_when(
+      HISP == "01" ~ "Non-Hispanic",
+      HISP != "01" ~ "Hispanic",
+      .default = "Unknown"
+    ),
+    # Educational Attainment Groupings
+    # NOTE - Categories are:
+    # (1) High school degree or less
+    # (2) Associate's degree or some college
+    # (3) Bachelor's
+    # (4) MA or higher
+    SCHL = as.numeric(SCHL),
+    eduattn = case_when(
+      SCHL <= 17 ~ 1,
+      SCHL %in% 18:20 ~ 2,
+      SCHL == 21 ~ 3,
+      SCHL >= 22 ~ 4,
+      is.na(SCHL) ~ 0,
+      .default = 0
+    )
+  ) |>
+  # Creating household flags for person variables.
+  group_by(SERIALNO.adj) |> 
+  mutate(
+    # Sum the total number of workers in the household
+    Worker_Total = sum(worker),
+    # Sum the total number of children in the household
+    Child_Total = sum(child)
+  ) |> 
+  ungroup() |> 
+  mutate(
+  # Create a variable that is a household flag for whether or not a household has children. 
+   child_flag = case_when(
+      Child_Total > 0 ~ "1",
+      Child_Total == 0 ~ "0",
+      .default = "0"
+    ),
+   # Categorizing worker categories:
+   # (0) no workers
+   # (1) one worker
+   # (2) two workers
+   # (3) three or more workers
+   WRKHH = case_when(
+     Worker_Total == 0 ~ 0,
+     Worker_Total == 1 ~ 1,
+     Worker_Total == 2 ~ 2,
+     Worker_Total >= 3 ~ 3
+    ),
+  # Determine if person is not hhder vs hhder of:
+  # (0) No Workers
+  # (1) One Worker 
+  # (2) Two Workers
+  # (3) Three or more workers
+   HHder = case_when(
+     SPORDER == 1 & WRKHH == 0 ~ 0,
+     SPORDER == 1 & WRKHH == 1 ~ 1,
+     SPORDER == 1 & WRKHH == 2 ~ 2,
+     SPORDER == 1 & WRKHH == 3 ~ 3,
+     SPORDER > 1 ~ 99
+   ),
+   # Determine what type of household the person is heading or not heading:
+   # (1) Householder of Household with Children
+   # (2) Non-Householder in a Household with Children
+   # (3) Householder of a Household with Multiple Adults and no children
+   # (4) Non-Householder in a Household with no children
+   # (5) Householder of a Single Person Household
+   HHtype = case_when(
+     Child_Total >= 1 & NP > 1 & HHder != 99 ~ 1,
+     Child_Total >= 1 & NP > 1 & HHder == 99 ~ 2,
+     Child_Total == 0 & NP > 1 & HHder != 99 ~ 3,
+     Child_Total == 0 & NP > 1 & HHder == 99 ~ 4,
+     NP == 1 & HHder != 99 ~ 5
+   )
+  )
+
+#===
+# Write the shelter pums dataframe
+write.csv(
+  shelter.pums_cleaned,
+  paste0("C:/Project_Work/Local_Data/Housing/SWHP/Scenarios/Scenario_4/cleaned.shelter.pums.sample_run.1.csv"),
+  row.names = FALSE
+)
+
+```
