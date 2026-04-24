@@ -48,8 +48,8 @@ if (scen != 'Scenario_1'){
   hdshp <- 'scen2'
 }
 # Set MAPC at 101 or 97 towns
-reb <- 'MAPC101'
-# reb <- 'MAPC97'
+# reb <- 'MAPC101'
+reb <- 'MAPC97'
 
 # List of RPA names
 mpos <- unlist(c(mapcdatakeys::all_muni_data_keys |> select(mpo) |> unique()))
@@ -459,7 +459,7 @@ if (scen == 'Scenario_1') {
 source(here('scripts/reweighter/algo_hh.R'))
 
 if (scen %in% c('Scenario_2', 'Scenario_3', 'Scenario_4')) {
-  for (yr in c(2025, 2030, 2035, 2040, 2045, 2050)) {
+  for (yr in c(2030, 2035, 2040, 2045, 2050)) {
   # for (yr in c(2025)) {
     for (mid in mpos) {
       infile1 <- paste0(workpath, 'Templates/reweighting_config_2021.json')
@@ -1717,6 +1717,8 @@ if (scen %in% c('Scenario_2', 'Scenario_3')) {
     mutate(
       # Align SERIALNO variables
       SERIALNO = SERIALNO.adj,
+      hid = SERIALNO.adj,
+      HHSize = household.size,
       PUMA = as.numeric(PUMA),
       HISP = as.numeric(HISP),
       HHLDRHISP = as.numeric(HHLDRHISP),
@@ -1819,6 +1821,8 @@ if (scen %in% c('Scenario_2', 'Scenario_3')) {
   }
 }
 
+
+# Need hid, PINCP, HHsize
 ```
 # 7.5 - Combine with pop corrected reweighter outputs
 ```{r}
@@ -1990,7 +1994,8 @@ for (yr in years) {
 vs <- data.table(mpo=mpos)
 
 for (yr in c(2030,2035,2040,2045,2050)){
-  x <- readRDS(paste0(output_path,'processor_corrected_PUMS_MAPC97_',scen,'_',yr,'.rds'))
+  x <- fread(paste0(output_path,'reweighted_PUMS_',scen,'_MAPC97_',hdshp,'_',yr,'.csv'))
+  # x <- readRDS(paste0(output_path,'processor_corrected_PUMS_MAPC97_',scen,'_',yr,'.rds'))
   hh <- x[SPORDER==1, round(sum(new_WGTP)), mpo] 
   setnames(hh,c('mpo',paste0('hh_MAPC97_',yr)))
   vs <- left_join(vs,hh,by='mpo')
@@ -1998,7 +2003,8 @@ for (yr in c(2030,2035,2040,2045,2050)){
 }
 
 for (yr in c(2030,2035,2040,2045,2050)){
-  x <- readRDS(paste0(output_path,'processor_corrected_PUMS_MAPC101_',scen,'_',yr,'.rds'))
+  x <- fread(paste0(output_path,'reweighted_PUMS_',scen,'_MAPC101_',hdshp,'_',yr,'.csv'))
+  # x <- readRDS(paste0(output_path,'processor_corrected_PUMS_MAPC101_',scen,'_',yr,'.rds'))
   hh <- x[SPORDER==1, round(sum(new_WGTP)), mpo] 
   setnames(hh,c('mpo',paste0('hh_MAPC101_',yr)))
   vs <- left_join(vs,hh,by='mpo')
@@ -2017,7 +2023,7 @@ vs <- vs |>
 for (yr in c(2030, 2035, 2040, 2045, 2050)) {
   x <- readRDS(
     paste0(
-      "K:/DataServices/Projects/Current_Projects/Projections/Projections_2028/Data/01_Regional_Control_Totals/SHoP_Scenarios/Reweighter_Outputs/Scenario_3/bad_MAPC101/processor_corrected_PUMS_Scenario_3_",
+      root,"Current_Projects/Projections/Projections_2028/Data/01_Regional_Control_Totals/SHoP_Scenarios/Reweighter_Outputs/",scen,"/bad_MAPC101/processor_corrected_PUMS_",scen,"_",
       yr,
       ".rds"
     ))
@@ -2028,4 +2034,12 @@ for (yr in c(2030, 2035, 2040, 2045, 2050)) {
     gc()
 }
 
+vs <- vs |> 
+  mutate(old_diff2030 = hh_MAPC101_2030 - oldSHoP_hh_MAPC101_2030,
+         old_diff2035 = hh_MAPC101_2035 - oldSHoP_hh_MAPC101_2035,
+         old_diff2040 = hh_MAPC101_2040 - oldSHoP_hh_MAPC101_2040,
+         old_diff2045 = hh_MAPC101_2045 - oldSHoP_hh_MAPC101_2045,
+         old_diff2050 = hh_MAPC101_2050 - oldSHoP_hh_MAPC101_2050
+         ) |> 
+  setDT()
 ```
