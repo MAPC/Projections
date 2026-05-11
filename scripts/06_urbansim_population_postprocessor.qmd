@@ -52,6 +52,7 @@ nonmapc <- munis[mpo!='MAPC']
 # 2010 Blocks / Munis / RPA / MPO
 blks <- geog_xw_2010 |> left_join(munis, by = 'muni_id') |> select(bl10_id, muni_id, muni_name, rpa_acr, mpo) |> setDT()
 
+knitr::opts_knit$set(root.dir = root)
 ```
 
 # 2 - Run Specifications
@@ -159,9 +160,9 @@ blks <- geog_xw_2010 |> left_join(munis, by = 'muni_id') |> select(bl10_id, muni
 # years=2023
 
 # SHoP Scenario 1, LRTP 2023 zoning
-shop.scen <- 'Scenario_1'
-MAPCM_run='run_222'
-SWM_run='state_run_127'
+# shop.scen <- 'Scenario_1'
+# MAPCM_run='run_222'
+# SWM_run='state_run_127'
 
 # SHoP Scenario 2, LRTP 2023 zoning
 # shop.scen <- 'Scenario_2'
@@ -179,22 +180,28 @@ SWM_run='state_run_127'
 # MAPCM_run='run_225'
 # SWM_run='state_run_125'
 
+# TDM23.3.0
+MAPCM_run <- 's102'
+SWM_run <- 's64'
+ctps_run=paste0('run_',SWM_run,'-',MAPCM_run)
+# root <- paste0(root,'TDM23.3.0')
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-years=c(2019, 2024, 2029, 2034, 2039, 2044, 2049)
-
+# years=c(2019, 2023, 2024, 2029, 2039, 2049)
+years=c(2019, 2023, 2029, 2039, 2049)
+# years=c(2039,2049)
 # run = MAPCM_run
 run = SWM_run
 
-# is.shop <- 'N'
-is.shop <- 'Y'
+is.shop <- 'N'
+# is.shop <- 'Y'
 
-ctps_run=paste0('run_',str_sub(SWM_run,-3,-1),'-',str_sub(MAPCM_run,-3,-1))
+# ctps_run=paste0('run_',str_sub(SWM_run,-3,-1),'-',str_sub(MAPCM_run,-3,-1))
 
 
-knitr::opts_knit$set(root.dir = root)
+
 
 ```
 
@@ -209,7 +216,7 @@ pums13 <-
   readRDS(paste0(root,'pums13_5yr/pums2013_microsim_households_short.rds'))
 
   for (yr in years) {
-    hh <- fread(paste0(run, '/', yr, '/households.csv'))
+    hh <- fread(paste0(root, run, '/', yr, '/households.csv'))
     hh[, serialno := as.character(serialno)]
     setorder(hh, serialno, block_id)
     hh[, row := .I]
@@ -1386,8 +1393,8 @@ if (run == MAPCM_run) {
 
 dir <- 'Microsim_outputs'
 
-for (yr in years) {
-# for (yr in c(2029,2039,2049)){
+# for (yr in years) {
+for (yr in c(2019,2023,2049)){
   myear = yr
   syear = yr
   
@@ -1474,6 +1481,8 @@ for (yr in years) {
   )]
   
   stamp <- gsub('-', '', lubridate::today())
+  
+  if (yr<2020){
   fwrite(
     pop_exp_df,
     paste0(
@@ -1488,6 +1497,22 @@ for (yr in years) {
       '.csv'
     )
   )
+  } else {
+     fwrite(
+    pop_exp_df,
+    paste0(
+      root,
+      dir,
+      '/ma_population_',
+      ctps_run,
+      '_',
+      yr+1,
+      '_v',
+      stamp,
+      '.csv'
+    )
+  )
+  }
 
   semp <- fread(paste0(root, SWM_run, '/', syear, '/jobs.csv'))
   sew <- dcast.data.table(semp,
@@ -1556,7 +1581,7 @@ for (yr in years) {
       'block_id'
     )
   ))
-  
+  if(yr <2020){
   fwrite(sew.exp,
          paste0(
            root,
@@ -1569,6 +1594,21 @@ for (yr in years) {
            stamp,
            '.csv'
          ))
+  } else {
+    fwrite(sew.exp,
+         paste0(
+           root,
+           dir,
+           '/ma_employment_',
+           ctps_run,
+           '_',
+           yr+1,
+           '_v',
+           stamp,
+           '.csv'
+         ))
+  }
+
 }
   
 ```

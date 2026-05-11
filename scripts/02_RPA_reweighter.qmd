@@ -1718,7 +1718,7 @@ if (scen %in% c('Scenario_2', 'Scenario_3')) {
       # Align SERIALNO variables
       SERIALNO = SERIALNO.adj,
       hid = SERIALNO.adj,
-      HHSize = household.size,
+      HHsize = household.size,
       PUMA = as.numeric(PUMA),
       HISP = as.numeric(HISP),
       HHLDRHISP = as.numeric(HHLDRHISP),
@@ -1961,6 +1961,7 @@ for (yr in years) {
   
   rwt.pums.df.join <- rbind(rwt.pums.df.join, shelter.pums_cleaned, fill =
                               T) |>
+    mutate(year=yr) |> 
     setDT()
   
   rwt.pums.df.join[is.na(children_in_HH), children_in_HH := Child_Total]

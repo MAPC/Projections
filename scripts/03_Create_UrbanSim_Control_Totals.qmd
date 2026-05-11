@@ -27,9 +27,6 @@ pacman::p_load(
 scen <- 'Scenario_3'
 # scen <- 'Scenario_4'
 
-# reb <- 'MAPC101'
-reb <- 'MAPC97'
-
 # Set ACS / PUMS vintage
 vintage <-  2021
 
@@ -82,30 +79,65 @@ lun <- function(x){length(unique(x))}
 
 ```{r}
 
+
 swm.ctrl.pp <- data.table()
 
 # Statewide model
-if(reb=='MAPC101'){
-  yrs <- c(2020,2025)
-} else {
-  yrs <- 2020
-}
+reb <- 'MAPC97'
 
-for (yr in yrs){
-  if(!file.exists(paste0(input_path, 'processor_corrected_PUMS_',reb,'_',scen,'_',yr,'.rds'))){
-     file.copy(paste0(shop_path, 'processor_corrected_PUMS_',reb,'_',scen,'_',yr,'.rds'),
-               paste0(input_path, 'processor_corrected_PUMS_',reb,'_',scen,'_',yr,'.rds'))
+for (yr in 2020) {
+  if (!file.exists(paste0(
+    input_path,
+    'processor_corrected_PUMS_',
+    reb,
+    '_',
+    scen,
+    '_',
+    yr,
+    '.rds'
+  ))) {
+    file.copy(
+      paste0(
+        shop_path,
+        'processor_corrected_PUMS_',
+        reb,
+        '_',
+        scen,
+        '_',
+        yr,
+        '.rds'
+      ),
+      paste0(
+        input_path,
+        'processor_corrected_PUMS_',
+        reb,
+        '_',
+        scen,
+        '_',
+        yr,
+        '.rds'
+      )
+    )
   }
   
-  dt <- readRDS(paste0(input_path, 'processor_corrected_PUMS_',reb,'_',scen,'_',yr,'.rds')) |>
-    group_by(hid) |> 
-    mutate(HINCP = sum(PINCP)) |> 
-    ungroup() |> 
-    mutate(child_flag = case_when(
-      Child_Total == 0 | NP == 1 ~ 0,
-      Child_Total > 0 & NP > 1 ~ 1
-    ),
-    NP = HHsize) |> 
+  dt <- readRDS(paste0(
+    input_path,
+    'processor_corrected_PUMS_',
+    reb,
+    '_',
+    scen,
+    '_',
+    yr,
+    '.rds'
+  )) |>
+    group_by(hid) |>
+    mutate(HINCP = sum(PINCP)) |>
+    ungroup() |>
+    mutate(
+      child_flag = case_when(Child_Total == 0 | NP == 1 ~ 0, Child_Total > 0 &
+                               NP > 1 ~ 1),
+      NP = HHsize
+    ) |>
     filter(SPORDER == 1) |>
     left_join(subregion_xwalk, by = c('mpo' = 'RPA')) |>
     rename(subregion_code = subregion_code_urbansim) |>
@@ -155,26 +187,10 @@ for (yr in yrs){
         US_HINC == 4 ~ 225000,
         US_HINC == 5 ~ -1
       ),
-      persons_min = case_when(
-        HHSize == 1 ~ 1, 
-        HHSize == 2 ~ 2, 
-        HHSize == 3 ~ 3, 
-        HHSize == 4 ~ 4
-        ),
-      persons_max = case_when(
-        HHSize == 1 ~ 1, 
-        HHSize == 2 ~ 2, 
-        HHSize == 3 ~ 3, 
-        HHSize == 4 ~ -1
-        ),
-      children_min = case_when(
-        child_flag == 0 ~ 0, 
-        child_flag == 1 ~ 1
-        ),
-      children_max = case_when(
-        child_flag == 0 ~ 0, 
-        child_flag == 1 ~ -1
-        )
+      persons_min = case_when(HHSize == 1 ~ 1, HHSize == 2 ~ 2, HHSize == 3 ~ 3, HHSize == 4 ~ 4),
+      persons_max = case_when(HHSize == 1 ~ 1, HHSize == 2 ~ 2, HHSize == 3 ~ 3, HHSize == 4 ~ -1),
+      children_min = case_when(child_flag == 0 ~ 0, child_flag == 1 ~ 1),
+      children_max = case_when(child_flag == 0 ~ 0, child_flag == 1 ~ -1)
     ) |>
     group_by(
       year,
@@ -194,17 +210,48 @@ for (yr in yrs){
     setDT()
   
   swm.ctrl.pp <- rbind(swm.ctrl.pp, dt)
-  rm(dt);gc()
+  rm(dt)
+  gc()
   message(paste0('SWM Control Totals ', yr, ' Complete'))
 }
 
-if(scen %in% c('Scenario_2','Scenario_3')){
-  
+if (scen %in% c('Scenario_2', 'Scenario_3')) {
   for (yr in c(2030, 2035, 2040, 2045, 2050)) {
-    if(!file.exists(paste0(input_path, 'processor_corrected_PUMS_',reb,'_',scen,'_with_ShelterPop_',yr,'.rds'))){
-     file.copy(paste0(shop_path, 'processor_corrected_PUMS_',reb,'_',scen,'_with_ShelterPop_',yr,'.rds'),
-               paste0(input_path, 'processor_corrected_PUMS_',reb,'_',scen,'_with_ShelterPop_',yr,'.rds'))
-  }
+    if (!file.exists(
+      paste0(
+        input_path,
+        'processor_corrected_PUMS_',
+        reb,
+        '_',
+        scen,
+        '_with_ShelterPop_',
+        yr,
+        '.rds'
+      )
+    )) {
+      file.copy(
+        paste0(
+          shop_path,
+          'processor_corrected_PUMS_',
+          reb,
+          '_',
+          scen,
+          '_with_ShelterPop_',
+          yr,
+          '.rds'
+        ),
+        paste0(
+          input_path,
+          'processor_corrected_PUMS_',
+          reb,
+          '_',
+          scen,
+          '_with_ShelterPop_',
+          yr,
+          '.rds'
+        )
+      )
+    }
     dt <- readRDS(
       paste0(
         input_path,
@@ -216,17 +263,14 @@ if(scen %in% c('Scenario_2','Scenario_3')){
         yr,
         '.rds'
       )
-    ) |>
-      group_by(hid) |>
-      mutate(HINCP = case_when(
-        SHELT==0 ~ sum(PINCP),
-        .default=HINCP)) |>
-      ungroup() |>
-      mutate(
-        child_flag = case_when(Child_Total == 0 | NP == 1 ~ 0, Child_Total > 0 &
-                                 NP > 1 ~ 1),
-        NP = HHsize
-      ) |>
+    )
+    dt[SHELT==0, HINCP:=sum(PINCP), hid]
+    dt[is.na(NP) & !is.na(household.size), NP:=household.size]
+    dt[Child_Total==0 | NP==1,child_flag:=0]
+    dt[Child_Total>0 & NP>1,child_flag:=1]
+    dt[,year:=yr]
+    
+    dt <- dt |>
       filter(SPORDER == 1) |>
       left_join(subregion_xwalk, by = c('mpo' = 'RPA')) |>
       rename(subregion_code = subregion_code_urbansim) |>
@@ -247,7 +291,7 @@ if(scen %in% c('Scenario_2','Scenario_3')){
           HINCP.2013 > 125000 & HINCP.2013 <= 225000 ~ "4",
           HINCP.2013 > 225000 ~ "5"
         ),
-        HHSize = case_when(NP == 1 ~ 1, NP == 2 ~ 2, NP == 3 ~ 3, NP >= 4 ~ 4),
+        HHSize4 = case_when(NP == 1 ~ 1, NP == 2 ~ 2, NP == 3 ~ 3, NP >= 4 ~ 4),
         age_of_head_min = case_when(
           US_AGEHHDER == 1 ~ 15,
           US_AGEHHDER == 2 ~ 35,
@@ -276,8 +320,8 @@ if(scen %in% c('Scenario_2','Scenario_3')){
           US_HINC == 4 ~ 225000,
           US_HINC == 5 ~ -1
         ),
-        persons_min = case_when(HHSize == 1 ~ 1, HHSize == 2 ~ 2, HHSize == 3 ~ 3, HHSize == 4 ~ 4),
-        persons_max = case_when(HHSize == 1 ~ 1, HHSize == 2 ~ 2, HHSize == 3 ~ 3, HHSize == 4 ~ -1),
+        persons_min = case_when(HHSize4 == 1 ~ 1, HHSize4 == 2 ~ 2, HHSize4 == 3 ~ 3, HHSize4 == 4 ~ 4),
+        persons_max = case_when(HHSize4 == 1 ~ 1, HHSize4 == 2 ~ 2, HHSize4 == 3 ~ 3, HHSize4 == 4 ~ -1),
         children_min = case_when(child_flag == 0 ~ 0, child_flag == 1 ~ 1),
         children_max = case_when(child_flag == 0 ~ 0, child_flag == 1 ~ -1)
       ) |>
@@ -306,131 +350,60 @@ if(scen %in% c('Scenario_2','Scenario_3')){
   }
 } else {
   for (yr in c(2030, 2035, 2040, 2045, 2050)) {
-    dt <- readRDS(
-      paste0(
-        input_path,
-        'processor_corrected_PUMS_',
-        reb,
-        '_',
-        scen,
-        '_',
-        yr,
-        '.rds'
+    if (!file.exists(paste0(
+      input_path,
+      'processor_corrected_PUMS_',
+      reb,
+      '_',
+      scen,
+      '_',
+      yr,
+      '.rds'
+    ))) {
+      file.copy(
+        paste0(
+          shop_path,
+          'processor_corrected_PUMS_',
+          reb,
+          '_',
+          scen,
+          '_',
+          yr,
+          '.rds'
+        ),
+        paste0(
+          input_path,
+          'processor_corrected_PUMS_',
+          reb,
+          '_',
+          scen,
+          '_',
+          yr,
+          '.rds'
+        )
       )
-    ) |>
+    }
+    dt <- readRDS(paste0(
+      input_path,
+      'processor_corrected_PUMS_',
+      reb,
+      '_',
+      scen,
+      '_',
+      yr,
+      '.rds'
+    )) |>
       group_by(hid) |>
-      mutate(HINCP = sum(PINCP)) |>
-      ungroup() |>
-      mutate(
-        child_flag = case_when(Child_Total == 0 | NP == 1 ~ 0, Child_Total > 0 &
-                                 NP > 1 ~ 1),
-        NP = HHsize
-      ) |>
-      filter(SPORDER == 1) |>
-      left_join(subregion_xwalk, by = c('mpo' = 'RPA')) |>
-      rename(subregion_code = subregion_code_urbansim) |>
-      mutate(
-        HINCP.2013 = round(HINCP * ADJINC * cpi.deflator, 0),
-        US_AGEHHDER = case_when(
-          AGEP < 15 ~ 0,
-          AGEP >= 15 & AGEP <= 35 ~ 1,
-          AGEP >= 36 & AGEP <= 45 ~ 2,
-          AGEP >= 46 & AGEP <= 65 ~ 3,
-          AGEP >= 66 & AGEP <= 75 ~ 4,
-          AGEP >= 76 ~ 5
-        ),
-        US_HINC = case_when(
-          HINCP.2013 <= 35000 ~ "1",
-          HINCP.2013 > 35000 & HINCP.2013 <= 75000 ~ "2",
-          HINCP.2013 > 75000 & HINCP.2013 <= 125000 ~ "3",
-          HINCP.2013 > 125000 & HINCP.2013 <= 225000 ~ "4",
-          HINCP.2013 > 225000 ~ "5"
-        ),
-        HHSize = case_when(NP == 1 ~ 1, NP == 2 ~ 2, NP == 3 ~ 3, NP >= 4 ~ 4),
-        age_of_head_min = case_when(
-          US_AGEHHDER == 1 ~ 15,
-          US_AGEHHDER == 2 ~ 35,
-          US_AGEHHDER == 3 ~ 45,
-          US_AGEHHDER == 4 ~ 65,
-          US_AGEHHDER == 5 ~ 75
-        ),
-        age_of_head_max = case_when(
-          US_AGEHHDER == 1 ~ 35,
-          US_AGEHHDER == 2 ~ 45,
-          US_AGEHHDER == 3 ~ 65,
-          US_AGEHHDER == 4 ~ 75,
-          US_AGEHHDER == 5 ~ -1
-        ),
-        income_min = case_when(
-          US_HINC == 1 ~ 0,
-          US_HINC == 2 ~ 35000,
-          US_HINC == 3 ~ 75000,
-          US_HINC == 4 ~ 125000,
-          US_HINC == 5 ~ 225000
-        ),
-        income_max = case_when(
-          US_HINC == 1 ~ 35000,
-          US_HINC == 2 ~ 75000,
-          US_HINC == 3 ~ 125000,
-          US_HINC == 4 ~ 225000,
-          US_HINC == 5 ~ -1
-        ),
-        persons_min = case_when(HHSize == 1 ~ 1, HHSize == 2 ~ 2, HHSize == 3 ~ 3, HHSize == 4 ~ 4),
-        persons_max = case_when(HHSize == 1 ~ 1, HHSize == 2 ~ 2, HHSize == 3 ~ 3, HHSize == 4 ~ -1),
-        children_min = case_when(child_flag == 0 ~ 0, child_flag == 1 ~ 1),
-        children_max = case_when(child_flag == 0 ~ 0, child_flag == 1 ~ -1)
-      ) |>
-      group_by(
-        year,
-        subregion_code,
-        age_of_head_min,
-        age_of_head_max,
-        income_min,
-        income_max,
-        persons_min,
-        persons_max,
-        children_min,
-        children_max
-      ) |>
-      summarize(total_number_of_households = round(sum(new_WGTP))) |>
-      ungroup() |>
-      relocate(total_number_of_households, .before = age_of_head_min) |>
-      setDT()
-    
-    swm.ctrl.pp <- rbind(swm.ctrl.pp, dt)
-    rm(dt)
-    gc()
-    message(paste0('SWM Control Totals ', yr, ' Complete'))
-    
-  }
-}
-
-saveRDS(swm.ctrl.pp, paste0(output_path,'swm_control_totals_',reb,'_pop_corrected_raw_5_year.rds'))
-
-```
-
-## 2b - MAPC with population post-processing
-
-```{r}
-
-mapc.ctrl.pp <- data.table()
-if(reb=='MAPC101'){
-  yrs <- c(2020,2025)
-} else {
-  yrs <- 2020
-}
-
-for (yr in yrs){
-  dt <- readRDS(paste0(input_path, 'processor_corrected_PUMS_',reb,'_',scen,'_',yr,'.rds')) |>
-    group_by(hid) |> 
-    mutate(HINCP = sum(PINCP)) |> 
-    ungroup() |> 
-    mutate(child_flag = case_when(
-      Child_Total == 0 | NP == 1 ~ 0,
-      Child_Total > 0 & NP > 1 ~ 1
-    ),
-    NP = HHsize) |> 
-    filter(SPORDER == 1 & rpa_acr == 'MAPC') |>
+    mutate(HINCP = sum(PINCP)) |>
+    ungroup() |>
+    mutate(
+      child_flag = case_when(Child_Total == 0 | NP == 1 ~ 0, Child_Total > 0 &
+                               NP > 1 ~ 1),
+      NP = HHsize
+    ) |>
+    filter(SPORDER == 1) |>
+    left_join(subregion_xwalk, by = c('mpo' = 'RPA')) |>
+    rename(subregion_code = subregion_code_urbansim) |>
     mutate(
       HINCP.2013 = round(HINCP * ADJINC * cpi.deflator, 0),
       US_AGEHHDER = case_when(
@@ -477,26 +450,161 @@ for (yr in yrs){
         US_HINC == 4 ~ 225000,
         US_HINC == 5 ~ -1
       ),
-      persons_min = case_when(
-        HHSize == 1 ~ 1, 
-        HHSize == 2 ~ 2, 
-        HHSize == 3 ~ 3, 
-        HHSize == 4 ~ 4
-        ),
-      persons_max = case_when(
-        HHSize == 1 ~ 1, 
-        HHSize == 2 ~ 2, 
-        HHSize == 3 ~ 3, 
-        HHSize == 4 ~ -1
-        ),
-      children_min = case_when(
-        child_flag == 0 ~ 0, 
-        child_flag == 1 ~ 1
-        ),
-      children_max = case_when(
-        child_flag == 0 ~ 0, 
-        child_flag == 1 ~ -1
-        )
+      persons_min = case_when(HHSize == 1 ~ 1, HHSize == 2 ~ 2, HHSize == 3 ~ 3, HHSize == 4 ~ 4),
+      persons_max = case_when(HHSize == 1 ~ 1, HHSize == 2 ~ 2, HHSize == 3 ~ 3, HHSize == 4 ~ -1),
+      children_min = case_when(child_flag == 0 ~ 0, child_flag == 1 ~ 1),
+      children_max = case_when(child_flag == 0 ~ 0, child_flag == 1 ~ -1)
+    ) |>
+    group_by(
+      year,
+      subregion_code,
+      age_of_head_min,
+      age_of_head_max,
+      income_min,
+      income_max,
+      persons_min,
+      persons_max,
+      children_min,
+      children_max
+    ) |>
+    summarize(total_number_of_households = round(sum(new_WGTP))) |>
+    ungroup() |>
+    relocate(total_number_of_households, .before = age_of_head_min) |>
+    setDT()
+    
+    swm.ctrl.pp <- rbind(swm.ctrl.pp, dt)
+    rm(dt)
+    gc()
+    message(paste0('SWM Control Totals ', yr, ' Complete'))
+    
+  }
+}
+
+saveRDS(
+  swm.ctrl.pp,
+  paste0(
+    output_path,
+    'swm_control_totals_',
+    reb,
+    '_pop_corrected_raw_5_year.rds'
+  )
+)
+
+```
+
+## 2b - MAPC with population post-processing
+
+```{r}
+
+
+mapc.ctrl.pp <- data.table()
+reb <- 'MAPC101'
+yrs <- c(2020, 2025)
+
+for (yr in yrs) {
+  if (!file.exists(paste0(
+    input_path,
+    'processor_corrected_PUMS_',
+    reb,
+    '_',
+    scen,
+    '_',
+    yr,
+    '.rds'
+  ))) {
+    file.copy(
+      paste0(
+        shop_path,
+        'processor_corrected_PUMS_',
+        reb,
+        '_',
+        scen,
+        '_',
+        yr,
+        '.rds'
+      ),
+      paste0(
+        input_path,
+        'processor_corrected_PUMS_',
+        reb,
+        '_',
+        scen,
+        '_',
+        yr,
+        '.rds'
+      )
+    )
+  }
+  
+  dt <- readRDS(paste0(
+    input_path,
+    'processor_corrected_PUMS_',
+    reb,
+    '_',
+    scen,
+    '_',
+    yr,
+    '.rds'
+  )) |>
+    group_by(hid) |>
+    mutate(HINCP = sum(PINCP)) |>
+    ungroup() |>
+    mutate(
+      child_flag = case_when(Child_Total == 0 | NP == 1 ~ 0, Child_Total > 0 &
+                               NP > 1 ~ 1),
+      NP = HHsize
+    ) |>
+    filter(SPORDER == 1) |>
+    mutate(
+      HINCP.2013 = round(HINCP * ADJINC * cpi.deflator, 0),
+      US_AGEHHDER = case_when(
+        AGEP < 15 ~ 0,
+        AGEP >= 15 & AGEP <= 35 ~ 1,
+        AGEP >= 36 & AGEP <= 45 ~ 2,
+        AGEP >= 46 & AGEP <= 65 ~ 3,
+        AGEP >= 66 & AGEP <= 75 ~ 4,
+        AGEP >= 76 ~ 5
+      ),
+      US_HINC = case_when(
+        HINCP.2013 <= 35000 ~ "1",
+        HINCP.2013 > 35000 & HINCP.2013 <= 75000 ~ "2",
+        HINCP.2013 > 75000 & HINCP.2013 <= 125000 ~ "3",
+        HINCP.2013 > 125000 & HINCP.2013 <= 225000 ~ "4",
+        HINCP.2013 > 225000 ~ "5"
+      ),
+      HHSize = case_when(NP == 1 ~ 1, NP == 2 ~ 2, NP == 3 ~ 3, NP >= 4 ~ 4),
+      age_of_head_min = case_when(
+        US_AGEHHDER == 1 ~ 15,
+        US_AGEHHDER == 2 ~ 35,
+        US_AGEHHDER == 3 ~ 45,
+        US_AGEHHDER == 4 ~ 65,
+        US_AGEHHDER == 5 ~ 75
+      ),
+      age_of_head_max = case_when(
+        US_AGEHHDER == 1 ~ 35,
+        US_AGEHHDER == 2 ~ 45,
+        US_AGEHHDER == 3 ~ 65,
+        US_AGEHHDER == 4 ~ 75,
+        US_AGEHHDER == 5 ~ -1
+      ),
+      income_min = case_when(
+        US_HINC == 1 ~ 0,
+        US_HINC == 2 ~ 35000,
+        US_HINC == 3 ~ 75000,
+        US_HINC == 4 ~ 125000,
+        US_HINC == 5 ~ 225000
+      ),
+      income_max = case_when(
+        US_HINC == 1 ~ 35000,
+        US_HINC == 2 ~ 75000,
+        US_HINC == 3 ~ 125000,
+        US_HINC == 4 ~ 225000,
+        US_HINC == 5 ~ -1
+      ),
+      persons_min = case_when(HHSize == 1 ~ 1, HHSize == 2 ~ 2, HHSize == 3 ~ 3, HHSize == 4 ~ 4),
+      persons_max = case_when(HHSize == 1 ~ 1, HHSize == 2 ~ 2, HHSize == 3 ~ 3, HHSize == 4 ~ -1),
+      children_min = case_when(child_flag == 0 ~ 0, child_flag == 1 ~ 1),
+      children_max = case_when(child_flag == 0 ~ 0, child_flag == 1 ~ -1)
     ) |>
     group_by(
       year,
@@ -515,13 +623,50 @@ for (yr in yrs){
     setDT()
   
   mapc.ctrl.pp <- rbind(mapc.ctrl.pp, dt)
-  rm(dt);gc()
+  rm(dt)
+  gc()
   message(paste0('MAPCM Control Totals ', yr, ' Complete'))
 }
 
-if(scen %in% c('Scenario_2','Scenario_3')){
-  
+
+if (scen %in% c('Scenario_2', 'Scenario_3')) {
   for (yr in c(2030, 2035, 2040, 2045, 2050)) {
+  if (!file.exists(
+    paste0(
+      input_path,
+      'processor_corrected_PUMS_',
+      reb,
+      '_',
+      scen,
+      '_with_ShelterPop_',
+      yr,
+      '.rds'
+    )
+  )) {
+    file.copy(
+      paste0(
+        shop_path,
+        'processor_corrected_PUMS_',
+        reb,
+        '_',
+        scen,
+        '_with_ShelterPop_',
+        yr,
+        '.rds'
+      ),
+      paste0(
+        input_path,
+        'processor_corrected_PUMS_',
+        reb,
+        '_',
+        scen,
+        '_with_ShelterPop_',
+        yr,
+        '.rds'
+      )
+    )
+  }
+  
     dt <- readRDS(
       paste0(
         input_path,
@@ -533,18 +678,14 @@ if(scen %in% c('Scenario_2','Scenario_3')){
         yr,
         '.rds'
       )
-    ) |>
-      group_by(hid) |>
-      mutate(HINCP = case_when(
-        SHELT==0 ~ sum(PINCP),
-        SHELT==1 ~ HINCP)
-        ) |>
-      ungroup() |>
-      mutate(
-        child_flag = case_when(Child_Total == 0 | NP == 1 ~ 0, Child_Total > 0 &
-                                 NP > 1 ~ 1),
-        NP = HHsize
-      ) |>
+    )
+    dt[SHELT==0, HINCP:=sum(PINCP), hid]
+    dt[is.na(NP) & !is.na(household.size), NP:=household.size]
+    dt[Child_Total==0 | NP==1,child_flag:=0]
+    dt[Child_Total>0 & NP>1,child_flag:=1]
+    dt[,year:=yr]
+    
+    dt <- dt |>
       filter(SPORDER == 1) |>
       mutate(
         HINCP.2013 = round(HINCP * ADJINC * cpi.deflator, 0),
@@ -563,7 +704,7 @@ if(scen %in% c('Scenario_2','Scenario_3')){
           HINCP.2013 > 125000 & HINCP.2013 <= 225000 ~ "4",
           HINCP.2013 > 225000 ~ "5"
         ),
-        HHSize = case_when(NP == 1 ~ 1, NP == 2 ~ 2, NP == 3 ~ 3, NP >= 4 ~ 4),
+        HHSize4 = case_when(NP == 1 ~ 1, NP == 2 ~ 2, NP == 3 ~ 3, NP >= 4 ~ 4),
         age_of_head_min = case_when(
           US_AGEHHDER == 1 ~ 15,
           US_AGEHHDER == 2 ~ 35,
@@ -592,8 +733,8 @@ if(scen %in% c('Scenario_2','Scenario_3')){
           US_HINC == 4 ~ 225000,
           US_HINC == 5 ~ -1
         ),
-        persons_min = case_when(HHSize == 1 ~ 1, HHSize == 2 ~ 2, HHSize == 3 ~ 3, HHSize == 4 ~ 4),
-        persons_max = case_when(HHSize == 1 ~ 1, HHSize == 2 ~ 2, HHSize == 3 ~ 3, HHSize == 4 ~ -1),
+        persons_min = case_when(HHSize4 == 1 ~ 1, HHSize4 == 2 ~ 2, HHSize4 == 3 ~ 3, HHSize4 == 4 ~ 4),
+        persons_max = case_when(HHSize4 == 1 ~ 1, HHSize4 == 2 ~ 2, HHSize4 == 3 ~ 3, HHSize4 == 4 ~ -1),
         children_min = case_when(child_flag == 0 ~ 0, child_flag == 1 ~ 1),
         children_max = case_when(child_flag == 0 ~ 0, child_flag == 1 ~ -1)
       ) |>
@@ -621,93 +762,124 @@ if(scen %in% c('Scenario_2','Scenario_3')){
   }
 } else {
   for (yr in c(2030, 2035, 2040, 2045, 2050)) {
-    dt <- readRDS(
-      paste0(
-        input_path,
-        'processor_corrected_PUMS_',
-        reb,
-        '_',
-        scen,
-        '_',
-        yr,
-        '.rds'
+    if (!file.exists(paste0(
+      input_path,
+      'processor_corrected_PUMS_',
+      reb,
+      '_',
+      scen,
+      '_',
+      yr,
+      '.rds'
+    ))) {
+      file.copy(
+        paste0(
+          shop_path,
+          'processor_corrected_PUMS_',
+          reb,
+          '_',
+          scen,
+          '_',
+          yr,
+          '.rds'
+        ),
+        paste0(
+          input_path,
+          'processor_corrected_PUMS_',
+          reb,
+          '_',
+          scen,
+          '_',
+          yr,
+          '.rds'
+        )
       )
-    ) |>
+    }
+    dt <- readRDS(paste0(
+      input_path,
+      'processor_corrected_PUMS_',
+      reb,
+      '_',
+      scen,
+      '_',
+      yr,
+      '.rds'
+    )) |>
       group_by(hid) |>
-      mutate(HINCP = sum(PINCP)) |>
-      ungroup() |>
-      mutate(
-        child_flag = case_when(Child_Total == 0 | NP == 1 ~ 0, Child_Total > 0 &
-                                 NP > 1 ~ 1),
-        NP = HHsize
-      ) |>
-      filter(SPORDER == 1) |>
-      mutate(
-        HINCP.2013 = round(HINCP * ADJINC * cpi.deflator, 0),
-        US_AGEHHDER = case_when(
-          AGEP < 15 ~ 0,
-          AGEP >= 15 & AGEP <= 35 ~ 1,
-          AGEP >= 36 & AGEP <= 45 ~ 2,
-          AGEP >= 46 & AGEP <= 65 ~ 3,
-          AGEP >= 66 & AGEP <= 75 ~ 4,
-          AGEP >= 76 ~ 5
-        ),
-        US_HINC = case_when(
-          HINCP.2013 <= 35000 ~ "1",
-          HINCP.2013 > 35000 & HINCP.2013 <= 75000 ~ "2",
-          HINCP.2013 > 75000 & HINCP.2013 <= 125000 ~ "3",
-          HINCP.2013 > 125000 & HINCP.2013 <= 225000 ~ "4",
-          HINCP.2013 > 225000 ~ "5"
-        ),
-        HHSize = case_when(NP == 1 ~ 1, NP == 2 ~ 2, NP == 3 ~ 3, NP >= 4 ~ 4),
-        age_of_head_min = case_when(
-          US_AGEHHDER == 1 ~ 15,
-          US_AGEHHDER == 2 ~ 35,
-          US_AGEHHDER == 3 ~ 45,
-          US_AGEHHDER == 4 ~ 65,
-          US_AGEHHDER == 5 ~ 75
-        ),
-        age_of_head_max = case_when(
-          US_AGEHHDER == 1 ~ 35,
-          US_AGEHHDER == 2 ~ 45,
-          US_AGEHHDER == 3 ~ 65,
-          US_AGEHHDER == 4 ~ 75,
-          US_AGEHHDER == 5 ~ -1
-        ),
-        income_min = case_when(
-          US_HINC == 1 ~ 0,
-          US_HINC == 2 ~ 35000,
-          US_HINC == 3 ~ 75000,
-          US_HINC == 4 ~ 125000,
-          US_HINC == 5 ~ 225000
-        ),
-        income_max = case_when(
-          US_HINC == 1 ~ 35000,
-          US_HINC == 2 ~ 75000,
-          US_HINC == 3 ~ 125000,
-          US_HINC == 4 ~ 225000,
-          US_HINC == 5 ~ -1
-        ),
-        persons_min = case_when(HHSize == 1 ~ 1, HHSize == 2 ~ 2, HHSize == 3 ~ 3, HHSize == 4 ~ 4),
-        persons_max = case_when(HHSize == 1 ~ 1, HHSize == 2 ~ 2, HHSize == 3 ~ 3, HHSize == 4 ~ -1),
-        children_min = case_when(child_flag == 0 ~ 0, child_flag == 1 ~ 1),
-        children_max = case_when(child_flag == 0 ~ 0, child_flag == 1 ~ -1)
-      ) |>
-      group_by(
-        year,
-        age_of_head_min,
-        age_of_head_max,
-        income_min,
-        income_max,
-        persons_min,
-        persons_max,
-        children_min,
-        children_max
-      ) |>
-      summarize(total_number_of_households = round(sum(new_WGTP))) |>
-      ungroup() |>
-      relocate(total_number_of_households, .before = age_of_head_min) |>
-      setDT()
+    mutate(HINCP = sum(PINCP)) |>
+    ungroup() |>
+    mutate(
+      child_flag = case_when(Child_Total == 0 | NP == 1 ~ 0, Child_Total > 0 &
+                               NP > 1 ~ 1),
+      NP = HHsize
+    ) |>
+    filter(SPORDER == 1) |>
+    mutate(
+      HINCP.2013 = round(HINCP * ADJINC * cpi.deflator, 0),
+      US_AGEHHDER = case_when(
+        AGEP < 15 ~ 0,
+        AGEP >= 15 & AGEP <= 35 ~ 1,
+        AGEP >= 36 & AGEP <= 45 ~ 2,
+        AGEP >= 46 & AGEP <= 65 ~ 3,
+        AGEP >= 66 & AGEP <= 75 ~ 4,
+        AGEP >= 76 ~ 5
+      ),
+      US_HINC = case_when(
+        HINCP.2013 <= 35000 ~ "1",
+        HINCP.2013 > 35000 & HINCP.2013 <= 75000 ~ "2",
+        HINCP.2013 > 75000 & HINCP.2013 <= 125000 ~ "3",
+        HINCP.2013 > 125000 & HINCP.2013 <= 225000 ~ "4",
+        HINCP.2013 > 225000 ~ "5"
+      ),
+      HHSize = case_when(NP == 1 ~ 1, NP == 2 ~ 2, NP == 3 ~ 3, NP >= 4 ~ 4),
+      age_of_head_min = case_when(
+        US_AGEHHDER == 1 ~ 15,
+        US_AGEHHDER == 2 ~ 35,
+        US_AGEHHDER == 3 ~ 45,
+        US_AGEHHDER == 4 ~ 65,
+        US_AGEHHDER == 5 ~ 75
+      ),
+      age_of_head_max = case_when(
+        US_AGEHHDER == 1 ~ 35,
+        US_AGEHHDER == 2 ~ 45,
+        US_AGEHHDER == 3 ~ 65,
+        US_AGEHHDER == 4 ~ 75,
+        US_AGEHHDER == 5 ~ -1
+      ),
+      income_min = case_when(
+        US_HINC == 1 ~ 0,
+        US_HINC == 2 ~ 35000,
+        US_HINC == 3 ~ 75000,
+        US_HINC == 4 ~ 125000,
+        US_HINC == 5 ~ 225000
+      ),
+      income_max = case_when(
+        US_HINC == 1 ~ 35000,
+        US_HINC == 2 ~ 75000,
+        US_HINC == 3 ~ 125000,
+        US_HINC == 4 ~ 225000,
+        US_HINC == 5 ~ -1
+      ),
+      persons_min = case_when(HHSize == 1 ~ 1, HHSize == 2 ~ 2, HHSize == 3 ~ 3, HHSize == 4 ~ 4),
+      persons_max = case_when(HHSize == 1 ~ 1, HHSize == 2 ~ 2, HHSize == 3 ~ 3, HHSize == 4 ~ -1),
+      children_min = case_when(child_flag == 0 ~ 0, child_flag == 1 ~ 1),
+      children_max = case_when(child_flag == 0 ~ 0, child_flag == 1 ~ -1)
+    ) |>
+    group_by(
+      year,
+      age_of_head_min,
+      age_of_head_max,
+      income_min,
+      income_max,
+      persons_min,
+      persons_max,
+      children_min,
+      children_max
+    ) |>
+    summarize(total_number_of_households = round(sum(new_WGTP))) |>
+    ungroup() |>
+    relocate(total_number_of_households, .before = age_of_head_min) |>
+    setDT()
     
     mapc.ctrl.pp <- rbind(mapc.ctrl.pp, dt)
     rm(dt)
@@ -716,8 +888,16 @@ if(scen %in% c('Scenario_2','Scenario_3')){
     
   }
 }
-  
-saveRDS(mapc.ctrl.pp, paste0(output_path,'mapcm_control_totals_',reb,'_pop_corrected_raw_5_year.rds'))
+
+saveRDS(
+  mapc.ctrl.pp,
+  paste0(
+    output_path,
+    'mapcm_control_totals_',
+    reb,
+    '_pop_corrected_raw_5_year.rds'
+  )
+)
 
 
 ```
@@ -727,7 +907,7 @@ saveRDS(mapc.ctrl.pp, paste0(output_path,'mapcm_control_totals_',reb,'_pop_corre
 ## 3a - SWM - with pop correction
 ```{r}
 
-
+reb <- 'MAPC97'
 swm.10 <- fread(paste0(root,'LRTP_2023/Statewide_Control_HHds_Projections2050_MB_v04.20.23_one_year_offset_HH_Adj.csv')) |> filter(year<2020)
 
 swm.expand.pp <- swm.ctrl.pp %>%
@@ -810,6 +990,8 @@ fwrite(swm.expand.pp, paste0(output_path,'SWM_Household_Control_Totals_SHoP_',re
 
 ```{r}
 
+reb <- 'MAPC101'
+
 mapc.10 <- fread(paste0(root,'LRTP_2023/MAPC_Control_HHds_Projections2050_MB_97to101_v05.10.23_one_year_offset_HH_adj.csv')) |> filter(year<2020)
 
 mapc.expand.pp <- mapc.ctrl.pp %>%
@@ -822,8 +1004,7 @@ mapc.expand.pp <- mapc.ctrl.pp %>%
     persons_max,
     children_min,
     children_max,
-    year,
-    subregion_code
+    year
   ) |>
   group_by(
     age_of_head_min,
@@ -833,8 +1014,7 @@ mapc.expand.pp <- mapc.ctrl.pp %>%
     persons_min,
     persons_max,
     children_min,
-    children_max,
-    subregion_code
+    children_max
   ) |>
   tidyr::complete(year = tidyr::full_seq(2020:2050, 1)) %>%
   ungroup() |>
@@ -854,7 +1034,6 @@ mapc.expand.pp <- mapc.ctrl.pp %>%
   ) |> rbind(mapc.10)|>
   setorder(
     year,
-    subregion_code,
     age_of_head_min,
     age_of_head_max,
     income_min,
@@ -865,7 +1044,6 @@ mapc.expand.pp <- mapc.ctrl.pp %>%
     children_max
   ) |> 
   group_by(
-    subregion_code,
     age_of_head_min,
     age_of_head_max,
     income_min,

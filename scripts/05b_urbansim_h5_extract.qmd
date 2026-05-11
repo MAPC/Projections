@@ -1,0 +1,69 @@
+---
+title: "UrbanSim h5 extract"
+format: html
+editor: visual
+---
+
+
+# 1 - Setup
+
+```{r, setup, include=FALSE}
+
+pacman::p_load(reticulate)
+
+# File paths
+# Paths
+if (grepl('VM',Sys.info()[['nodename']])){
+  base <- '//data-sync/Public/DataServices'
+} else {
+  base <- 'S:/Network Shares/K Drive/DataServices'
+}
+
+# root <- paste0(base,'/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/UrbanSim_Outputs/')
+
+root <- paste0(base,'/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/UrbanSim_Outputs/TDM23.3.0')
+
+MAPCM_run = 's102'
+SWM_run = 's64'
+
+run = MAPCM_run
+
+years = c('2019','2024','2029','2034','2039','2044','2049')
+
+data_path <- file.path(root,run)
+
+#Set knitr path
+knitr::opts_knit$set(root.dir = data_path)
+
+```
+
+# 2 - Extract h5 data using python
+
+```{python}
+import os
+import pandas as pd
+import h5py
+
+
+run = r.run
+
+os.chdir(r.data_path)
+
+for yr in r.years:
+        if not os.path.exists(yr):
+            os.makedirs(yr)
+
+file_path = 'results_mapc_' + run + '_run_results.h5'
+
+with pd.HDFStore(file_path) as h5:
+        keys = h5.keys()
+        for key in keys:
+                out = h5[key]
+                out.to_csv('.' + key + ".csv", header = True, index = False)
+                print("export of " + key + " complete")
+        h5.close()
+        pass
+
+
+
+```
