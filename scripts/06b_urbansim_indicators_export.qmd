@@ -1,0 +1,592 @@
+---
+title: "06b_Indicators"
+format: html
+editor: visual
+---
+
+# 1 - Setup
+
+```{r, setup, include=FALSE}
+
+pacman::p_load(
+  writexl,
+  sf,
+  data.table,
+  tidycensus,
+  mapcdatakeys,
+  tidyverse,
+  imputeTS,
+  collapse,
+  stringi
+)
+
+# File paths
+# Paths
+if (grepl('VM',Sys.info()[['nodename']])){
+  base <- '//data-sync/Public/DataServices'
+} else {
+  base <- 'S:/Network Shares/K Drive/DataServices'
+}
+
+root <- paste0(base,'/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/UrbanSim_Outputs/')
+r1 <- paste0(root,'/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/')
+r2 <- paste0(root,'/Projects/Current_Projects/Projections/Projections_2023/')
+shop.path <- paste0(base,'/Projects/Current_Projects/Housing/StatewideHousingPlan/04_Analysis/Data/Working/Regional_Control_Totals/')
+
+# Helpers
+sun <- function(x){
+  sort(unique(x))}
+lun <- function(x){
+  length(unique(x))}
+sna <- function(x){
+  sort(names(x))}
+
+mpos <- all_muni_data_keys |> 
+  pull(mpo) |> 
+  unique()
+
+munis <- all_muni_data_keys |> 
+  select(muni_id, rpa_acr, mpo) |> 
+  setDT()
+
+nonmapc <- munis[mpo!='MAPC']
+
+blks <- geog_xw_2010 |> 
+  left_join(munis, by = 'muni_id') |> 
+  select(bl10_id, muni_id, muni_name, rpa_acr, mpo) |> 
+  setDT()
+
+mapc_blks <- blks |> 
+  filter(mpo=='MAPC') |> 
+  pull(bl10_id)
+
+# taz <- fread('taz_muni_crosswalk.csv')
+# 
+# mapc_taz <- taz |> 
+#   filter(!muni_id %in% nonmapc) |> 
+#   pull(taz_id)
+
+# blk.sf <- block_sf(2010)
+
+knitr::opts_knit$set(root.dir = root)
+```
+
+# 2 - Run Specifications
+
+```{r}
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# URBANSIM RUN DETAILS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+platform <- 'UrbanCanvas'
+# LRTP 2023 with zoning constraint fix and I-90 NO Build adjustments ----- ~~~!!!~~~ The ROW zoning constraint fix did not work, and there are still HH in the ROW blocks for this run!
+# MAPCM_run='run_196'
+# SWM_run='state_run_97'
+# ctps_run='run_97-196'
+
+# LRTP 2023 revision 2025-08-20 
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Zoning hard constraint fix + I-90 NO Build +
+# TDM19 skims + ROW Adjustment Fix
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# MAPCM_run='run_207'
+# SWM_run='state_run_97'
+# ctps_run='run_97-207'
+
+### TDM23.2.0 Run Codes (LRTP HH/emp + tdm23 skims + I-90 Build adjustments)
+## ~~~!!!~~~ The ROW zoning constraint fix did not work, and there are still HH in the ROW blocks for this run!
+##
+# MAPCM_run='run_198'
+# SWM_run='state_run_113'
+# ctps_run='run_113-198'
+
+# TDM23.2.0 for Chandler 2045 (STOPS project)
+#MAPCM_run='run_205'
+#SWM_run='state_run_117'
+#ctps_run='run_117-205'
+
+# TDM23.2.0 for Chandler 2024 (STOPS project)
+# MAPCM_run='run_198'
+# SWM_run='state_run_118'
+# ctps_run='run_118-198'
+
+### LRTP 2023 Run Codes == (TDM 23.1.0 land use) - NO zoning constraint fix, so there are erroneous employment numbers in Boston, Chelsea, Revere, Somerville, etc.):
+# MAPCM_run = 'run_139'
+# SWM_run = 'state_run_97'
+
+# REVISED TDM23.2.0 for Chandler 2019 (STOPS project)
+# MAPCM_run='run_209'
+# SWM_run='state_run_113'
+# ctps_run='run_113-209'
+# years=2019
+
+# # REVISED TDM23.2.0 for Chandler 2024 (STOPS project)
+# MAPCM_run='run_209'
+# SWM_run='state_run_118'
+# ctps_run='run_118-209'
+# years=2023
+# 
+# # REVISED TDM23.2.0 for Chandler 2044 (STOPS project)
+# MAPCM_run='run_210'
+# SWM_run='state_run_117'
+# ctps_run='run_117-210'
+# years=2044
+# 
+# # REVISED TDM23.2.0 for Chandler 2049 (STOPS project)
+# MAPCM_run='run_210'
+# SWM_run='state_run_113'
+# ctps_run='run_113-210'
+# years=2049
+
+# # REVISED TDM23.2.1 for Projections Website
+# MAPCM_run='run_213'
+# SWM_run='state_run_113'
+# ctps_run='run_113-213'
+# years=c(2019,2029,2039,2049)
+
+# # REVISED TDM23.2.1 for Projections Website
+# MAPCM_run='run_214'
+# SWM_run='state_run_115'
+# ctps_run='run_115-214'
+# years=c(2014)
+
+# # REVISED TDM23.2.1 for Projections Website
+# MAPCM_run='run_214'
+# SWM_run='state_run_116'
+# ctps_run='run_116-214'
+# years=c(2024)
+
+# # REVISED TDM23.2.1 for Projections Website
+# MAPCM_run='run_213'
+# SWM_run='state_run_120'
+# ctps_run='run_120-213'
+# years=c(2034)
+
+# # REVISED TDM23.2.1 for Projections Website
+# MAPCM_run='run_213'
+# SWM_run='state_run_117'
+# ctps_run='run_117-213'
+# years=c(2044)
+
+# # REVISED TDM23.2.0 for AECOM 2024
+# MAPCM_run='run_215'
+# SWM_run='state_run_118'
+# ctps_run='run_118-215'
+# years=2023
+
+# SHoP Scenario 1, LRTP 2023 zoning
+# shop.scen <- 'Scenario_1'
+# MAPCM_run='run_222'
+# SWM_run='state_run_127'
+
+# SHoP Scenario 2, LRTP 2023 zoning
+# shop.scen <- 'Scenario_2'
+# MAPCM_run='run_229'
+# SWM_run=
+
+# SHoP Scenario 3, LRTP 2023 zoning
+# shop.scen <- 'Scenario_3'
+# MAPCM_run='run_228'
+# SWM_run='state_run_128'
+
+# SHoP Scenario 4, LRTP 2023 zoning
+# shop.scen <- 'Scenario_4'
+# MAPCM_run='run_225'
+# SWM_run='state_run_125'
+
+# TDM23.3.0
+MAPCM_run <- 's102'
+SWM_run <- 's64'
+ctps_run=paste0('run_',SWM_run,'-',MAPCM_run)
+platform <- 'offline'
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# years=c(2019, 2023, 2024, 2029, 2039, 2049)
+# years=c(2019, 2023, 2029, 2039, 2049)
+years=c(2024,2049)
+
+# run = MAPCM_run
+# run = SWM_run
+
+is.shop <- 'N'
+# is.shop <- 'Y'
+# ctps_run=paste0('run_',str_sub(SWM_run,-3,-1),'-',str_sub(MAPCM_run,-3,-1))
+
+
+```
+
+# 3 - UrbanSim Block Indicator Compile
+
+```{r}
+
+
+
+for (yr in years) {
+  exp.yr <- ifelse(yr < 2020, yr, yr + 1)
+  
+  for (run in c(MAPCM_run, SWM_run)) {
+    if (run == MAPCM_run) {
+      run.blk <- mapc_blks
+    } else {
+      run.blk <- blks |> filter(!bl10_id %in% mapc_blks) |> pull(bl10_id)
+    }
+    
+    if (platform == 'offline') {
+      dt <- fread(paste0(root, '/', run, '/block_indicators_', yr, '.csv'))
+    } else {
+      dt <- fread(
+        paste0(
+          root,
+          '/',
+          run,
+          '/results_mapc_',
+          run,
+          '_block_indicators_',
+          yr,
+          '.csv'
+        )
+      )
+    }
+    dt <- dt |>
+      filter(block_id %in% run.blk) |>
+      setDT()
+    
+    dt[, year := exp.yr]
+    
+    dt <- dt[, .(
+      year,
+      block_id,
+      muni_id,
+      total_households,
+      hh_owners,
+      hh_renters,
+      total_residential_units,
+      single_fam,
+      multi_fam,
+      residential_unit_capacity,
+      density_residential_units,
+      unavailable_units,
+      vacant_residential_units,
+      ru_vacancy_rate,
+      own_fam,
+      rent_fam,
+      own_single_fam,
+      own_multi_fam,
+      rent_single_fam,
+      rent_multi_fam,
+      sum_with_child,
+      median_income,
+      median_rent,
+      median_value,
+      income_35000l,
+      income_35001_75000,
+      income_75001_125000,
+      income_125001_200000,
+      income_200001p,
+      workers_0,
+      workers_1,
+      workers_2,
+      workers_3,
+      workers_4p,
+      total_jobs,
+      density_jobs,
+      jobs_aggr_sector_1,
+      jobs_aggr_sector_2,
+      jobs_aggr_sector_3,
+      jobs_aggr_sector_4,
+      jobs_aggr_sector_5,
+      jobs_aggr_sector_6,
+      jobs_aggr_sector_7,
+      jobs_aggr_sector_8,
+      jobs_aggr_sector_9,
+      jobs_aggr_sector_10
+    )]
+    
+    setnames(
+      dt,
+      collapse::.c(
+        year,
+        block_id_2010,
+        muni_id,
+        total_households,
+        owner_households,
+        renter_households,
+        total_residential_units,
+        single_fam_units,
+        multi_fam_units,
+        residential_unit_capacity,
+        residential_units_per_acre,
+        unavailable_units,
+        vacant_residential_units,
+        vacancy_rate,
+        owner_units,
+        renter_units,
+        owner_single_fam_units,
+        owner_multi_fam_units,
+        renter_single_fam_units,
+        renter_multi_fam_units,
+        households_with_children,
+        median_household_income,
+        median_household_rent,
+        median_home_value,
+        households_income_under35000,
+        households_income_35001_75000,
+        households_income_75001_125000,
+        households_income_125001_200000,
+        households_income_over200001,
+        households_with_workers_0,
+        households_with_workers_1,
+        households_with_workers_2,
+        households_with_workers_3,
+        households_with_workers_4plus,
+        total_jobs,
+        jobs_per_acre,
+        jobs_aggr_sector_1,
+        jobs_aggr_sector_2,
+        jobs_aggr_sector_3,
+        jobs_aggr_sector_4,
+        jobs_aggr_sector_5,
+        jobs_aggr_sector_6,
+        jobs_aggr_sector_7,
+        jobs_aggr_sector_8,
+        jobs_aggr_sector_9,
+        jobs_aggr_sector_10
+      )
+    )
+    dt[, residential_unit_capacity := round(residential_unit_capacity)]
+    dt[, residential_units_per_acre := round(residential_units_per_acre, 3)]
+    dt[, jobs_per_acre := round(jobs_per_acre, 3)]
+    dt[, median_household_income := round(median_household_income)]
+    dt[, median_household_rent := round(median_household_rent)]
+    dt[, median_home_value := round(median_home_value)]
+    dt[, vacancy_rate := round(vacancy_rate, 2)]
+    setorder(dt, block_id_2010)
+    
+    fwrite(
+      dt,
+      paste0(
+        root,
+        '/',
+        run,
+        '/',
+        run,
+        '_block_indicators_summary',
+        exp.yr,
+        '.csv'
+      )
+    )
+  }
+  swm <- fread(paste0(
+        root,
+        '/',
+        SWM_run,
+        '/',
+        SWM_run,
+        '_block_indicators_summary',
+        exp.yr,
+        '.csv'
+      ))
+  mpc <- fread(paste0(
+        root,
+        '/',
+        MAPCM_run,
+        '/',
+        MAPCM_run,
+        '_block_indicators_summary',
+        exp.yr,
+        '.csv'
+      ))
+  comp <- rbind(swm,mpc)
+  setorder(comp,block_id)
+  fwrite(comp, paste0(root,'/',ctps_run,'_block_indicators_summary_',exp.yr,'.csv'))
+  message(paste0(yr,' Complete'))
+}
+```
+
+
+# 4 - UrbanSim TAZ Indicator Compile
+
+```{r}
+
+for (yr in years) {
+  exp.yr <- ifelse(yr < 2020, yr, yr + 1)
+  
+  for (run in c(MAPCM_run, SWM_run)) {
+    if (run == MAPCM_run) {
+      run.taz <- mapc_taz
+    } else {
+      run.taz <- taz |> filter(!taz_id %in% mapc_taz) |> pull(taz_id)
+    }
+    
+    
+    if (platform == 'offline') {
+      dt <- fread(paste0(root, '/', scen, '/zone_indicators_', yr, '.csv'))
+    } else {
+      dt <- fread(paste0(
+        root,
+        '/',
+        scen,
+        '/results_mapc_',
+        run,
+        '_zone_indicators_',
+        yr,
+        '.csv'
+      ))
+    }
+    dt <- dt |>
+      filter(zone_id %in% run.taz) |>
+      setDT()
+    
+    dt[, year := exp.yr]
+    
+    dt <- dt[, .(
+      year,
+      zone_id,
+      muni_id,
+      total_households,
+      hh_owners,
+      hh_renters,
+      total_residential_units,
+      single_fam,
+      multi_fam,
+      residential_unit_capacity,
+      density_residential_units,
+      unavailable_units,
+      vacant_residential_units,
+      ru_vacancy_rate,
+      own_fam,
+      rent_fam,
+      own_single_fam,
+      own_multi_fam,
+      rent_single_fam,
+      rent_multi_fam,
+      sum_with_child,
+      median_income,
+      median_rent,
+      median_value,
+      income_35000l,
+      income_35001_75000,
+      income_75001_125000,
+      income_125001_200000,
+      income_200001p,
+      workers_0,
+      workers_1,
+      workers_2,
+      workers_3,
+      workers_4p,
+      total_jobs,
+      density_jobs,
+      jobs_aggr_sector_1,
+      jobs_aggr_sector_2,
+      jobs_aggr_sector_3,
+      jobs_aggr_sector_4,
+      jobs_aggr_sector_5,
+      jobs_aggr_sector_6,
+      jobs_aggr_sector_7,
+      jobs_aggr_sector_8,
+      jobs_aggr_sector_9,
+      jobs_aggr_sector_10
+    )]
+    
+    setnames(
+      dt,
+      collapse::.c(
+        year,
+        taz_id,
+        muni_id,
+        total_households,
+        owner_households,
+        renter_households,
+        total_residential_units,
+        single_fam_units,
+        multi_fam_units,
+        residential_unit_capacity,
+        residential_units_per_acre,
+        unavailable_units,
+        vacant_residential_units,
+        vacancy_rate,
+        owner_units,
+        renter_units,
+        owner_single_fam_units,
+        owner_multi_fam_units,
+        renter_single_fam_units,
+        renter_multi_fam_units,
+        households_with_children,
+        median_household_income,
+        median_household_rent,
+        median_home_value,
+        households_income_under35000,
+        households_income_35001_75000,
+        households_income_75001_125000,
+        households_income_125001_200000,
+        households_income_over200001,
+        households_with_workers_0,
+        households_with_workers_1,
+        households_with_workers_2,
+        households_with_workers_3,
+        households_with_workers_4plus,
+        total_jobs,
+        jobs_per_acre,
+        jobs_aggr_sector_1,
+        jobs_aggr_sector_2,
+        jobs_aggr_sector_3,
+        jobs_aggr_sector_4,
+        jobs_aggr_sector_5,
+        jobs_aggr_sector_6,
+        jobs_aggr_sector_7,
+        jobs_aggr_sector_8,
+        jobs_aggr_sector_9,
+        jobs_aggr_sector_10
+      )
+    )
+    dt[, residential_unit_capacity := round(residential_unit_capacity)]
+    dt[, residential_units_per_acre := round(residential_units_per_acre, 3)]
+    dt[, jobs_per_acre := round(jobs_per_acre, 3)]
+    dt[, median_household_income := round(median_household_income)]
+    dt[, median_household_rent := round(median_household_rent)]
+    dt[, median_home_value := round(median_home_value)]
+    dt[, vacancy_rate := round(vacancy_rate, 2)]
+    setorder(dt, taz_id)
+    
+    fwrite(dt,
+           paste0(
+             root,
+             '/',
+             run,
+             '/',
+             run,
+             '_zone_indicators_summary',
+             exp.yr,
+             '.csv'
+           ))
+  }
+  swm <- fread(paste0(
+        root,
+        '/',
+        SWM_run,
+        '/',
+        SWM_run,
+        '_zone_indicators_summary',
+        exp.yr,
+        '.csv'
+      ))
+  mpc <- fread(paste0(
+        root,
+        '/',
+        MAPCM_run,
+        '/',
+        MAPCM_run,
+        '_zone_indicators_summary',
+        exp.yr,
+        '.csv'
+      ))
+  comp <- rbind(swm,mpc)
+  setorder(comp,taz_id)
+  fwrite(comp, paste0(root,'/',ctps_run,'_zone_indicators_summary_',exp.yr,'.csv'))
+  
+}
+```

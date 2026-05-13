@@ -1391,7 +1391,7 @@ if (run == MAPCM_run) {
 #| eval: false
 
 
-dir <- 'Microsim_outputs'
+dir <- 'Microsim_outputs/TDM23.3.0'
 
 # for (yr in years) {
 for (yr in c(2019,2023,2049)){

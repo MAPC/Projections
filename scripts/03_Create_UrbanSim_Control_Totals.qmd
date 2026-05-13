@@ -554,7 +554,7 @@ for (yr in yrs) {
                                NP > 1 ~ 1),
       NP = HHsize
     ) |>
-    filter(SPORDER == 1) |>
+    filter(rpa_acr=='MAPC' & SPORDER==1) |>
     mutate(
       HINCP.2013 = round(HINCP * ADJINC * cpi.deflator, 0),
       US_AGEHHDER = case_when(
@@ -686,7 +686,7 @@ if (scen %in% c('Scenario_2', 'Scenario_3')) {
     dt[,year:=yr]
     
     dt <- dt |>
-      filter(SPORDER == 1) |>
+      filter(rpa_acr=='MAPC' & SPORDER==1) |>
       mutate(
         HINCP.2013 = round(HINCP * ADJINC * cpi.deflator, 0),
         US_AGEHHDER = case_when(
@@ -813,7 +813,7 @@ if (scen %in% c('Scenario_2', 'Scenario_3')) {
                                NP > 1 ~ 1),
       NP = HHsize
     ) |>
-    filter(SPORDER == 1) |>
+    filter(rpa_acr=='MAPC' & SPORDER==1) |>
     mutate(
       HINCP.2013 = round(HINCP * ADJINC * cpi.deflator, 0),
       US_AGEHHDER = case_when(
@@ -1062,9 +1062,5 @@ mapc.expand.pp[is.na(total_number_of_households), total_number_of_households:=0]
 
 fwrite(mapc.expand.pp, paste0(output_path,'MAPC_Household_Control_Totals_SHoP_',reb,'_',scen,'_pop_corrected.csv'))
 
-# 
-# new <- fread("S:/Network Shares/K Drive/DataServices/Projects/Current_Projects/Projections/Projections_2028/Data/01_Regional_Control_Totals/SHoP_Scenarios/UrbanSim_Inputs/Scenario_3/SWM_Household_Control_Totals_SHoP_MAPC97_Scenario_3_pop_corrected.csv")
-# 
-# old <- fread("S:/Network Shares/K Drive/DataServices/Projects/Current_Projects/Projections/Projections_2028/Data/01_Regional_Control_Totals/SHoP_Scenarios/UrbanSim_Inputs/Scenario_3/SWM_Household_Control_Totals_SHoP_Scenario_3_pop_corrected.csv")
 
 ```
