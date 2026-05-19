@@ -29,8 +29,8 @@ if (grepl('VM',Sys.info()[['nodename']])){
 }
 
 root <- paste0(base,'/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/UrbanSim_Outputs/')
-r1 <- paste0(root,'/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/')
-r2 <- paste0(root,'/Projects/Current_Projects/Projections/Projections_2023/')
+r1 <- paste0(base,'/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/')
+r2 <- paste0(base,'/Projects/Current_Projects/Projections/Projections_2023/')
 shop.path <- paste0(base,'/Projects/Current_Projects/Housing/StatewideHousingPlan/04_Analysis/Data/Working/Regional_Control_Totals/')
 
 # Helpers
@@ -60,11 +60,13 @@ mapc_blks <- blks |>
   filter(mpo=='MAPC') |> 
   pull(bl10_id)
 
-# taz <- fread('taz_muni_crosswalk.csv')
-# 
-# mapc_taz <- taz |> 
-#   filter(!muni_id %in% nonmapc) |> 
-#   pull(taz_id)
+m2 <- all_muni_data_keys |> 
+  select(muni_id, muni_name, muni_upper) |> 
+  setDT()
+
+mapc_taz <- taz_sf |>
+  filter(!muni_id %in% nonmapc) |>
+  pull(tazID)
 
 # blk.sf <- block_sf(2010)
 
@@ -201,6 +203,13 @@ MAPCM_run <- 's102'
 SWM_run <- 's64'
 ctps_run=paste0('run_',SWM_run,'-',MAPCM_run)
 platform <- 'offline'
+
+# EEA Scenario 2
+# MAPCM_run <- 's104'
+# SWM_run <- 's63'
+# ctps_run=paste0('run_',SWM_run,'-',MAPCM_run)
+# platform <- 'offline'
+
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -419,17 +428,20 @@ for (yr in years) {
     if (run == MAPCM_run) {
       run.taz <- mapc_taz
     } else {
-      run.taz <- taz |> filter(!taz_id %in% mapc_taz) |> pull(taz_id)
+      run.taz <- taz |> 
+        rename(taz_id=tazID) |> 
+        filter(!taz_id %in% mapc_taz) |> 
+        pull(taz_id)
     }
     
     
     if (platform == 'offline') {
-      dt <- fread(paste0(root, '/', scen, '/zone_indicators_', yr, '.csv'))
+      dt <- fread(paste0(root, '/', run, '/zone_indicators_', yr, '.csv'))
     } else {
       dt <- fread(paste0(
         root,
         '/',
-        scen,
+        run,
         '/results_mapc_',
         run,
         '_zone_indicators_',
@@ -564,6 +576,7 @@ for (yr in years) {
              '.csv'
            ))
   }
+  
   swm <- fread(paste0(
         root,
         '/',

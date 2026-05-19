@@ -186,14 +186,18 @@ SWM_run <- 's64'
 ctps_run=paste0('run_',SWM_run,'-',MAPCM_run)
 # root <- paste0(root,'TDM23.3.0')
 
+# TDM23.3.0 for STOPS 2025
+# MAPCM_run <- 'run_243'
+# SWM_run <- 's64'
+# ctps_run=paste0('run_',SWM_run,'-',MAPCM_run)
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # years=c(2019, 2023, 2024, 2029, 2039, 2049)
-years=c(2019, 2023, 2029, 2039, 2049)
-# years=c(2039,2049)
+# years=c(2019, 2023, 2029, 2039, 2049)
+years=c(2029,2034,2039,2049)
+# run = SWM_run
 # run = MAPCM_run
-run = SWM_run
 
 is.shop <- 'N'
 # is.shop <- 'Y'
@@ -211,7 +215,7 @@ is.shop <- 'N'
 
 ```{r}
 
-
+for (run in c(MAPCM_run, SWM_run)){
 pums13 <-
   readRDS(paste0(root,'pums13_5yr/pums2013_microsim_households_short.rds'))
 
@@ -367,7 +371,7 @@ pums13 <-
             ))
     message(paste0(run,' ',yr,' saved'))
   }
-
+}
 #swm[,hh:=lun(hid),block_id]
 #raw <- swm[,.(year,block_id,rpa_acr,muni_id,muni_name,hh)] |> unique()
 #write(raw, paste0(root,'Microsim_outputs/',MAPCM_run,'_hh_by_block_',yr,'.csv'))
@@ -448,7 +452,7 @@ setkey(umdi, mpo, year, ageCAT6)
 
 ##  CALCULATE differences in HHpop by age between UMDI/Control Totals and UrbanSim h5 Outputs
 
-# for (run in c(MAPCM_run, SWM_run)) {
+for (run in c(MAPCM_run, SWM_run)) {
 fs <- list.files(path = paste0(root,run),
                  pattern = 'unrevised_v2.rds',
                  full.names = TRUE)
@@ -517,7 +521,7 @@ if (run == MAPCM_run & is.shop=='Y') {
          paste0(root,run, '/urbansim_', run, '_umdi_pop_age_difference_v3.csv'))
   
 }
-
+}
 ```
 
 # 3.3 - Person duplication function
@@ -734,7 +738,7 @@ cx <- function(x) {
 # 3.4 - Post-processor 04 - run person duplication/subtraction
 
 ```{r}
-
+for (run in c(MAPCM_run, SWM_run)) {
 for (yr in years) {
   flaglist <- data.table()
   
@@ -1382,7 +1386,7 @@ if (run == MAPCM_run) {
     )
   )
 }
-
+}
 ```
 
 # 3.5 - Post-processor 05 - CTPS microsim household export
@@ -1393,8 +1397,8 @@ if (run == MAPCM_run) {
 
 dir <- 'Microsim_outputs/TDM23.3.0'
 
-# for (yr in years) {
-for (yr in c(2019,2023,2049)){
+for (yr in years) {
+# for (yr in c(2019,2023,2049)){
   myear = yr
   syear = yr
   
@@ -1456,13 +1460,19 @@ for (yr in c(2019,2023,2049)){
   new <- new[block_id != -1]
   setnames(new, 'inc2010', 'wage_inc')
   setnames(new, 'hhinc2010', 'hh_inc')
-  
+  if(yr<2020){
   fwrite(new,paste0(root,dir,'/urbansim_complete_population_',
       ctps_run,
       '_',
       yr,
       '.csv'))
-  
+  } else {
+    fwrite(new,paste0(root,dir,'/urbansim_complete_population_',
+      ctps_run,
+      '_',
+      yr+1,
+      '.csv'))
+  }
   blk.hh <- new[, lun(hid), block_id]
   setnames(blk.hh, 'V1', 'total_households')
   setkey(blk.hh, block_id)
