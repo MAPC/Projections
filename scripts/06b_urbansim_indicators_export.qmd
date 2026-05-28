@@ -216,7 +216,7 @@ platform <- 'offline'
 
 # years=c(2019, 2023, 2024, 2029, 2039, 2049)
 # years=c(2019, 2023, 2029, 2039, 2049)
-years=c(2024,2049)
+years=c(2029,2039)
 
 # run = MAPCM_run
 # run = SWM_run
@@ -428,7 +428,7 @@ for (yr in years) {
     if (run == MAPCM_run) {
       run.taz <- mapc_taz
     } else {
-      run.taz <- taz |> 
+      run.taz <- taz_sf |> 
         rename(taz_id=tazID) |> 
         filter(!taz_id %in% mapc_taz) |> 
         pull(taz_id)
@@ -458,50 +458,37 @@ for (yr in years) {
     dt <- dt[, .(
       year,
       zone_id,
-      muni_id,
       total_households,
-      hh_owners,
-      hh_renters,
+      sum_hh_owners,
+      sum_hh_renters,
       total_residential_units,
-      single_fam,
-      multi_fam,
-      residential_unit_capacity,
       density_residential_units,
-      unavailable_units,
-      vacant_residential_units,
-      ru_vacancy_rate,
-      own_fam,
-      rent_fam,
-      own_single_fam,
-      own_multi_fam,
-      rent_single_fam,
-      rent_multi_fam,
       sum_with_child,
       median_income,
       median_rent,
       median_value,
-      income_35000l,
-      income_35001_75000,
-      income_75001_125000,
-      income_125001_200000,
-      income_200001p,
-      workers_0,
-      workers_1,
-      workers_2,
-      workers_3,
-      workers_4p,
+      sum_income_35000l,
+      sum_income_35001_75000,
+      sum_income_75001_125000,
+      sum_income_125001_200000,
+      sum_income_200001p,
+      sum_workers_0,
+      sum_workers_1,
+      sum_workers_2,
+      sum_workers_3,
+      sum_workers_4p,
       total_jobs,
       density_jobs,
-      jobs_aggr_sector_1,
-      jobs_aggr_sector_2,
-      jobs_aggr_sector_3,
-      jobs_aggr_sector_4,
-      jobs_aggr_sector_5,
-      jobs_aggr_sector_6,
-      jobs_aggr_sector_7,
-      jobs_aggr_sector_8,
-      jobs_aggr_sector_9,
-      jobs_aggr_sector_10
+      sum_jobs_aggr_sector_1,
+      sum_jobs_aggr_sector_2,
+      sum_jobs_aggr_sector_3,
+      sum_jobs_aggr_sector_4,
+      sum_jobs_aggr_sector_5,
+      sum_jobs_aggr_sector_6,
+      sum_jobs_aggr_sector_7,
+      sum_jobs_aggr_sector_8,
+      sum_jobs_aggr_sector_9,
+      sum_jobs_aggr_sector_10
     )]
     
     setnames(
@@ -509,24 +496,11 @@ for (yr in years) {
       collapse::.c(
         year,
         taz_id,
-        muni_id,
         total_households,
         owner_households,
         renter_households,
         total_residential_units,
-        single_fam_units,
-        multi_fam_units,
-        residential_unit_capacity,
         residential_units_per_acre,
-        unavailable_units,
-        vacant_residential_units,
-        vacancy_rate,
-        owner_units,
-        renter_units,
-        owner_single_fam_units,
-        owner_multi_fam_units,
-        renter_single_fam_units,
-        renter_multi_fam_units,
         households_with_children,
         median_household_income,
         median_household_rent,
@@ -555,13 +529,10 @@ for (yr in years) {
         jobs_aggr_sector_10
       )
     )
-    dt[, residential_unit_capacity := round(residential_unit_capacity)]
-    dt[, residential_units_per_acre := round(residential_units_per_acre, 3)]
     dt[, jobs_per_acre := round(jobs_per_acre, 3)]
     dt[, median_household_income := round(median_household_income)]
     dt[, median_household_rent := round(median_household_rent)]
     dt[, median_home_value := round(median_home_value)]
-    dt[, vacancy_rate := round(vacancy_rate, 2)]
     setorder(dt, taz_id)
     
     fwrite(dt,

@@ -195,7 +195,8 @@ ctps_run=paste0('run_',SWM_run,'-',MAPCM_run)
 
 # years=c(2019, 2023, 2024, 2029, 2039, 2049)
 # years=c(2019, 2023, 2029, 2039, 2049)
-years=c(2029,2034,2039,2049)
+# years=c(2029,2034,2039,2049)
+years <- c(2029,2039)
 # run = SWM_run
 # run = MAPCM_run
 
