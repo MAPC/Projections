@@ -30,11 +30,11 @@ if (grepl('VM',Sys.info()[['nodename']])){
 
 root <- paste0(base,'/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/UrbanSim_Outputs/')
 
-r1 <- paste0(root,'/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/')
+r1 <- paste0(base,'/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/')
 
-r2 <- paste0(root,'/Projects/Current_Projects/Projections/Projections_2023/')
+r2 <- paste0(base,'/Projects/Current_Projects/Projections/Projections_2023/')
 
-shop.path <- paste0(root,'/Projects/Current_Projects/Housing/StatewideHousingPlan/04_Analysis/Data/Working/Regional_Control_Totals/')
+shop.path <- paste0(base,'/Projects/Current_Projects/Housing/StatewideHousingPlan/04_Analysis/Data/Working/Regional_Control_Totals/')
 
 # Helpers
 sun <- function(x){
@@ -194,9 +194,9 @@ ctps_run=paste0('run_',SWM_run,'-',MAPCM_run)
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # years=c(2019, 2023, 2024, 2029, 2039, 2049)
-# years=c(2019, 2023, 2029, 2039, 2049)
+years=c(2019, 2023, 2029, 2039, 2049)
 # years=c(2029,2034,2039,2049)
-years <- c(2029,2039)
+# years <- c(2029,2039)
 # run = SWM_run
 # run = MAPCM_run
 
@@ -1621,6 +1621,34 @@ for (yr in years) {
   }
 
 }
-  
+
+phh <- fread(paste0(r1,'PUMS/ss13hma.csv'))
+pper <- fread(paste0(r1,'PUMS/ss13pma.csv'))
+pums <- left_join(pper, phh, by='SERIALNO')
+
+pums <- pums[,c(2,3,9:215,296,298,301,302,308:347,350:419), with=F]
+pums[,serialno:=as.character(SERIALNO)]
+pums[,person_num:=SPORDER]
+setkey(pums,serialno,person_num)
+
+for (yr in c(2019,2024,2049)){
+dt <- fread(paste0(root,dir,'/urbansim_complete_population_',
+      ctps_run,
+      '_',
+      yr,
+      '.csv'))
+dt <- dt[,c(1:30,49:53,56,57),with=F]
+dt[,serialno:=as.character(serialno)]
+
+dexp <- left_join(dt,pums,by=c('serialno','person_num')) |> 
+  setDT()
+
+fwrite(dexp,paste0(root,dir,'/urbansim_population_complete_PUMS_records_',
+      ctps_run,
+      '_',
+      yr,
+      '.csv'))
+}
+
 ```
 
