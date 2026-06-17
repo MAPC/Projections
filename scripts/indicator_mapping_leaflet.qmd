@@ -1,0 +1,674 @@
+---
+title: "indicator_mapping_leaflet"
+format: html
+editor: source
+---
+
+# 1 - Setup
+
+```{r, setup, include=FALSE}
+
+options(scipen=999)
+options(tigris_use_cache = TRUE)
+
+set.seed(351)
+
+pacman::p_load(
+  writexl,
+  sf,
+  data.table,
+  tidycensus,
+  mapcdatakeys,
+  tidyverse,
+  imputeTS,
+  collapse,
+  stringi,
+  leaflet,
+  tigris,
+  htmlwidgets,
+  viridis
+)
+
+# File paths
+# Paths
+if (grepl('VM',Sys.info()[['nodename']])){
+  base <- '//data-sync/Public/DataServices'
+} else {
+  base <- 'S:/Network Shares/K Drive/DataServices'
+}
+
+root <- paste0(base,'/Projects/Current_Projects/')
+
+urb_path <- paste0(root,'Projections/Projections_2023/Data/03_UrbanSim/UrbanSim_Outputs/')
+
+scen <- 'Scenario_1'
+eea_path <- paste0(root,'Environment/EEA_MLCA/Data/Task_4/',scen,'/UrbanSim_Outputs/')
+
+
+# Helpers
+sun <- function(x){
+  sort(unique(x))}
+lun <- function(x){
+  length(unique(x))}
+sna <- function(x){
+  sort(names(x))}
+
+mpos <- all_muni_data_keys |> 
+  pull(mpo) |> 
+  unique()
+
+munis <- all_muni_data_keys |> 
+  select(muni_id, rpa_acr, mpo) |> 
+  setDT()
+
+nonmapc <- munis[mpo!='MAPC']
+
+blks <- geog_xw_2010 |> 
+  left_join(munis, by = 'muni_id') |> 
+  select(bl10_id, muni_id, muni_name, rpa_acr, mpo) |> 
+  setDT()
+
+mapc_blks <- blks |> 
+  filter(mpo=='MAPC') |> 
+  pull(bl10_id)
+
+m2 <- all_muni_data_keys |> 
+  select(muni_id, muni_name, muni_upper) |> 
+  setDT()
+
+mapc_taz <- taz_sf |>
+  filter(!muni_id %in% nonmapc) |>
+  pull(tazID)
+
+# 2010 Blocks / Munis / RPA / MPO
+blk.sf <-
+  block_sf(2010) |> 
+  left_join(munis, by = 'muni_id') |> 
+  select(bl10_id, muni_id, muni_name, rpa_acr, mpo)
+
+knitr::opts_knit$set(root.dir = root)
+
+```
+
+# 2 - Input Specs
+```{r}
+
+# # REVISED TDM23.2.0 for Projections Website (pre-2025 years)
+MAPCM_run='run_209'
+SWM_run='state_run_113'
+ctps_run='run_113-209'
+
+# EEA Scenario 2
+MAPCM_run <- 's104'
+SWM_run <- 's63'
+ctps_run=paste0('run_',SWM_run,'-',MAPCM_run)
+platform <- 'offline'
+
+
+years=c(2019,2024,2034,2049)
+
+
+
+```
+
+# 3 - Load Data
+
+```{r}
+
+dlist <- list()
+i <- 1
+for (yr in years){
+  mp <- fread(paste0(eea_path, scen, '_MAPCM_block_indicators_',yr,'.csv'))
+  sw <- fread(paste0(eea_path, scen, '_SWM_block_indicators_',yr,'.csv')) |> 
+    filter(!bl10_id %in% mp$bl10_id)
+  dt <- rbind(mp,sw) |> 
+    mutate(year = yr)
+  dlist[[i]] <- dt
+  i <- i+1
+}
+
+```
+
+# 4 - Leaflet map
+
+```{r}
+
+
+
+output.units <- paste0(output,'/Unit_Demand/')
+dir.create(output.units,showWarnings = F)
+
+
+# Need to use 2020 census for munis because mapc datakeys has GEOIDs for 2020 munis
+sfm <-
+  get_decennial(
+    year = 2020,
+    state = 'MA',
+    geography = 'county subdivision',
+    variables = 'H1_001N',
+    geometry = T
+  )
+
+setDT(sfm)
+setkey(sfm,GEOID)
+setkey(dt,GEOID)
+sf_muni <- merge(dt,sfm,all=T)
+sf_muni <- sf_muni[!is.na(hu_demand_2020_2050)]
+sf_muni <- st_as_sf(sf_muni)
+
+# fwrite(u20,paste0(run,'_muni_2020_validation.csv'))
+# st_write(sf_muni,paste0(run,'_muni_2020_validation'),driver='ESRI Shapefile')
+# Palette for UrbanSim-Census percent difference
+bins_pct_diff<-
+  c(0, 1, 5, 10, 25, 50)
+pal_pct_diff <-
+  colorBin(c("yellow", "red"),
+           bins = bins_pct_diff,
+           na.color = "#808080")
+
+# Palette for UrbanSim-Census unit difference
+bins_unit_diff<-
+  c(0, 250, 500, 1000, 5000, 10000, 50000, 67025)
+pal_unit_diff <-
+  colorBin(c("yellow", "red"),
+           bins = bins_unit_diff,
+           na.color = "#808080")
+
+
+
+  unit_2020_diff <- sf_muni %>%
+  st_transform(st_crs(4326)) %>%
+  leaflet() %>%
+  addProviderTiles(provider = "CartoDB.Positron") %>%
+  addCircleMarkers(
+    data = mb.sf,
+    label = ~ paste('MassBuilds ID: ',mb.sf$identification),
+    fillColor = "black",
+    fillOpacity = 1,
+    radius = 2.5,
+    stroke = F,
+    group = 'MassBuilds',
+    popup = ~ paste(
+      "MassBuilds ID: ",
+      mb.sf$identification,
+      "<br>",
+      "Completed ",
+      mb.sf$start_year,
+      "<br>",
+      "Residential Units Added: ",
+      mb.sf$residential_units,
+      "<br>",
+      "Project Name: ",
+      mb.sf$name,
+      "<br>",
+      "Address: ",
+      mb.sf$street,
+      "<br>",
+      "Muni: ",
+      mb.sf$city,
+      "<br>"
+    ),
+  ) %>% 
+  hideGroup('MassBuilds') %>% 
+  addPolygons(
+    popup = ~ paste(
+      "Muni: ",
+      sf_muni$muni_name,
+      "<br>",
+      "Housing Unit Demand: ",
+      sf_muni$hu_demand_2020_2050,
+      "<br>",
+      "Existing Units - Census 2020: ",
+      sf_muni$value
+    ),
+    fillOpacity = 0.6,
+    fillColor = ~ pal_unit_diff(sf_muni$hu_demand_2020_2050),
+    weight = 1,
+    stroke=T,
+    col='black',
+    group = "Difference"
+  ) %>%
+  addPolygons(
+    data = rpa_shp$geometry,
+    fillOpacity = 0.0,
+    fillColor = NULL,
+    weight = 4.0,
+    stroke=T,
+    col='black',
+  ) %>%
+  addLegend(
+    position = "bottomleft",
+    pal = pal_unit_diff,
+    values = ~ bins_unit_diff,
+    title = paste(
+      "Housing Unit Demand 2020-2050"
+    ),
+    opacity = 1,
+    group = "Difference",
+    className = "info legend Difference"
+  ) %>%
+  addPolygons(
+    popup = ~ paste(
+      "Muni: ",
+      sf_muni$muni_name,
+      "<br>",
+      "Housing Unit Demand (Percent from 2020): ",
+      sf_muni$pct_hu_demand,
+      "<br>",
+      "Existing Units - Census 2020: ",
+      sf_muni$value
+    ),
+    fillOpacity = 0.6,
+    fillColor = ~ pal_pct_diff(sf_muni$pct_hu_demand),
+    weight = 1,
+    stroke=T,
+    col='black',
+    group = "Percent"
+  ) %>%
+  addLegend(
+    position = "bottomleft",
+    pal = pal_pct_diff,
+    values = ~ bins_pct_diff,
+    title = paste(
+      "Housing Unit Demand <br> Percent Growth from 2020 <br>"
+    ),
+    opacity = 1,
+    group = "Percent",
+    className = "info legend Percent"
+  ) %>%
+  # Layer controls
+  addLayersControl(
+    baseGroups = c(
+      "Difference",
+      "Percent"
+    ),
+    position = c("topright"),
+    options = layersControlOptions(collapsed = FALSE)
+  ) %>%
+  
+  htmlwidgets::onRender(
+    "
+      function(el, x) {
+         var updateLegend = function () {
+            var selectedGroup = document.querySelectorAll('input:checked')[0].nextSibling.innerText.substr(1);
+            var selectedClass = selectedGroup.replace(' ', '');
+            document.querySelectorAll('.legend').forEach(a => a.hidden=true);
+            document.querySelectorAll('.legend').forEach(l => {
+               if (l.classList.contains(selectedClass)) l.hidden=false;
+            });
+         };
+         updateLegend();
+         this.on('baselayerchange', el => updateLegend());
+      }"
+  )
+
+
+saveWidget(
+  widget = unit_2020_diff,
+  file = paste0(
+    output.units,
+    "housing_unit_demand_",
+    Sys.Date(),
+    ".html"
+  ),
+  libdir = output.units,
+  selfcontained = FALSE
+)
+
+########## Spatial data for mapping ###### 
+######################################### 
+
+# Need to use 2020 census for munis because mapc datakeys has GEOIDs for 2020 munis
+sfm <-
+  get_decennial(
+    year = 2020,
+    state = 'MA',
+    geography = 'county subdivision',
+    variables = 'H1_001N',
+    geometry = T
+  )
+
+setDT(sfm)
+setkey(sfm,GEOID)
+setkey(u20,GEOID)
+sf_muni <- merge(u20,sfm,all=T)
+
+if (dom=='MAPC'){
+  sf_muni <- sf_muni[mapc==1]
+}
+
+sf_muni <- st_as_sf(sf_muni)
+
+# fwrite(u20,paste0(run,'_muni_2020_validation.csv'))
+# st_write(sf_muni,paste0(run,'_muni_2020_validation'),driver='ESRI Shapefile')
+# Palette for UrbanSim-Census percent difference
+bins_pct_diff<-
+  c(-Inf,-25,-10,-5,-1, 1, 5, 10, 25, Inf)
+pal_pct_diff <-
+  colorBin(c("blue", "white", "red"),
+           bins = bins_pct_diff,
+           na.color = "#808080")
+
+# Palette for UrbanSim-Census unit difference
+bins_unit_diff<-
+  c(-Inf, -5000, -2500, -1000, -500, -250, -1, 1, 250, 500, 1000, 2500, 5000, Inf)
+pal_unit_diff <-
+  colorBin(c("blue", "white", "red"),
+           bins = bins_unit_diff,
+           na.color = "#808080")
+
+# Palette for UrbanSim-Census houeshold difference
+bins_hh_diff<-
+  c(-Inf, -3000, -2000, -1000, -500, -250, -1, 1, 250, 500, 1000, 2000, 3000, Inf)
+pal_hh_diff <-
+  colorBin(c("blue", "white", "red"),
+           bins = bins_hh_diff,
+           na.color = "#808080")
+
+output.units <- paste0(output,'/Units/')
+dir.create(output.units,showWarnings = F)
+output.hh <- paste0(output,'/HH/')
+dir.create(output.hh,showWarnings = F)
+
+unit_2020_diff <- sf_muni %>%
+  st_transform(st_crs(4326)) %>%
+  leaflet() %>%
+  addProviderTiles(provider = "CartoDB.Positron") %>%
+  addCircleMarkers(
+    data = mb.sf,
+    label = ~ paste('MassBuilds ID: ',mb.sf$identification),
+    fillColor = "black",
+    fillOpacity = 1,
+    radius = 2.5,
+    stroke = F,
+    group = 'MassBuilds',
+    popup = ~ paste(
+      "MassBuilds ID: ",
+      mb.sf$identification,
+      "<br>",
+      "Completed ",
+      mb.sf$start_year,
+      "<br>",
+      "Residential Units Added: ",
+      mb.sf$residential_units,
+      "<br>",
+      "Project Name: ",
+      mb.sf$name,
+      "<br>",
+      "Address: ",
+      mb.sf$street,
+      "<br>",
+      "Muni: ",
+      mb.sf$city,
+      "<br>"
+    ),
+  ) %>% 
+  hideGroup('MassBuilds') %>% 
+  addPolygons(
+    popup = ~ paste(
+      "Muni: ",
+      sf_muni$muni_name,
+      "<br>",
+      "UrbanSim: ",
+      sf_muni$us20_units,
+      "<br>",
+      "Census: ",
+      sf_muni$total_units_2020,
+      "<br>",
+      "MassBuilds Added 2010-2019: ",
+      sf_muni$mb_units_added_by_2019,
+      "<br>",
+      "Census Added 2010-2020: ",
+      sf_muni$total_units_2020-sf_muni$total_units_2010,
+      "<br>",
+      "US-Census Diff.: ",
+      sf_muni$unit_diff_2020,
+      "<br>",
+      "US-MB Diff.: ",
+      sf_muni$us_unit_chg-sf_muni$mb_units_added_by_2019
+    ),
+    label=~muni_name,
+    fillOpacity = 0.6,
+    fillColor = ~ pal_unit_diff(sf_muni$unit_diff_2020),
+    weight = 1,
+    stroke=T,
+    col='black',
+    group = "Difference"
+  ) %>%
+  addLegend(
+    position = "bottomleft",
+    pal = pal_unit_diff,
+    values = ~ bins_unit_diff,
+    title = paste(
+      "Units difference between <br> UrbanSim and Census <br>"
+    ),
+    opacity = 1,
+    group = "Difference",
+    className = "info legend Difference"
+  ) %>%
+  addPolygons(
+    popup = ~ paste(
+      "Muni: ",
+      sf_muni$muni_name,
+      "<br>",
+      "UrbanSim: ",
+      sf_muni$us20_units,
+      "<br>",
+      "Census: ",
+      sf_muni$total_units_2020,
+      "<br>",
+      "MassBuilds Added 2010-2019: ",
+      sf_muni$mb_units_added_by_2019,
+      "<br>",
+      "US-Census Percent Diff.: ",
+      sf_muni$pct_unit_diff_2020,
+      "<br>",
+      "US-MB Diff.: ",
+      sf_muni$us_unit_chg-sf_muni$mb_units_added_by_2019
+    ),
+    fillOpacity = 0.6,
+    fillColor = ~ pal_pct_diff(sf_muni$pct_unit_diff_2020),
+    weight = 1,
+    stroke=T,
+    col='black',
+    group = "Percent"
+  ) %>%
+  addLegend(
+    position = "bottomleft",
+    pal = pal_pct_diff,
+    values = ~ bins_pct_diff,
+    title = paste(
+      "Percent difference units between <br> UrbanSim and Census <br>"
+    ),
+    opacity = 1,
+    group = "Percent",
+    className = "info legend Percent"
+  ) %>%
+  addSearchFeatures(
+    targetGroups = "Difference",
+    options = searchFeaturesOptions(
+      zoom = 10,
+      position = 'topright',
+      textPlaceholder = "Search by Town Name..."
+    )
+  ) %>% 
+  
+  # Layer controls
+  addLayersControl(
+    baseGroups = c(
+      "Difference",
+      "Percent"
+    ),
+    overlayGroups = 'MassBuilds',
+    position = c("topright"),
+    options = layersControlOptions(collapsed = FALSE)
+  ) %>%
+  
+  htmlwidgets::onRender(
+    "
+      function(el, x) {
+         var updateLegend = function () {
+            var selectedGroup = document.querySelectorAll('input:checked')[0].nextSibling.innerText.substr(1);
+            var selectedClass = selectedGroup.replace(' ', '');
+            document.querySelectorAll('.legend').forEach(a => a.hidden=true);
+            document.querySelectorAll('.legend').forEach(l => {
+               if (l.classList.contains(selectedClass)) l.hidden=false;
+            });
+         };
+         updateLegend();
+         this.on('baselayerchange', el => updateLegend());
+      }"
+  )
+
+unit_2020_diff
+
+saveWidget(
+  widget = unit_2020_diff,
+  file = paste0(
+    output.units,
+    "units_validation_",
+    Sys.Date(),
+    ".html"
+  ),
+  libdir = output.units,
+  selfcontained = FALSE
+)
+
+
+
+hh_2020_diff <- sf_muni %>%
+  st_transform(st_crs(4326)) %>%
+  leaflet() %>%
+  addProviderTiles(provider = "CartoDB.Positron") %>%
+  
+  addPolygons(
+    popup = ~ paste(
+      "Muni: ",
+      sf_muni$muni_name,
+      "<br>",
+      "UrbanSim: ",
+      sf_muni$us20_occ,
+      "<br>",
+      "Census: ",
+      sf_muni$total_occ_2020,
+      "<br>",
+      "MassBuilds Added 2010-2019: ",
+      sf_muni$mb_units_added_by_2019,
+      "<br>",
+      "US-Census Diff.: ",
+      sf_muni$hh_diff_2020,
+      "<br>",
+      "US-MB Unit Diff.: ",
+      sf_muni$us_unit_chg-sf_muni$mb_units_added_by_2019
+    ),
+    fillOpacity = 0.6,
+    fillColor = ~ pal_unit_diff(sf_muni$hh_diff_2020),
+    weight = 1,
+    stroke = T,
+    col = "black",
+    group = "Difference"
+  ) %>%
+  addLegend(
+    position = "bottomleft",
+    pal = pal_hh_diff,
+    values = ~ bins_hh_diff,
+    title = paste(
+      "Households difference between <br> UrbanSim and Census <br>"
+    ),
+    opacity = 1,
+    group = "Difference",
+    className = "info legend Difference"
+  ) %>%
+  addPolygons(
+    popup = ~ paste(
+      "Muni: ",
+      sf_muni$muni_name,
+      "<br>",
+      "UrbanSim: ",
+      sf_muni$us20_occ,
+      "<br>",
+      "Census: ",
+      sf_muni$total_occ_2020,
+      "<br>",
+      "MassBuilds Added 2010-2019: ",
+      sf_muni$mb_units_added_by_2019,
+      "<br>",
+      "US-Census Percent Diff.: ",
+      sf_muni$pct_hh_diff_2020,
+      "<br>",
+      "US-MB Units Diff.: ",
+      sf_muni$us_unit_chg-sf_muni$mb_units_added_by_2019
+    ),
+    label=~muni_name,
+    fillOpacity = 0.6,
+    fillColor = ~ pal_pct_diff(sf_muni$pct_hh_diff_2020),
+    weight = 1,
+    stroke = T,
+    col = "black",
+    group = "Percent"
+  ) %>%
+  addLegend(
+    position = "bottomleft",
+    pal = pal_pct_diff,
+    values = ~ bins_pct_diff,
+    title = paste(
+      "Percent difference Households between <br> UrbanSim and Census <br>"
+    ),
+    opacity = 1,
+    group = "Percent",
+    className = "info legend Percent"
+  ) %>%
+  
+  # Layer controls
+  addLayersControl(
+    baseGroups = c(
+      "Difference",
+      "Percent"
+    ),
+    position = c("topright"),
+    options = layersControlOptions(collapsed = FALSE)
+  ) %>%
+  addSearchFeatures(
+    targetGroups = "Difference",
+    options = searchFeaturesOptions(
+      zoom = 10,
+      propertyName = 'muni_name',
+      openPopup = TRUE,
+      firstTipSubmit = TRUE,
+      hideMarkerOnCollapse = TRUE,
+      position = 'topright',
+      textPlaceholder = "Search by Town Name..."
+    )
+  ) %>% 
+  htmlwidgets::onRender(
+    "
+      function(el, x) {
+         var updateLegend = function () {
+            var selectedGroup = document.querySelectorAll('input:checked')[0].nextSibling.innerText.substr(1);
+            var selectedClass = selectedGroup.replace(' ', '');
+            document.querySelectorAll('.legend').forEach(a => a.hidden=true);
+            document.querySelectorAll('.legend').forEach(l => {
+               if (l.classList.contains(selectedClass)) l.hidden=false;
+            });
+         };
+         updateLegend();
+         this.on('baselayerchange', el => updateLegend());
+      }"
+  )
+
+hh_2020_diff
+
+saveWidget(
+  widget = hh_2020_diff,
+  file = paste0(
+    output.hh,
+    "hh_validation_",
+    Sys.Date(),
+    ".html"
+  ),
+  libdir = output.hh,
+  selfcontained = FALSE
+)
+
+
+```
