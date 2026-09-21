@@ -6,15 +6,15 @@ Model acronyms are defined as: \* HLCM: Household location choice model \* ELCM:
 
 **2HLCM1 Model**
 
--   Agent segment: 1
+- Agent segment: 1
 
--   Segment definition: (recent_mover == 1) & (household_type == 1)
+- Segment definition: (recent_mover == 1) & (household_type == 1)
 
--   Segment description: income: -35,000, age: -35 , persons: 1
+- Segment description: income: -35,000, age: -35 , persons: 1
 
--   Log likelihood ratio: 0.5296033046363722
+- Log likelihood ratio: 0.5296033046363722
 
--   pseudo-R²: 0.4703966953636278
+- pseudo-R²: 0.4703966953636278
 
 Estimated coefficients for 2hlcm1:
 
@@ -29,15 +29,15 @@ Estimated coefficients for 2hlcm1:
 
 **2HLCM2 Model**
 
--   Agent segment: 2
+- Agent segment: 2
 
--   Segment definition: (recent_mover == 1) & (household_type == 2)
+- Segment definition: (recent_mover == 1) & (household_type == 2)
 
--   Segment description: income: -35,000, age: -35 , persons: 2+, children: 0
+- Segment description: income: -35,000, age: -35 , persons: 2+, children: 0
 
--   Log likelihood ratio: 0.5110973900136302
+- Log likelihood ratio: 0.5110973900136302
 
--   pseudo-R²: 0.4889026099863698
+- pseudo-R²: 0.4889026099863698
 
 Estimated coefficients for 2hlcm2:
 
@@ -52,15 +52,15 @@ Estimated coefficients for 2hlcm2:
 
 **2HLCM3 Model**
 
--   Agent segment: 3
+- Agent segment: 3
 
--   Segment definition: (recent_mover == 1) & (household_type == 3)
+- Segment definition: (recent_mover == 1) & (household_type == 3)
 
--   Segment description: income: -35,000, age: -35 , persons: 2+, children: 1
+- Segment description: income: -35,000, age: -35 , persons: 2+, children: 1
 
--   Log likelihood ratio: 0.666060993017088
+- Log likelihood ratio: 0.666060993017088
 
--   pseudo-R²: 0.333939006982912
+- pseudo-R²: 0.333939006982912
 
 Estimated coefficients for 2hlcm3:
 
@@ -76,15 +76,15 @@ Estimated coefficients for 2hlcm3:
 
 **2HLCM4 Model**
 
--   Agent segment: 4
+- Agent segment: 4
 
--   Segment definition: (recent_mover == 1) & (household_type == 4)
+- Segment definition: (recent_mover == 1) & (household_type == 4)
 
--   Segment description: income: -35,000, age: 35-64 , persons: 1
+- Segment description: income: -35,000, age: 35-64 , persons: 1
 
--   Log likelihood ratio: 0.6925600497273285
+- Log likelihood ratio: 0.6925600497273285
 
--   pseudo-R²: 0.30743995027267146
+- pseudo-R²: 0.30743995027267146
 
 Estimated coefficients for 2hlcm4:
 
@@ -100,15 +100,15 @@ Estimated coefficients for 2hlcm4:
 
 **2HLCM5 Model**
 
--   Agent segment: 5
+- Agent segment: 5
 
--   Segment definition: (recent_mover == 1) & (household_type == 5)
+- Segment definition: (recent_mover == 1) & (household_type == 5)
 
--   Segment description: income: -35,000, age: 35-64 , persons: 2+, children: 0
+- Segment description: income: -35,000, age: 35-64 , persons: 2+, children: 0
 
--   Log likelihood ratio: 0.6627721644178177
+- Log likelihood ratio: 0.6627721644178177
 
--   pseudo-R²: 0.3372278355821823
+- pseudo-R²: 0.3372278355821823
 
 Estimated coefficients for 2hlcm5:
 
@@ -123,15 +123,15 @@ Estimated coefficients for 2hlcm5:
 
 **2HLCM6 Model**
 
--   Agent segment: 6
+- Agent segment: 6
 
--   Segment definition: (recent_mover == 1) & (household_type == 6)
+- Segment definition: (recent_mover == 1) & (household_type == 6)
 
--   Segment description: income: -35,000, age: 35-64 , persons: 2+, children: 1
+- Segment description: income: -35,000, age: 35-64 , persons: 2+, children: 1
 
--   Log likelihood ratio: 0.664566468070141
+- Log likelihood ratio: 0.664566468070141
 
--   pseudo-R²: 0.33543353192985903
+- pseudo-R²: 0.33543353192985903
 
 Estimated coefficients for 2hlcm6:
 
@@ -149,15 +149,15 @@ Estimated coefficients for 2hlcm6:
 
 **2HLCM7 Model**
 
--   Agent segment: 7
+- Agent segment: 7
 
--   Segment definition: (recent_mover == 1) & (household_type == 7)
+- Segment definition: (recent_mover == 1) & (household_type == 7)
 
--   Segment description: income: 35,000-100,000, age: -35 , persons: 1
+- Segment description: income: 35,000-100,000, age: -35 , persons: 1
 
--   Log likelihood ratio: 0.659877547378658
+- Log likelihood ratio: 0.659877547378658
 
--   pseudo-R²: 0.340122452621342
+- pseudo-R²: 0.340122452621342
 
 Estimated coefficients for 2hlcm7:
 
@@ -173,15 +173,15 @@ Estimated coefficients for 2hlcm7:
 
 **2HLCM8 Model**
 
--   Agent segment: 8
+- Agent segment: 8
 
--   Segment definition: (recent_mover == 1) & (household_type == 8)
+- Segment definition: (recent_mover == 1) & (household_type == 8)
 
--   Segment description: income: 35,000-100,000, age: -35 , persons: 2+, children: 0
+- Segment description: income: 35,000-100,000, age: -35 , persons: 2+, children: 0
 
--   Log likelihood ratio: 0.6661260963513765
+- Log likelihood ratio: 0.6661260963513765
 
--   pseudo-R²: 0.33387390364862346
+- pseudo-R²: 0.33387390364862346
 
 Estimated coefficients for 2hlcm8:
 
@@ -195,15 +195,15 @@ Estimated coefficients for 2hlcm8:
 
 **2HLCM9 Model**
 
--   Agent segment: 9
+- Agent segment: 9
 
--   Segment definition: (recent_mover == 1) & (household_type == 9)
+- Segment definition: (recent_mover == 1) & (household_type == 9)
 
--   Segment description: income: 35,000-100,000, age: -35 , persons: 2+, children: 1
+- Segment description: income: 35,000-100,000, age: -35 , persons: 2+, children: 1
 
--   Log likelihood ratio: 0.7589210164054502
+- Log likelihood ratio: 0.7589210164054502
 
--   pseudo-R²: 0.24107898359454982
+- pseudo-R²: 0.24107898359454982
 
 Estimated coefficients for 2hlcm9:
 
@@ -218,15 +218,15 @@ Estimated coefficients for 2hlcm9:
 
 **2HLCM10 Model**
 
--   Agent segment: 10
+- Agent segment: 10
 
--   Segment definition: (recent_mover == 1) & (household_type == 10)
+- Segment definition: (recent_mover == 1) & (household_type == 10)
 
--   Segment description: income: 35,000-100,000, age: 35-65 , persons: 1
+- Segment description: income: 35,000-100,000, age: 35-65 , persons: 1
 
--   Log likelihood ratio: 0.7783463682573432
+- Log likelihood ratio: 0.7783463682573432
 
--   pseudo-R²: 0.22165363174265684
+- pseudo-R²: 0.22165363174265684
 
 Estimated coefficients for 2hlcm10:
 
@@ -240,15 +240,15 @@ Estimated coefficients for 2hlcm10:
 
 **2HLCM11 Model**
 
--   Agent segment: 11
+- Agent segment: 11
 
--   Segment definition: (recent_mover == 1) & (household_type == 11)
+- Segment definition: (recent_mover == 1) & (household_type == 11)
 
--   Segment description: income: 35,000-100,000, age: 35-65 , persons: 2+, children: 0
+- Segment description: income: 35,000-100,000, age: 35-65 , persons: 2+, children: 0
 
--   Log likelihood ratio: 0.772964212382061
+- Log likelihood ratio: 0.772964212382061
 
--   pseudo-R²: 0.22703578761793897
+- pseudo-R²: 0.22703578761793897
 
 Estimated coefficients for 2hlcm11:
 
@@ -262,15 +262,15 @@ Estimated coefficients for 2hlcm11:
 
 **2HLCM12 Model**
 
--   Agent segment: 12
+- Agent segment: 12
 
--   Segment definition: (recent_mover == 1) & (household_type == 12)
+- Segment definition: (recent_mover == 1) & (household_type == 12)
 
--   Segment description: income: 35,000-100,000, age: 35-65 , persons: 2+, children: 1
+- Segment description: income: 35,000-100,000, age: 35-65 , persons: 2+, children: 1
 
--   Log likelihood ratio: 0.7578005956376918
+- Log likelihood ratio: 0.7578005956376918
 
--   pseudo-R²: 0.24219940436230825
+- pseudo-R²: 0.24219940436230825
 
 Estimated coefficients for 2hlcm12:
 
@@ -286,15 +286,15 @@ Estimated coefficients for 2hlcm12:
 
 **2HLCM13 Model**
 
--   Agent segment: 13
+- Agent segment: 13
 
--   Segment definition: (recent_mover == 1) & (household_type == 13)
+- Segment definition: (recent_mover == 1) & (household_type == 13)
 
--   Segment description: income: +100,000, age: -35 , persons: 1
+- Segment description: income: +100,000, age: -35 , persons: 1
 
--   Log likelihood ratio: 0.5695042142309676
+- Log likelihood ratio: 0.5695042142309676
 
--   pseudo-R²: 0.43049578576903236
+- pseudo-R²: 0.43049578576903236
 
 Estimated coefficients for 2hlcm13:
 
@@ -309,15 +309,15 @@ Estimated coefficients for 2hlcm13:
 
 **2HLCM14 Model**
 
--   Agent segment: 14
+- Agent segment: 14
 
--   Segment definition: (recent_mover == 1) & (household_type == 14)
+- Segment definition: (recent_mover == 1) & (household_type == 14)
 
--   Segment description: income: +100,000, age: -35 , persons: 2+, children: 0
+- Segment description: income: +100,000, age: -35 , persons: 2+, children: 0
 
--   Log likelihood ratio: 0.6833052922530228
+- Log likelihood ratio: 0.6833052922530228
 
--   pseudo-R²: 0.31669470774697717
+- pseudo-R²: 0.31669470774697717
 
 Estimated coefficients for 2hlcm14:
 
@@ -334,15 +334,15 @@ Estimated coefficients for 2hlcm14:
 
 **2HLCM15 Model**
 
--   Agent segment: 15
+- Agent segment: 15
 
--   Segment definition: (recent_mover == 1) & (household_type == 15)
+- Segment definition: (recent_mover == 1) & (household_type == 15)
 
--   Segment description: income: +100,000, age: -35 , persons: 2+, children: 1
+- Segment description: income: +100,000, age: -35 , persons: 2+, children: 1
 
--   Log likelihood ratio: 0.8330747642416653
+- Log likelihood ratio: 0.8330747642416653
 
--   pseudo-R²: 0.16692523575833473
+- pseudo-R²: 0.16692523575833473
 
 Estimated coefficients for 2hlcm15:
 
@@ -359,15 +359,15 @@ Estimated coefficients for 2hlcm15:
 
 **2HLCM16 Model**
 
--   Agent segment: 16
+- Agent segment: 16
 
--   Segment definition: (recent_mover == 1) & (household_type == 16)
+- Segment definition: (recent_mover == 1) & (household_type == 16)
 
--   Segment description: income: +100,000, age: 35-65 , persons: 1
+- Segment description: income: +100,000, age: 35-65 , persons: 1
 
--   Log likelihood ratio: 0.7570625542775985
+- Log likelihood ratio: 0.7570625542775985
 
--   pseudo-R²: 0.2429374457224015
+- pseudo-R²: 0.2429374457224015
 
 Estimated coefficients for 2hlcm16:
 
@@ -382,15 +382,15 @@ Estimated coefficients for 2hlcm16:
 
 **2HLCM17 Model**
 
--   Agent segment: 17
+- Agent segment: 17
 
--   Segment definition: (recent_mover == 1) & (household_type == 17)
+- Segment definition: (recent_mover == 1) & (household_type == 17)
 
--   Segment description: income: +100,000, age: 35-65 , persons: 2+, children: 1
+- Segment description: income: +100,000, age: 35-65 , persons: 2+, children: 1
 
--   Log likelihood ratio: 0.8381419886099023
+- Log likelihood ratio: 0.8381419886099023
 
--   pseudo-R²: 0.1618580113900977
+- pseudo-R²: 0.1618580113900977
 
 Estimated coefficients for 2hlcm17:
 
@@ -405,15 +405,15 @@ Estimated coefficients for 2hlcm17:
 
 **2HLCM18 Model**
 
--   Agent segment: 18
+- Agent segment: 18
 
--   Segment definition: (recent_mover == 1) & (household_type == 18)
+- Segment definition: (recent_mover == 1) & (household_type == 18)
 
--   Segment description: income: 35,000-100,000, age: +65 , persons: 1
+- Segment description: income: 35,000-100,000, age: +65 , persons: 1
 
--   Log likelihood ratio: 0.8316423797830624
+- Log likelihood ratio: 0.8316423797830624
 
--   pseudo-R²: 0.16835762021693756
+- pseudo-R²: 0.16835762021693756
 
 Estimated coefficients for 2hlcm18:
 
@@ -427,15 +427,15 @@ Estimated coefficients for 2hlcm18:
 
 **2HLCM19 Model**
 
--   Agent segment: 19
+- Agent segment: 19
 
--   Segment definition: (recent_mover == 1) & (household_type == 19)
+- Segment definition: (recent_mover == 1) & (household_type == 19)
 
--   Segment description: income: -35,000, age: +65 , household_type: any
+- Segment description: income: -35,000, age: +65 , household_type: any
 
--   Log likelihood ratio: 0.6962972083564676
+- Log likelihood ratio: 0.6962972083564676
 
--   pseudo-R²: 0.3037027916435324
+- pseudo-R²: 0.3037027916435324
 
 Estimated coefficients for 2hlcm19:
 
@@ -450,15 +450,15 @@ Estimated coefficients for 2hlcm19:
 
 **2HLCM20 Model**
 
--   Agent segment: 20
+- Agent segment: 20
 
--   Segment definition: (recent_mover == 1) & (household_type == 20)
+- Segment definition: (recent_mover == 1) & (household_type == 20)
 
--   Segment description: income: 35,000-100,000, age: +65 , household_type: any
+- Segment description: income: 35,000-100,000, age: +65 , household_type: any
 
--   Log likelihood ratio: 0.7809014937529616
+- Log likelihood ratio: 0.7809014937529616
 
--   pseudo-R²: 0.21909850624703842
+- pseudo-R²: 0.21909850624703842
 
 Estimated coefficients for 2hlcm20:
 
@@ -474,15 +474,15 @@ Estimated coefficients for 2hlcm20:
 
 **2HLCM21 Model**
 
--   Agent segment: 21
+- Agent segment: 21
 
--   Segment definition: (recent_mover == 1) & (household_type == 21)
+- Segment definition: (recent_mover == 1) & (household_type == 21)
 
--   Segment description: income: +100,000, age: +65 , household_type: any
+- Segment description: income: +100,000, age: +65 , household_type: any
 
--   Log likelihood ratio: 0.8090398898898495
+- Log likelihood ratio: 0.8090398898898495
 
--   pseudo-R²: 0.19096011011015046
+- pseudo-R²: 0.19096011011015046
 
 Estimated coefficients for 2hlcm21:
 
@@ -499,15 +499,15 @@ Estimated coefficients for 2hlcm21:
 
 **ELCM1 Model**
 
--   Agent segment: 1
+- Agent segment: 1
 
--   Segment definition: aggr_sector_id == 1
+- Segment definition: aggr_sector_id == 1
 
--   Segment description: 23 Construction
+- Segment description: 23 Construction
 
--   Log likelihood ratio: 0.782660746654347
+- Log likelihood ratio: 0.782660746654347
 
--   pseudo-R²: 0.21733925334565296
+- pseudo-R²: 0.21733925334565296
 
 Estimated coefficients for elcm1:
 
@@ -522,15 +522,15 @@ Estimated coefficients for elcm1:
 
 **ELCM2 Model**
 
--   Agent segment: 2
+- Agent segment: 2
 
--   Segment definition: aggr_sector_id == 2
+- Segment definition: aggr_sector_id == 2
 
--   Segment description: 61 Educational Services, 62 Health Care and Social Assistance
+- Segment description: 61 Educational Services, 62 Health Care and Social Assistance
 
--   Log likelihood ratio: 0.5584531134873556
+- Log likelihood ratio: 0.5584531134873556
 
--   pseudo-R²: 0.4415468865126444
+- pseudo-R²: 0.4415468865126444
 
 Estimated coefficients for elcm2:
 
@@ -546,15 +546,15 @@ Estimated coefficients for elcm2:
 
 **ELCM3 Model**
 
--   Agent segment: 3
+- Agent segment: 3
 
--   Segment definition: aggr_sector_id == 3
+- Segment definition: aggr_sector_id == 3
 
--   Segment description: 52 Finance and Insurance, 53 Real Estate Rental and Leasing
+- Segment description: 52 Finance and Insurance, 53 Real Estate Rental and Leasing
 
--   Log likelihood ratio: 0.7243687136345293
+- Log likelihood ratio: 0.7243687136345293
 
--   pseudo-R²: 0.27563128636547074
+- pseudo-R²: 0.27563128636547074
 
 Estimated coefficients for elcm3:
 
@@ -569,15 +569,15 @@ Estimated coefficients for elcm3:
 
 **ELCM4 Model**
 
--   Agent segment: 4
+- Agent segment: 4
 
--   Segment definition: aggr_sector_id == 4
+- Segment definition: aggr_sector_id == 4
 
--   Segment description: 92 Public Administration
+- Segment description: 92 Public Administration
 
--   Log likelihood ratio: 0.27364141588526747
+- Log likelihood ratio: 0.27364141588526747
 
--   pseudo-R²: 0.7263585841147325
+- pseudo-R²: 0.7263585841147325
 
 Estimated coefficients for elcm4:
 
@@ -592,15 +592,15 @@ Estimated coefficients for elcm4:
 
 **ELCM5 Model**
 
--   Agent segment: 5
+- Agent segment: 5
 
--   Segment definition: aggr_sector_id == 5
+- Segment definition: aggr_sector_id == 5
 
--   Segment description: 51 Information
+- Segment description: 51 Information
 
--   Log likelihood ratio: 0.41930426565131945
+- Log likelihood ratio: 0.41930426565131945
 
--   pseudo-R²: 0.5806957343486805
+- pseudo-R²: 0.5806957343486805
 
 Estimated coefficients for elcm5:
 
@@ -615,15 +615,15 @@ Estimated coefficients for elcm5:
 
 **ELCM6 Model**
 
--   Agent segment: 6
+- Agent segment: 6
 
--   Segment definition: aggr_sector_id == 6
+- Segment definition: aggr_sector_id == 6
 
--   Segment description: 44-45 Retail Trade, 71 Arts, Entertainment, and Recreation, 72 Accommodation and Food Services
+- Segment description: 44-45 Retail Trade, 71 Arts, Entertainment, and Recreation, 72 Accommodation and Food Services
 
--   Log likelihood ratio: 0.6228708001378972
+- Log likelihood ratio: 0.6228708001378972
 
--   pseudo-R²: 0.3771291998621028
+- pseudo-R²: 0.3771291998621028
 
 Estimated coefficients for elcm6:
 
@@ -637,15 +637,15 @@ Estimated coefficients for elcm6:
 
 **ELCM7 Model**
 
--   Agent segment: 7
+- Agent segment: 7
 
--   Segment definition: aggr_sector_id == 7
+- Segment definition: aggr_sector_id == 7
 
--   Segment description: 31-33 Manufacturing
+- Segment description: 31-33 Manufacturing
 
--   Log likelihood ratio: 0.440895131752665
+- Log likelihood ratio: 0.440895131752665
 
--   pseudo-R²: 0.559104868247335
+- pseudo-R²: 0.559104868247335
 
 Estimated coefficients for elcm7:
 
@@ -657,15 +657,15 @@ Estimated coefficients for elcm7:
 
 **ELCM8 Model**
 
--   Agent segment: 8
+- Agent segment: 8
 
--   Segment definition: aggr_sector_id == 8
+- Segment definition: aggr_sector_id == 8
 
--   Segment description: 11 Agriculture, Forestry, Fishing and Hunting, 21 Mining, 81 Other Services (except Public Administration)
+- Segment description: 11 Agriculture, Forestry, Fishing and Hunting, 21 Mining, 81 Other Services (except Public Administration)
 
--   Log likelihood ratio: 0.7247014511970391
+- Log likelihood ratio: 0.7247014511970391
 
--   pseudo-R²: 0.2752985488029609
+- pseudo-R²: 0.2752985488029609
 
 Estimated coefficients for elcm8:
 
@@ -678,15 +678,15 @@ Estimated coefficients for elcm8:
 
 **ELCM9 Model**
 
--   Agent segment: 9
+- Agent segment: 9
 
--   Segment definition: aggr_sector_id == 9
+- Segment definition: aggr_sector_id == 9
 
--   Segment description: 54 Professional, Scientific, and Technical Services, 55 Management of Companies and Enterprises, 56 Administrative and Support and Waste Management and Remediation Services
+- Segment description: 54 Professional, Scientific, and Technical Services, 55 Management of Companies and Enterprises, 56 Administrative and Support and Waste Management and Remediation Services
 
--   Log likelihood ratio: 0.6449703043819192
+- Log likelihood ratio: 0.6449703043819192
 
--   pseudo-R²: 0.35502969561808084
+- pseudo-R²: 0.35502969561808084
 
 Estimated coefficients for elcm9:
 
@@ -700,15 +700,15 @@ Estimated coefficients for elcm9:
 
 **ELCM10 Model**
 
--   Agent segment: 10
+- Agent segment: 10
 
--   Segment definition: aggr_sector_id == 10
+- Segment definition: aggr_sector_id == 10
 
--   Segment description: 22 Utilities, 42 Wholesale Trade, 48-49 Transportation and Warehousing
+- Segment description: 22 Utilities, 42 Wholesale Trade, 48-49 Transportation and Warehousing
 
--   Log likelihood ratio: 0.6088929467793324
+- Log likelihood ratio: 0.6088929467793324
 
--   pseudo-R²: 0.39110705322066763
+- pseudo-R²: 0.39110705322066763
 
 Estimated coefficients for elcm10:
 
@@ -723,15 +723,15 @@ Estimated coefficients for elcm10:
 
 **RDPLCM1 Model**
 
--   Agent segment: 1
+- Agent segment: 1
 
--   Segment definition: (year_built \> 2000) & (building_type_id == 1)
+- Segment definition: (year_built \> 2000) & (building_type_id == 1)
 
--   Segment description: Own Single-family
+- Segment description: Own Single-family
 
--   Log likelihood ratio: 0.7873985044398879
+- Log likelihood ratio: 0.7873985044398879
 
--   pseudo-R²: 0.2126014955601121
+- pseudo-R²: 0.2126014955601121
 
 Estimated coefficients for rdplcm1:
 
@@ -744,15 +744,15 @@ Estimated coefficients for rdplcm1:
 
 **RDPLCM2 Model**
 
--   Agent segment: 2
+- Agent segment: 2
 
--   Segment definition: (year_built \> 2000) & (building_type_id == 2)
+- Segment definition: (year_built \> 2000) & (building_type_id == 2)
 
--   Segment description: Rent Single-family
+- Segment description: Rent Single-family
 
--   Log likelihood ratio: 0.7342200796194963
+- Log likelihood ratio: 0.7342200796194963
 
--   pseudo-R²: 0.2657799203805037
+- pseudo-R²: 0.2657799203805037
 
 Estimated coefficients for rdplcm2:
 
@@ -767,15 +767,15 @@ Estimated coefficients for rdplcm2:
 
 **RDPLCM3 Model**
 
--   Agent segment: 3
+- Agent segment: 3
 
--   Segment definition: (year_built \> 2000) & (building_type_id == 3)
+- Segment definition: (year_built \> 2000) & (building_type_id == 3)
 
--   Segment description: Own Multifamily
+- Segment description: Own Multifamily
 
--   Log likelihood ratio: 0.8150782666356472
+- Log likelihood ratio: 0.8150782666356472
 
--   pseudo-R²: 0.1849217333643528
+- pseudo-R²: 0.1849217333643528
 
 Estimated coefficients for rdplcm3:
 
@@ -789,15 +789,15 @@ Estimated coefficients for rdplcm3:
 
 **RDPLCM4 Model**
 
--   Agent segment: 4
+- Agent segment: 4
 
--   Segment definition: (year_built \> 2000) & (building_type_id == 4)
+- Segment definition: (year_built \> 2000) & (building_type_id == 4)
 
--   Segment description: Rent Multifamily
+- Segment description: Rent Multifamily
 
--   Log likelihood ratio: 0.5948316369913816
+- Log likelihood ratio: 0.5948316369913816
 
--   pseudo-R²: 0.40516836300861836
+- pseudo-R²: 0.40516836300861836
 
 Estimated coefficients for rdplcm4:
 
@@ -813,11 +813,11 @@ Estimated coefficients for rdplcm4:
 
 **REPM_RENT1 Model**
 
--   Agent segment: 1
+- Agent segment: 1
 
--   Segment description: Regression for values
+- Segment description: Regression for values
 
--   R²: 0.10569465673756018
+- R²: 0.10569465673756018
 
 Estimated coefficients for repm_rent1:
 
@@ -832,11 +832,11 @@ Estimated coefficients for repm_rent1:
 
 **REPM_VALUE1 Model**
 
--   Agent segment: 1
+- Agent segment: 1
 
--   Segment description: Regression for values
+- Segment description: Regression for values
 
--   R²: 0.6292386385621229
+- R²: 0.6292386385621229
 
 Estimated coefficients for repm_value1:
 

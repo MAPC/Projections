@@ -43,6 +43,8 @@ if (grepl('VM',Sys.info()[['nodename']])){
 # Root Directory
 root <- paste0(base,'/Projects/Current_Projects/Projections/Projections_2028/Data/01_Regional_Control_Totals/')
 
+emp_path <- paste0(root, 'Employment/')
+
 shop_path <- paste0(base,'/Projects/Current_Projects/Housing/StatewideHousingPlan/04_Analysis/Data/Working/Reweighter/',scen,'/Output_Files_UPDATE/')
 
 input_path <- paste0(root, 'SHoP_Scenarios/Reweighter_Outputs/',scen,'/')
@@ -1061,6 +1063,32 @@ mapc.expand.pp <- mapc.ctrl.pp %>%
 mapc.expand.pp[is.na(total_number_of_households), total_number_of_households:=0]
 
 fwrite(mapc.expand.pp, paste0(output_path,'MAPC_Household_Control_Totals_SHoP_',reb,'_',scen,'_pop_corrected.csv'))
+
+
+```
+
+
+# 4 - Employment Control Totals
+
+```{r}
+
+# Load LRTP 2023 control totals to obtain 2019/2020 base year values
+
+semp <- fread(paste0(emp_path,'Statewide_Employment_Controls_v03.29.23.csv')) |> 
+  filter(year==2019) |> 
+  setorder(subregion_code,aggr_sector_id)
+
+memp <- fread(paste0(emp_path,'MAPC101_Employment_Controls_v03.30.23_v2.csv')) |> 
+  filter(year==2019)
+
+# Load MassDOT/OTP employment projections for LRTP 2028
+
+swm.emp <- read_excel(paste0(emp_path, "Employment based on workforce.xlsx"),
+                  sheet = 'SWM_employment_projection')
+mapcm.emp <- read_excel(paste0(emp_path, "Employment based on workforce.xlsx"),
+                  sheet = 'MAPCM_employment_projection')
+
+subregion_xwalk <- fread(paste0(root,'subregions_crosswalk.csv'))
 
 
 ```

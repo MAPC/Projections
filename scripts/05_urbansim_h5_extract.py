@@ -6,7 +6,7 @@ import h5py
 # set working directory
 
 #Most recent MAPC Model run
-run = 'run_243'
+run = 'run_249'
 
 #Most recent SWM run
 #run = 's102'
@@ -16,18 +16,18 @@ run = 'run_243'
 #os.chdir('/mnt/k/DataServices/Projects/Current_Projects/Projections/Data/03_UrbanSim/UrbanSim_Outputs/' + run)
 
 #Remote Directory
-os.chdir('/mnt/s/Network Shares/K Drive/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/UrbanSim_Outputs/' + run)
-
 #os.chdir('/mnt/s/Network Shares/K Drive/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/UrbanSim_Outputs/' + run)
-#os.chdir('/mnt/s/Network Shares/K Drive/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/UrbanSim_Outputs/test')
+#os.chdir('/mnt/c/Users/cgate/Desktop/' + run)
+#os.chdir('/mnt/s/Network Shares/K Drive/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/UrbanSim_Outputs/' + run)
+os.chdir('/mnt/s/Network Shares/K Drive/DataServices/Projects/Current_Projects/Projections/Projections_2023/Associated_Projects/MBTA_Capacity_Project/UrbanSim_Outputs/JP_upzone/' + run)
 
 #os.chdir('/mnt/k/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/UrbanSim_Outputs/' + run)
 
 #os.chdir('/mnt/cygdrive/k/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/UrbanSim_Outputs/' + run)
 #Years in the H5 file
 #years = ['2010','2019','2029','2034']
-#years = ['2019','2023','2029','2034','2039','2044','2049']
-years = ['2019','2024']
+years = ['2019','2024','2029','2034','2039','2049']
+#years = ['2019','2024']
 for yr in years:
         if not os.path.exists(yr):
             os.makedirs(yr)

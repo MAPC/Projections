@@ -4,12 +4,13 @@ format: html
 editor: visual
 ---
 
-
 # 1 - Setup
 
 ```{r, setup, include=FALSE}
 
 pacman::p_load(reticulate)
+
+use_python("C:/Program Files/ArcGIS/Pro/bin/Python/envs/arcgispro-py3/python.exe")
 
 # File paths
 # Paths
@@ -21,14 +22,16 @@ if (grepl('VM',Sys.info()[['nodename']])){
 
 # root <- paste0(base,'/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/UrbanSim_Outputs/')
 
-root <- paste0(base,'/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/UrbanSim_Outputs/TDM23.3.0')
+# root <- paste0(base,'/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/UrbanSim_Outputs/TDM23.3.0')
 
-MAPCM_run = 's102'
+root <- paste0(base,'/Projects/Current_Projects/Projections/Projections_2023/Data/Associated_Projects/MBTA_Capacity_Project/UrbanSim_Outputs/JP_upzone')
+
+MAPCM_run = 'run_249'
 SWM_run = 's64'
 
 run = MAPCM_run
 
-years = c('2019','2024','2029','2034','2039','2044','2049')
+years = c('2019','2024','2029','2034','2039','2049')
 
 data_path <- file.path(root,run)
 
