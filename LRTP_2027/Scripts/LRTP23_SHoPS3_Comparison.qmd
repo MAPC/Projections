@@ -7,10 +7,13 @@ editor: visual
 ```{r}
 knitr::opts_chunk$set(echo = TRUE)
 # Loads libraries from LPDB_libraries.R script
-source(here::here("/LRTP27/Scripts/projections_libraries.R"))
+source(here::here("LRTP_2027/Scripts/projections_libraries.R"))
 
 # Load data keys to crosswalk municipality names to municipal IDs
 keys <- mapcdatakeys::all_muni_data_keys
+
+# Year filters
+yrs <- c(2010,2020,2030,2040,2050)
 
 #Global options to remove scientific notation and set random seed
 options(scipen = 999)
@@ -24,19 +27,229 @@ in_path <- "K:/DataServices/Projects/Current_Projects/Projections/Projections_20
 out_path <- "K:/DataServices/Projects/Current_Projects/Projections/Projections_2028/Data/01_Regional_Control_Totals/Comparisons/"
 ```
 
-# 0.1 Load Data
+# 1.0 Load And Clean Data
+# 1.1 Household Data
 ```{r}
-lrtp23 <- read.csv(paste0(in_path, "LRTP_2023/Statewide_Control_HHds_Projections2050_MB_v04.20.23_one_year_offset_HH_Adj.csv"))
+# Load LRTP 2023 Household Controls
+lrtp23 <- read.csv(paste0(in_path, "LRTP_2023/Statewide_Control_HHds_Projections2050_MB_v04.20.23_one_year_offset_HH_Adj.csv")) |> 
+  filter(year %in% yrs)
+
+# State-Level
+# Overall
+lrtp23_overall.hh <- lrtp23 |> 
+  group_by(year) |> 
+  summarise(
+    tot_hh.lrtp23 = sum(total_number_of_households)
+  ) |> 
+  ungroup()
+
+# By Age Group
+lrtp23_overall.age.hh <- lrtp23 |> 
+  group_by(year, age_of_head_min) |> 
+  summarise(
+    tot_hh.lrtp23 = sum(total_number_of_households)
+  ) |> 
+  ungroup()
+
+# By Income Group
+lrtp23_overall.income.hh <- lrtp23 |> 
+  group_by(year, income_min) |> 
+  summarise(
+    tot_hh.lrtp23 = sum(total_number_of_households)
+  ) |> 
+  ungroup()
+
+# By Children Group
+lrtp23_overall.children.hh <- lrtp23 |> 
+  group_by(year, children_min) |> 
+  summarise(
+    tot_hh.lrtp23 = sum(total_number_of_households)
+  ) |> 
+  ungroup()
+
+# By Persons Group
+lrtp23_overall.persons.hh <- lrtp23 |> 
+  group_by(year, persons_min) |> 
+  summarise(
+    tot_hh.lrtp23 = sum(total_number_of_households)
+  ) |> 
+  ungroup()
+
+# RPA-Level
+# Overall
+lrtp23_.rpa.hh <- lrtp23 |> 
+  group_by(year, subregion_code) |> 
+  summarise(
+    tot_hh.lrtp23 = sum(total_number_of_households)
+  ) |> 
+  ungroup()
+
+# By Age Group
+lrtp23_rpa.age.hh <- lrtp23 |> 
+  group_by(year, subregion_code, age_of_head_min) |> 
+  summarise(
+    tot_hh.lrtp23 = sum(total_number_of_households)
+  ) |> 
+  ungroup()
+
+# By Income Group
+lrtp23_rpa.income.hh <- lrtp23 |> 
+  group_by(year, subregion_code, income_min) |> 
+  summarise(
+    tot_hh.lrtp23 = sum(total_number_of_households)
+  ) |> 
+  ungroup()
+
+# By Children Group
+lrtp23_rpa.children.hh <- lrtp23 |> 
+  group_by(year, subregion_code, children_min) |> 
+  summarise(
+    tot_hh.lrtp23 = sum(total_number_of_households)
+  ) |> 
+  ungroup()
+
+# By Persons Group
+lrtp23_rpa.persons.hh <- lrtp23 |> 
+  group_by(year, subregion_code, persons_min) |> 
+  summarise(
+    tot_hh.lrtp23 = sum(total_number_of_households)
+  ) |> 
+  ungroup()
+
+# Load SHoP S3 Household Controls
+shops3 <- read.csv(paste0(in_path, "SHoP_Scenarios/UrbanSim_Inputs/Scenario_3/SWM_Household_Control_Totals_SHoP_MAPC97_Scenario_3_pop_corrected.csv")) |> filter(year %in% yrs)
+
+# State-Level
+# Overall
+shops3_overall.hh <- shops3 |> 
+  group_by(year) |> 
+  summarise(
+    tot_hh.shops3 = sum(total_number_of_households)
+  ) |> 
+  ungroup()
+
+# By Age Group
+shops3_overall.age.hh <- shops3 |> 
+  group_by(year, age_of_head_min) |> 
+  summarise(
+    tot_hh.shops3 = sum(total_number_of_households)
+  ) |> 
+  ungroup()
+
+# By Income Group
+shops3_overall.income.hh <- shops3 |> 
+  group_by(year, income_min) |> 
+  summarise(
+    tot_hh.shops3 = sum(total_number_of_households)
+  ) |> 
+  ungroup()
+
+# By Children Group
+shops3_overall.children.hh <- shops3 |> 
+  group_by(year, children_min) |> 
+  summarise(
+    tot_hh.shops3 = sum(total_number_of_households)
+  ) |> 
+  ungroup()
+
+# By Persons Group
+shops3_overall.persons.hh <- shops3 |> 
+  group_by(year, persons_min) |> 
+  summarise(
+    tot_hh.shops3 = sum(total_number_of_households)
+  ) |> 
+  ungroup()
+
+# RPA-Level
+# Overall
+shops3_.rpa.hh <- shops3 |> 
+  group_by(year, subregion_code) |> 
+  summarise(
+    tot_hh.shops3 = sum(total_number_of_households)
+  ) |> 
+  ungroup()
+
+# By Age Group
+shops3_rpa.age.hh <- shops3 |> 
+  group_by(year, subregion_code, age_of_head_min) |> 
+  summarise(
+    tot_hh.shops3 = sum(total_number_of_households)
+  ) |> 
+  ungroup()
+
+# By Income Group
+shops3_rpa.income.hh <- shops3 |> 
+  group_by(year, subregion_code, income_min) |> 
+  summarise(
+    tot_hh.shops3 = sum(total_number_of_households)
+  ) |> 
+  ungroup()
+
+# By Children Group
+shops3_rpa.children.hh <- shops3 |> 
+  group_by(year, subregion_code, children_min) |> 
+  summarise(
+    tot_hh.shops3 = sum(total_number_of_households)
+  ) |> 
+  ungroup()
+
+# By Persons Group
+shops3_rpa.persons.hh <- shops3 |> 
+  group_by(year, subregion_code, persons_min) |> 
+  summarise(
+    tot_hh.shops3 = sum(total_number_of_households)
+  ) |> 
+  ungroup()
 ```
 
-# 1.0 Join LRTP23 and SHoPS3 Inputs
+# 2.0 Join LRTP23 and SHoPS3 Inputs
 ```{r}
+# State-Level
+# Overall
+overall.hh <- left_join(lrtp23_overall.hh, shops3_overall.hh, by = c("year"))
+
+# By Age Group
+overall.age.hh <- left_join(lrtp23_overall.age.hh, shops3_overall.age.hh, by = c("year", "age_of_head_min")) 
+
+# By Income Group
+overall.income.hh <- left_join(lrtp23_overall.income.hh, shops3_overall.income.hh, by = c("year", "income_min")) 
+
+# By Children Group
+overall.children.hh <- left_join(lrtp23_overall.children.hh, shops3_overall.children.hh, by = c("year", "children_min"))
+
+# By Persons Group
+overall.persons.hh <- left_join(lrtp23_overall.persons.hh, shops3_overall.persons.hh, by = c("year", "persons_min"))
+
+# RPA-Level
+# Overall
+rpa.hh <- left_join(lrtp23_.rpa.hh, shops3_.rpa.hh, by = c("year", "subregion_code"))
+# By Age Group
+rpa.age.hh <- left_join(lrtp23_rpa.age.hh, shops3_rpa.age.hh, by = c("year", "subregion_code", "age_of_head_min"))
+# By Income Group
+rpa.income.hh <- left_join(lrtp23_rpa.income.hh, shops3_rpa.income.hh, by = c("year", "subregion_code", "income_min"))
+# By Children Group
+rpa.children.hh <- left_join(lrtp23_rpa.children.hh, shops3_rpa.children.hh, by = c("year", "subregion_code", "children_min"))
+# By Persons Group
+rpa.persons.hh <- left_join(lrtp23_rpa.persons.hh, shops3_rpa.persons.hh, by = c("year", "subregion_code", "persons_min"))
+
+
 ```
 
-# 2.0 Create Comparison Tables
-```{r}
-``` 
 
 # 3.0 Outputs
 ```{r}
+# Overall
+write.csv(overall.hh, paste0(out_path, "overall.hh.csv"), row.names = F)
+write.csv(overall.age.hh, paste0(out_path, "overall.age.hh.csv"), row.names = F)
+write.csv(overall.income.hh, paste0(out_path, "overall.income.hh.csv"), row.names = F)
+write.csv(overall.children.hh, paste0(out_path, "overall.children.hh.csv"), row.names = F)
+write.csv(overall.persons.hh, paste0(out_path, "overall.persons.hh.csv"), row.names = F)
+
+# RPA
+write.csv(rpa.hh, paste0(out_path, "rpa.hh.csv"), row.names = F)
+write.csv(rpa.age.hh, paste0(out_path, "rpa.age.hh.csv"), row.names = F)
+write.csv(rpa.income.hh, paste0(out_path, "rpa.income.hh.csv"), row.names = F)
+write.csv(rpa.children.hh, paste0(out_path, "rpa.children.hh.csv"), row.names = F)
+write.csv(rpa.persons.hh, paste0(out_path, "rpa.persons.hh.csv"), row.names = F)
+
 ```
