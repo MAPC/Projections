@@ -1286,8 +1286,31 @@ for (yr in years) {
     diff <- adiff[mpo == m & year == yr]
     swm <- dt[mpo == m]
     
-    # ageCAT 2 and 3
-    for (i in 2:3) {
+    # ageCAT = 1
+    da <- diff[ageCAT6 == 1, diff]
+    dlead <- diff[ageCAT6 == 2, diff]
+    if (da > 0 & dlead < 0) {
+      if (abs(dlead) > da) {
+        addN <- abs(da)
+      }
+      else if (abs(dlead) <= da) {
+        addN <- abs(dlead)
+      }
+      toadd <-
+        swm[ageCAT6 == 1 &
+              person_num > 1, sample(unique(pid), addN)]
+      swm[pid %in% toadd, `:=` (age = age + 5, ageCAT6 = ageCAT6 + 1)]
+    }
+    # Update age difference table
+    newpop <- swm[ageCAT6 == 1, .N]
+    newlead <- swm[ageCAT6 == 2, .N]
+    diff[ageCAT6 == 1, `:=`(urbansim_hh_pop = newpop, diff = newpop - umdi_hh_pop)]
+    diff[ageCAT6 == 2, `:=`(urbansim_hh_pop = newlead, diff = newlead - umdi_hh_pop)]
+    suppressWarnings(rm(newlag,newpop,newlead,addN,subN,da,dlag,dlead,tosub,toadd))
+    gc()
+    
+    # ageCAT 2
+    for (i in 2) {
       dlag <- diff[ageCAT6 == i - 1, diff]
       da <- diff[ageCAT6 == i, diff]
       dlead <- diff[ageCAT6 == i + 1, diff]
@@ -1306,7 +1329,7 @@ for (yr in years) {
                 person_num > 1, sample(unique(pid), subN)]
         toadd <-
           swm[ageCAT6 == i &
-                person_num > 1, sample(unique(pid), addN)]
+                person_num > 1 & !pid %in% tosub, sample(unique(pid), addN)]
         swm[pid %in% tosub, `:=` (age = age - 5, ageCAT6 = ageCAT6 - 1)]
         swm[pid %in% toadd, `:=` (age = age + 5, ageCAT6 = ageCAT6 + 1)]
       }
@@ -1345,28 +1368,67 @@ for (yr in years) {
       gc()
     }
     
-    # ageCAT = 1
-    da <- diff[ageCAT6 == 1, diff]
-    dlead <- diff[ageCAT6 == 2, diff]
-    if (da > 0 & dlead < 0) {
-      if (abs(dlead) > da) {
-        addN <- abs(da)
+    # ageCAT 3
+    for (i in 3) {
+      dlag <- diff[ageCAT6 == i - 1, diff]
+      da <- diff[ageCAT6 == i, diff]
+      dlead <- diff[ageCAT6 == i + 1, diff]
+      
+      if (da > 0 & dlag < 0 & dlead < 0) {
+        if ((abs(dlag) + abs(dlead)) > da) {
+          subN <- abs(round(da * (dlag / (dlag + dlead))))
+          addN <- abs(round(da * (dlead / (dlag + dlead))))
+        }
+        else if ((abs(dlag) + abs(dlead)) <= da) {
+          subN <- abs(dlag)
+          addN <- abs(dlead)
+        }
+        tosub <-
+          swm[ageCAT6 == i &
+                person_num > 1, sample(unique(pid), subN)]
+        toadd <-
+          swm[ageCAT6 == i &
+                person_num > 1 & !pid %in% tosub, sample(unique(pid), addN)]
+        swm[pid %in% tosub, `:=` (age = age - 5, ageCAT6 = ageCAT6 - 1)]
+        swm[pid %in% toadd, `:=` (age = age + 5, ageCAT6 = ageCAT6 + 1)]
+        swm[pid %in% toadd & age > 17, age := 17]
       }
-      else if (abs(dlead) <= da) {
-        addN <- abs(dlead)
+      if (da > 0 & dlag < 0 & dlead > 0) {
+        if (abs(dlag) > da) {
+          subN <- abs(da)
+        }
+        else if (abs(dlag) <= da) {
+          subN <- abs(dlag)
+        }
+        tosub <-
+          swm[ageCAT6 == i &
+                person_num > 1, sample(unique(pid), subN)]
+        swm[pid %in% tosub, `:=` (age = age - 5, ageCAT6 = ageCAT6 - 1)]
       }
-      toadd <-
-        swm[ageCAT6 == 1 &
-              person_num > 1, sample(unique(pid), addN)]
-      swm[pid %in% toadd, `:=` (age = age + 5, ageCAT6 = ageCAT6 + 1)]
+      if (da > 0 & dlag > 0 & dlead < 0) {
+        if (abs(dlead) > da) {
+          addN <- abs(da)
+        }
+        else if (abs(dlead) <= da) {
+          addN <- abs(dlead)
+        }
+        toadd <-
+          swm[ageCAT6 == i &
+                person_num > 1, sample(unique(pid), addN)]
+        swm[pid %in% toadd, `:=` (age = age + 5, ageCAT6 = ageCAT6 + 1)]
+        swm[pid %in% toadd & age > 17, age := 17]
+      }
+      # Update age difference table
+      newlag <- swm[ageCAT6 == i - 1, .N]
+      newpop <- swm[ageCAT6 == i, .N]
+      newlead <- swm[ageCAT6 == i + 1, .N]
+      diff[ageCAT6 == i - 1, `:=`(urbansim_hh_pop = newlag, diff = newlag - umdi_hh_pop)]
+      diff[ageCAT6 == i, `:=`(urbansim_hh_pop = newpop, diff = newpop - umdi_hh_pop)]
+      diff[ageCAT6 == i + 1, `:=`(urbansim_hh_pop = newlead, diff = newlead - umdi_hh_pop)]
+      suppressWarnings(rm(newlag,newpop,newlead,addN,subN,da,dlag,dlead,tosub,toadd))
+      gc()
     }
-    # Update age difference table
-    newpop <- swm[ageCAT6 == 1, .N]
-    newlead <- swm[ageCAT6 == 2, .N]
-    diff[ageCAT6 == 1, `:=`(urbansim_hh_pop = newpop, diff = newpop - umdi_hh_pop)]
-    diff[ageCAT6 == 2, `:=`(urbansim_hh_pop = newlead, diff = newlead - umdi_hh_pop)]
-    suppressWarnings(rm(newlag,newpop,newlead,addN,subN,da,dlag,dlead,tosub,toadd))
-    gc()
+    
     
     # ageCAT = 4
     dlag <- diff[ageCAT6 == 3, diff]
@@ -1380,7 +1442,7 @@ for (yr in years) {
         subN <- abs(dlag)
       }
       tosub <-
-        swm[age %in% 15:18 &
+        swm[age %in% 15:17 &
               person_num > 1, sample(unique(pid), subN)]
       swm[pid %in% tosub, `:=` (age = age - 5, ageCAT6 = ageCAT6 - 1)]
     }
@@ -1391,6 +1453,33 @@ for (yr in years) {
     diff[ageCAT6 == 3, `:=`(urbansim_hh_pop = newlag, diff = newlag - umdi_hh_pop)]
     suppressWarnings(rm(newlag,newpop,newlead,addN,subN,da,dlag,dlead,tosub,toadd))
     gc()
+    
+    # ageCAT = 5
+    
+    da <- diff[ageCAT6 == 5, diff]
+    dlead <- diff[ageCAT6 == 6, diff]
+    if (da > 0 & dlead < 0) {
+      if (abs(dlead) > da) {
+        addN <- abs(da)
+      }
+      else if (abs(dlead) <= da) {
+        addN <- abs(dlead)
+      }
+      toadd <-
+        swm[ageCAT6 == 5 &
+              person_num > 1, sample(unique(pid), addN)]
+      swm[pid %in% toadd, `:=` (age = age + 5, ageCAT6 = ageCAT6 + 1)]
+    }
+    # Update age difference table
+    newpop <- swm[ageCAT6 == 5, .N]
+    newlead <- swm[ageCAT6 == 6, .N]
+    diff[ageCAT6 == 5, `:=`(urbansim_hh_pop = newpop, diff = newpop - umdi_hh_pop)]
+    diff[ageCAT6 == 6, `:=`(urbansim_hh_pop = newlead, diff = newlead - umdi_hh_pop)]
+    
+    suppressWarnings(rm(newlag,newpop,newlead,addN,subN,da,dlag,dlead,tosub,toadd))
+    gc()
+    
+    # AgeCAT 6 - 17
     
     for (i in 6:17) {
       dlag <- diff[ageCAT6 == i - 1, diff]
@@ -1411,7 +1500,7 @@ for (yr in years) {
                 person_num > 1, sample(unique(pid), subN)]
         toadd <-
           swm[ageCAT6 == i &
-                person_num > 1, sample(unique(pid), addN)]
+                person_num > 1 & !pid %in% tosub, sample(unique(pid), addN)]
         swm[pid %in% tosub, `:=` (age = age - 5, ageCAT6 = ageCAT6 - 1)]
         swm[pid %in% toadd, `:=` (age = age + 5, ageCAT6 = ageCAT6 + 1)]
       }
@@ -1439,30 +1528,7 @@ for (yr in years) {
       
     }
     
-    # ageCAT = 5
-    da <- diff[ageCAT6 == 5, diff]
-    dlead <- diff[ageCAT6 == 6, diff]
-    if (da > 0 & dlead < 0) {
-      if (abs(dlead) > da) {
-        addN <- abs(da)
-      }
-      else if (abs(dlead) <= da) {
-        addN <- abs(dlead)
-      }
-      toadd <-
-        swm[ageCAT6 == 5 &
-              person_num > 1, sample(unique(pid), addN)]
-      swm[pid %in% toadd, `:=` (age = age + 5, ageCAT6 = ageCAT6 + 1)]
-    }
-    # Update age difference table
-    newpop <- swm[ageCAT6 == 5, .N]
-    newlead <- swm[ageCAT6 == 6, .N]
-    diff[ageCAT6 == 5, `:=`(urbansim_hh_pop = newpop, diff = newpop - umdi_hh_pop)]
-    diff[ageCAT6 == 6, `:=`(urbansim_hh_pop = newlead, diff = newlead - umdi_hh_pop)]
-    
-    suppressWarnings(rm(newlag,newpop,newlead,addN,subN,da,dlag,dlead,tosub,toadd))
-    gc()
-    
+   
     # ageCAT = 18
     da <- diff[ageCAT6 == 18, diff]
     dlag <- diff[ageCAT6 == 17, diff]
@@ -1540,16 +1606,31 @@ for (yr in years) {
     swm[ageCAT6 == 16, age16 := .N, hid]
     swm[ageCAT6 == 17, age17 := .N, hid]
     swm[ageCAT6 == 18, age18 := .N, hid]
+    
+    swm[age < 18, `:=` (child = 1, adult = 0)]
+    swm[age >= 18, `:=` (child = 0, adult = 1)]
+    swm[, children.chk := sum(child), hid]
+    swm[, adults.chk := sum(adult), hid]
+    swm <- swm |> mutate(HHtype.chk = case_when(
+      children >= 1 & persons > 1 ~ 1,
+      children == 0 & persons > 1 ~ 3,
+      persons == 1 ~ 5
+    )) |> setDT()
+    
+    bad <- swm[HHtype != HHtype.chk | children.chk != children | adults.chk != adults]
+    if(nrow(bad)>0){
+      message(paste0('WARNING!! - alterations in household type detected for ', m,' ', yr))
+    }
     dt_shift <- rbind(dt_shift, swm)
     message(paste0(m, ' complete ', yr))
   }
-  saveRDS(dt_shift,paste0(root, run,'/urbansim_pop_shifted_',run,'_',yr,'_v3.rds'))
+  saveRDS(dt_shift,paste0(root, run,'/urbansim_pop_shifted_',run,'_',yr,'.rds'))
 }
 
 # Recalculate age differences to UMDI
 fs <-
   list.files(path = paste0(root, run),
-             pattern = glob2rx("urbansim_pop_shifted*v3*"),
+             pattern = glob2rx("urbansim_pop_shifted*"),
              full.names = TRUE)
 
 if (run == SWM_run) {
@@ -1572,7 +1653,7 @@ if (run == SWM_run) {
            run,
            '/urbansim_',
            run,
-           '_post_shift_umdi_pop_age_difference_v3.csv'
+           '_post_shift_umdi_pop_age_difference.csv'
          ))
 }
 if (run == MAPCM_run) {
@@ -1595,7 +1676,7 @@ if (run == MAPCM_run) {
            run,
            '/urbansim_',
            run,
-           '_post_shift_umdi_pop_age_difference_v3.csv'
+           '_post_shift_umdi_pop_age_difference.csv'
          ))
 }
 

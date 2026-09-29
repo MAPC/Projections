@@ -46,10 +46,10 @@ knitr::opts_knit$set(root.dir = data_path)
 
 ```{r}
 
-base_prefix <- 'Base'
-# int_prefix <- '2024_skims_20260915'
-int_prefix='test'
-plan_prefix <- '2050plan'
+base_prefix <- 'Base_skims_freepark_tdm23.2.1_2026-04-06'
+int_prefix <- '2024_skims_20260915'
+# int_prefix='test'
+plan_prefix <- '2050plan_skims_freepark_tdm23.2.1_2026-04-06'
 
 base.names <- file.path(
     skim_path,
@@ -77,7 +77,7 @@ plan.names <- file.path(
 
 dx <- readRDS(paste0(data_path,'/TDM23_TAZ_OD_Pairs.rds'))
 
-  for (fname in int.names[3]) {
+  for (fname in int.names) {
     vars <- list_omx(fname)$Matrices$name
     rows <- list_omx(fname)$Rows
     cols <- list_omx(fname)$Columns
@@ -118,8 +118,8 @@ dx <- readRDS(paste0(data_path,'/TDM23_TAZ_OD_Pairs.rds'))
 
 zid <- fread(paste0(data_path,'/swm_zone_ids.csv'))
 
-# for (yr in c(base_prefix, plan_prefix)) {
-  for (yr in c(int_prefix)) {
+for (yr in c(base_prefix)) {
+  # for (yr in c(int_prefix)) {
     # SOV / Passenger vehicle
     hwy <- fread(file.path(skim_path, yr, 'hwy_am.csv'))
     hwy[, sov_am_totcost := da_time / 60 * 18.50 + da_toll]
@@ -145,8 +145,9 @@ zid <- fread(paste0(data_path,'/swm_zone_ids.csv'))
     skim[wat_am_totcost == 0, wat_am_totcost := 9999999][dat_am_totcost ==0, dat_am_totcost := 9999999]
     saveRDS(skim, file.path(skim_path,yr,paste0(yr, '_skims_combined.rds')))
     
-    yr <- '2050plan'
-    skim <- readRDS(file.path(skim_path,yr,paste0(yr, '_skims_combined.rds')))
+    # yr <- 'Base'
+    # yr <- plan_prefix
+    # skim <- readRDS(file.path(skim_path,yr,paste0('2050plan_skims_combined.rds')))
     # Subset to MAPC zones
     mapc <- skim[(from_zone_id <= 2667 |
                   from_zone_id == 3000) & (to_zone_id <= 2667 | to_zone_id == 3000)]
@@ -155,7 +156,8 @@ zid <- fread(paste0(data_path,'/swm_zone_ids.csv'))
     # Subset to SWM zones
     sid <- skim[, sun(from_zone_id)]
     drops <- sid[!sid %in% zid$zone_id]
-    swm <- skim[!from_zone_id %in% drops & !to_zone_id %in% drops]
+    swm <- skim[from_zone_id <7000 & to_zone_id <7000]
+    
     swm[,travel_time:=1]
     
     # Export
@@ -163,7 +165,7 @@ zid <- fread(paste0(data_path,'/swm_zone_ids.csv'))
            paste0('mapcm_skims_', yr, '.csv')))
     fwrite(swm, file.path(skim_path,yr,
            paste0('swm_skims_', yr, '.csv')))
-    
+    message(paste0(yr, ' skims complete'))
 }
 
 ```
