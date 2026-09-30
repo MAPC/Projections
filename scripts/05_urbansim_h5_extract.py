@@ -6,10 +6,10 @@ import h5py
 # set working directory
 
 #Most recent MAPC Model run
-run = 'run_251'
+#run = 'run_251'
 
 #Most recent SWM run
-#run = 's102'
+run = 'state_run_155'
 
 #In-Office directory
 #os.chdir('K:/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/UrbanSim_Outputs/' + run)
@@ -26,8 +26,8 @@ os.chdir('/mnt/c/Users/cgate/Desktop/' + run)
 #os.chdir('/mnt/cygdrive/k/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/UrbanSim_Outputs/' + run)
 #Years in the H5 file
 #years = ['2010','2019','2029','2034']
-#years = ['2019','2023','2029','2039','2049']
-years = ['2044']
+years = ['2019','2023','2029','2039','2044','2049']
+#years = ['2044']
 for yr in years:
         if not os.path.exists(yr):
             os.makedirs(yr)

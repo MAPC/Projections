@@ -192,7 +192,7 @@ knitr::opts_knit$set(root.dir = root)
 
 # TDM23.3.0 - second iteration of 2024 base year skims 2026-09-15
 MAPCM_run <- 'run_250'
-SWM_run <- 's77'
+SWM_run <- 'state_run_155'
 ctps_run=paste0('run_',SWM_run,'-',MAPCM_run)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -388,8 +388,8 @@ pums13 <-
 
 ```{r}
 
-run <- MAPCM_run
-# run <- SWM_run
+# run <- MAPCM_run
+run <- SWM_run
 
 # 2010 SF-1 comparison data
 mc <- fread(paste0(root,'pop_by_age_muni_reweighter_validate_v2.csv'))
@@ -538,7 +538,7 @@ if (run == MAPCM_run & is.shop=='Y') {
 
 ```{r}
 
-for (run in MAPCM_run) {
+for (run in SWM_run) {
   adiff <- fread(paste0(
     root,
     run,
@@ -1310,7 +1310,7 @@ cx <- function(x) {
 # 3.4 - Post-processor 04 - run person duplication/subtraction
 
 ```{r}
-for (run in c(MAPCM_run)) {
+for (run in c(SWM_run)) {
 for (yr in years) {
   flaglist <- data.table()
   
@@ -1977,8 +1977,8 @@ if (run == MAPCM_run) {
 
 dir <- 'Microsim_outputs/TDM23.3.0'
 
-for (yr in years) {
-# for (yr in c(2019,2023,2049)){
+# for (yr in years) {
+for (yr in c(2019,2023,2049)){
   myear = yr
   syear = yr
   
@@ -2210,7 +2210,7 @@ pums[,serialno:=as.character(SERIALNO)]
 pums[,person_num:=SPORDER]
 setkey(pums,serialno,person_num)
 
-for (yr in c(2019,2024,2049)){
+for (yr in c(2019,2024,2050)){
 dt <- fread(paste0(root,dir,'/urbansim_complete_population_',
       ctps_run,
       '_',
