@@ -18,7 +18,8 @@ pacman::p_load(
   sf,
   data.table,
   tidyverse,
-  stringr
+  stringr,
+  arrow
 )
 
 # devtools::install_github('gregmacfarlane/omxr')
@@ -145,17 +146,17 @@ for (yr in c(base_prefix)) {
     skim[wat_am_totcost == 0, wat_am_totcost := 9999999][dat_am_totcost ==0, dat_am_totcost := 9999999]
     saveRDS(skim, file.path(skim_path,yr,paste0(yr, '_skims_combined.rds')))
     
-    # yr <- 'Base'
-    # yr <- plan_prefix
-    # skim <- readRDS(file.path(skim_path,yr,paste0('2050plan_skims_combined.rds')))
+    
+    yr <- base_prefix
+    skim <- readRDS(file.path(skim_path,yr,paste0(yr,'_skims_combined.rds')))
     # Subset to MAPC zones
     mapc <- skim[(from_zone_id <= 2667 |
                   from_zone_id == 3000) & (to_zone_id <= 2667 | to_zone_id == 3000)]
     mapc[, travel_time := 1]
     
-    # Subset to SWM zones
-    sid <- skim[, sun(from_zone_id)]
-    drops <- sid[!sid %in% zid$zone_id]
+    # Subset to MA-only zones
+    # sid <- skim[, sun(from_zone_id)]
+    # drops <- sid[!sid %in% zid$zone_id]
     swm <- skim[from_zone_id <7000 & to_zone_id <7000]
     
     swm[,travel_time:=1]
@@ -163,8 +164,21 @@ for (yr in c(base_prefix)) {
     # Export
     fwrite(mapc, file.path(skim_path,yr,
            paste0('mapcm_skims_', yr, '.csv')))
+    
+    arrow::write_dataset(mapc,
+                       file.path(skim_path, yr, paste0('mapcm_skims_', yr), 'Parquet'),
+                       hive_style = FALSE,
+                       compression = "snappy")
+    
     fwrite(swm, file.path(skim_path,yr,
            paste0('swm_skims_', yr, '.csv')))
+     
+    arrow::write_dataset(swm,
+                       file.path(skim_path, yr, paste0('swm_skims_', yr),'Parquet'),
+                       hive_style = FALSE,
+                       compression = "snappy")
+    
+   
     message(paste0(yr, ' skims complete'))
 }
 
