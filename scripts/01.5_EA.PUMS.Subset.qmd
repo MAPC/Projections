@@ -11,8 +11,11 @@ editor: visual
 #root <- '../../../../Data/Working/Regional_Control_Totals/'
 
 # Base root. Toggle between S: and K: drive depending on mapped paths on your computer
-base <- "K:/DataServices/Projects/Current_Projects/"
-# base <- "S:/Network Shares/K Drive/DataServices/Projects/Current_Projects/"
+if (grepl('VM',Sys.info()[['nodename']])){
+  base <- '//data-sync/Public/DataServices/Projects/Current_Projects/'
+} else {
+  base <- 'S:/Network Shares/K Drive/DataServices/Projects/Current_Projects/'
+}
 
 #General K drive filepath
 root <- paste0(base, "/Housing/StatewideHousingPlan/04_Analysis/Data/Working/Regional_Control_Totals/")
@@ -26,6 +29,11 @@ pums_path <- paste0(base, "/Housing/StatewideHousingPlan/04_Analysis/Data/Workin
 #Set output filepath
 output_path <- paste0(base, "/Housing/StatewideHousingPlan/04_Analysis/Data/Working/PUMS/outputs/")
 
+# Final output file path
+shelter_path <- paste0(
+  base,
+  '/Housing/StatewideHousingPlan/04_Analysis/Data/Final_Outputs/Shelter_Households/'
+)
 #Set knitr path
 knitr::opts_knit$set(root.dir = pums_path)
 ```
@@ -566,7 +574,12 @@ write.csv(
   paste0("C:/Project_Work/Local_Data/Housing/SWHP/Scenarios/Scenario_4/full.shelter.pums.sample_",run,".csv"),
   row.names = FALSE
 )
-
+write.csv(
+  full_sample.pums,
+  paste0(shelter_path,
+"/full.shelter.pums.sample_",run,".csv"),
+  row.names = FALSE
+)
 # Write full diagnostic list to a .csv
 write.csv(
   full_diagnostic.list,

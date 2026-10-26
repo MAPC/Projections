@@ -83,7 +83,7 @@ ctrltotal.path <- paste0(root, 'Current_Projects/Housing/StatewideHousingPlan/04
 workpath <- paste0(root, 'Current_Projects/Housing/StatewideHousingPlan/04_Analysis/Data/Working/Reweighter/')
 
 input_path <- paste0(workpath, scen, '/Input_Files_UPDATE/') 
-output_path <- paste0(workpath, scen, '/Output_Files_UPDATE/') 
+output_path <- paste0(workpath, scen, '/Output_Files_UPDATE_QA20261009/') 
 
 # Subfolders for RPA inputs and outputs
 dir.create(input_path, showWarnings = F)
@@ -1824,7 +1824,9 @@ if (scen %in% c('Scenario_2', 'Scenario_3')) {
 
 # Need hid, PINCP, HHsize
 ```
+
 # 7.5 - Combine with pop corrected reweighter outputs
+
 ```{r}
 
 # Set a list of years corresponding to the projection years considered

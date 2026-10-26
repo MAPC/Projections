@@ -191,9 +191,9 @@ knitr::opts_knit$set(root.dir = root)
 # ctps_run=paste0('run_',SWM_run,'-',MAPCM_run)
 
 # TDM23.3.0 - second iteration of 2024 base year skims 2026-09-15
-MAPCM_run <- 'run_250'
-SWM_run <- 'state_run_155'
-ctps_run=paste0('run_',SWM_run,'-',MAPCM_run)
+# MAPCM_run <- 'run_250'
+# SWM_run <- 'state_run_155'
+# ctps_run=paste0('run_',SWM_run,'-',MAPCM_run)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -205,8 +205,8 @@ years=c(2019, 2023, 2029, 2039, 2044, 2049)
 # run = SWM_run
 # run = MAPCM_run
 
-is.shop <- 'N'
-# is.shop <- 'Y'
+# is.shop <- 'N'
+is.shop <- 'Y'
 
 # ctps_run=paste0('run_',str_sub(SWM_run,-3,-1),'-',str_sub(MAPCM_run,-3,-1))
 
@@ -1124,7 +1124,7 @@ cx <- function(x) {
          adults > 1 &
          ageHHder %in% 25:50 &
          person_num > 1) |
-        (ageCAT6 == 4  & ageHHder < 44 & HHT == 3 & persons < 6 &
+        (ageCAT6 == 4 & age > 17 & HHT == 3 & persons < 6 &
            person_num > 1)]
   
   sub5 <-
@@ -2040,6 +2040,8 @@ for (yr in c(2019,2023,2049)){
   new <- new[block_id != -1]
   setnames(new, 'inc2010', 'wage_inc')
   setnames(new, 'hhinc2010', 'hh_inc')
+  new <- new |> select(-c(age1,age2,age3,age4,age5,age6,age7,age8,age9,age10,age11,age12,age13,age14,age15,age16,age17,age18,children.chk,adults.chk,HHtype.chk,AGEP,ageHH,ht,HHT,delete,addflag,children_in_HH,size2))
+  
   if(yr<2020){
   fwrite(new,paste0(root,dir,'/urbansim_complete_population_',
       ctps_run,

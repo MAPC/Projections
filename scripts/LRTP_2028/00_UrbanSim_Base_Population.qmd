@@ -1,0 +1,159 @@
+---
+title: "00_UrbanSim_Base_Population"
+format: html
+editor: source
+---
+
+
+# 1 - Setup
+
+```{r, setup, include=FALSE}
+
+options(scipen=999)
+
+pacman::p_load(
+  data.table,
+  tidycensus,
+  mapcdatakeys,
+  tidyverse,
+  arrow,
+  here
+)
+
+# File paths
+# Paths
+if (grepl('VM',Sys.info()[['nodename']])){
+  base <- '//data-sync/Public/DataServices'
+} else {
+  base <- 'S:/Network Shares/K Drive/DataServices'
+}
+
+root <- paste0(base,'/Projects/Current_Projects/Projections/Projections_2028/Data/01_Regional_Control_Totals/')
+
+raw.path <- paste0(root,'ma_state_base_data_2010_2020_v20261005/')
+
+shop.path <- paste0(base,'/Projects/Current_Projects/Housing/StatewideHousingPlan/04_Analysis/Data/Working/Regional_Control_Totals/')
+
+# Helpers
+sun <- function(x){
+  sort(unique(x))}
+lun <- function(x){
+  length(unique(x))}
+sna <- function(x){
+  sort(names(x))}
+
+# RPA names
+mpos <- unlist(c(mapcdatakeys::all_muni_data_keys |> select(mpo) |> unique()))
+
+# Munis by RPA/MPO
+munis <- all_muni_data_keys |> select(muni_id, rpa_acr, mpo) |> setDT()
+nonmapc <- munis[mpo!='MAPC']
+
+# 2020 Blocks / Munis / RPA / MPO
+blks <- geog_xw_2020 |> 
+  left_join(munis, by = 'muni_id') |> 
+  select(bl20_id, muni_id, muni_name, rpa_acr, mpo) |> 
+  mutate(block_id = as.character(bl20_id)) |> 
+  setDT()
+
+source(here('scripts/Projections.Functions.R'))
+
+knitr::opts_knit$set(root.dir = root)
+```
+
+# 2 - Load Base Table for 2020 Households and Population - New UrbanSim Model
+
+```{r}
+
+hh <- arrow::open_dataset(paste0(raw.path,'ma_state_base_data_2020_households.parquet')) |> 
+  collect() |> 
+  setDT()
+
+pop <- hh <- arrow::open_dataset(paste0(raw.path,'ma_state_base_data_2020_persons.parquet')) |> 
+  collect() |> 
+  setDT()
+
+
+vars.dec20 <- load_variables(2020, dataset = c("dhc")) |> setDT()
+pop.vars <- dec.vars(vars.dec20, "SEX BY AGE FOR THE POPULATION IN HOUSEHOLDS")
+pop.labels <- dec.labels("2020", "SEX BY AGE FOR THE POPULATION IN HOUSEHOLDS")
+
+pop.vars <- 'P15_001N'
+
+hh.vars <- 'P21_001N'
+
+pop.values <- decennial_call(pop.vars, geog = "block", 2020) |> 
+  setDT()
+
+hh.values <- decennial_call(hh.vars, geog = "block", 2020) |> 
+  setDT()
+
+pums_vars_2023 <- c(
+  "SERIALNO",
+  "PUMA",
+  "TYPEHUGQ",
+  "TEN",
+  "BLD",
+  "SPORDER",
+  "AGEP",
+  "ESR",
+  "WAGP",
+  "SEMP",
+  "PINCP",
+  "HINCP",
+  "ADJINC"
+  )
+
+
+pums2023 <- get_pums(
+  state = 'MA',
+  year = 2023,
+  survey = 'acs5',
+  variables = pums_vars_2023
+)
+
+saveRDS(pums2023, file.path(root,'PUMS','pums_2023_basic.rds'))
+
+#Clean the 2020 Household Population data
+hhpop.20 <- pa.values |> 
+  filter(GEOID %in% GEOID.20$GEOID) |> 
+  right_join(
+    labels,
+    by = c("variable"="name")
+  ) |> 
+  #Change the Census age category levels to match the ageCAT6 labels
+  mutate(
+    ageCAT6 = case_when(
+      label == 'pop_Under_5_years' ~ '1',
+      label == "pop_5_to_9_years" ~ '2',
+      label == "pop_10_to_14_years" ~ '3',
+      label %in% c("pop_15_to_17_years","pop_18_and_19_years") ~ '4',
+      label %in% c("pop_20_years","pop_21_years","pop_22_to_24_years") ~ '5',
+      label == "pop_25_to_29_years" ~ '6',
+      label == "pop_30_to_34_years" ~ '7',
+      label == "pop_35_to_39_years" ~ '8',
+      label == "pop_40_to_44_years" ~ '9',
+      label == "pop_45_to_49_years" ~ '10',
+      label == "pop_50_to_54_years" ~ '11',
+      label == "pop_55_to_59_years" ~ '12',
+      label %in% c("pop_60_and_61_years","pop_62_to_64_years") ~ '13',
+      label %in% c("pop_65_and_66_years","pop_67_to_69_years") ~ '14',
+      label == "pop_70_to_74_years" ~ '15',
+      label == "pop_75_to_79_years" ~ '16',
+      label == "pop_80_to_84_years" ~ '17',
+      label == "pop_85_years_and_over" ~ '18'
+    )
+  ) |> 
+  filter(!is.na(ageCAT6)) |>  
+  right_join(
+    GEOID.20,
+    by = c('GEOID')
+  )
+census_2020_hh |> 
+  get_decennial(
+    state='MA',
+    year=2020,
+    variables = 
+  )
+
+```

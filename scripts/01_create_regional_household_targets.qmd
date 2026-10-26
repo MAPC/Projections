@@ -1,7 +1,7 @@
 ---
 title: "Control Totals"
 format: html
-editor: visual
+editor: source
 ---
 
 # v0.0 Setup - Define helper functions, set knitr path, load necessary packages, set muni data keys
@@ -12,19 +12,22 @@ editor: visual
 # Set Scenario Names
 
 # Population Scenario
-scen <- 'Scenario_1'
+scen <- 'Scenario_3'
 # Headship rate Scenario
-hdshp <- 'acs1721'
-# hdshp <- 'scen2'
+# hdshp <- 'acs1721'
+hdshp <- 'scen2'
 
 # Use when Rproject is open
 # root <- '../../../../Data/Working/Regional_Control_Totals/'
 
-# Base root. Toggle between S: and K: drive depedning on mapped paths on your computer
-# base <- "K:/DataServices/Projects/Current_Projects/"
-base <- "S:/Network Shares/K Drive/DataServices/Projects/Current_Projects/"
+# Paths
+if (grepl('VM',Sys.info()[['nodename']])){
+  base <- '//data-sync/Public/DataServices/Projects/Current_Projects/'
+} else {
+  base <- 'S:/Network Shares/K Drive/DataServices/Projects/Current_Projects/'
+}
 
-# General K drive filepath
+
 root <- paste0(base, "Housing/StatewideHousingPlan/04_Analysis/Data/Working/Regional_Control_Totals/")
 
 # Set output filepath
@@ -1621,7 +1624,7 @@ hhpop_baseline <- pums_data |>
     INTER = BASELINE
   )
 
-# 7.1.2 - Baseline of Households by Household Type by Tenure
+# 7.1.2 - Baseline of Households by Household Type by AgeHHDer
 hhtype_baseline <- pums_data |> 
   # Filter for households and the head of household for each SERIALNO
   filter(TYPEHUGQ == "1" & SPORDER == "1") |>  
@@ -1911,7 +1914,7 @@ if(scen %in% c("Scenario_2","Scenario_3","Scenario_4")){
       INTER = BASELINE
     )
   
-  # 7.1.2 - Baseline of Households by Household Type by Tenure
+  # 7.1.2 - Baseline of Households by Household Type by AgeHHDer
   hhtype_baseline <- pums_data |>
     # Filter for households and the head of household for each SERIALNO
     filter(TYPEHUGQ == "1" & SPORDER == 1) |>
