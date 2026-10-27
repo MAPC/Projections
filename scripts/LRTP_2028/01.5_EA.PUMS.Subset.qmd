@@ -1,7 +1,7 @@
 ---
 title: "01.5_EA.PUMS.Subset"
 format: html
-editor: visual
+editor: source
 ---
 
 # 0.1 - Set knitr path + root for inputs
