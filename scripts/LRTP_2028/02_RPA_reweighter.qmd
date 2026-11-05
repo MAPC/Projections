@@ -136,7 +136,7 @@ source(here('scripts/reweighter/algo_hh.R'))
 
 
 # for (yr in c(2040,2045,2050)) {
-  for (yr in c(2025, 2030, 2035, 2040, 2045, 2050)) {
+  for (yr in c(2035, 2040, 2045, 2050)) {
   for (mid in c('MAPC','OCPC')) {
     # for (mid in mpos) {
     # Set config
@@ -302,7 +302,7 @@ for (yr in c(2025, 2030,2035,2040,2045,2050)){
     pums <- fread(paste0(inpath, 'PUMS', vintage, '_', mid, '.csv'))
     setkey(pums, SERIALNO, SPORDER)
 
-   xp <- fread(paste0(outpath, 'weights_final_', reb, '_', mid, '_', yr, '.csv')) |>
+    xp <- fread(paste0(outpath, 'weights_final_', reb, '_', mid, '_', yr, '.csv')) |>
       select(SERIALNO, SPORDER, new_WGTP) |> 
       left_join(pums, by=c('SERIALNO','SPORDER')) |> 
       setDT()
@@ -354,16 +354,16 @@ comp.dt[abs(diff)>1]
 
 ```{r}
 
-for (yr in c(2020,2025,2030,2035,2040,2045,2050)){
+for (yr in c(2025,2030,2035,2040,2045,2050)){
 # for (yr in c(2020)){
   sw <- data.table()
   for (mid in mpos){
     inp <- paste0(output_path, mid, '/')
-    dt <- fread(paste0(inp, 'reweighted_PUMS_', scen, '_', reb, '_', mid, '_', hdshp, '_', yr, '.csv'))
-    dt[, year:=yr][,reb:=reb][,hdshp:=hdshp][,scen:=scen]
+    dt <- fread(paste0(inp, 'reweighted_PUMS_', reb, '_', mid, '_', yr, '.csv'))
+    dt[, year:=yr][,reb:=reb]
     sw <- rbind(sw,dt)
   }
- fwrite(sw,paste0(output_path,'/reweighted_PUMS_', scen, '_', reb, '_', hdshp, '_', yr, '.csv'))
+ fwrite(sw,paste0(output_path,'/reweighted_PUMS_', reb, '_', yr, '.csv'))
  }
 ```
 

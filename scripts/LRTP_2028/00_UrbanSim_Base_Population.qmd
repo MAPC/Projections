@@ -23,17 +23,17 @@ pacman::p_load(
 # File paths
 # Paths
 if (grepl('VM',Sys.info()[['nodename']])){
-  base <- '//data-sync/Public/DataServices'
+  base <- '//data-sync/Public/DataServices/Projects/Current_Projects/'
 } else {
-  base <- 'S:/Network Shares/K Drive/DataServices'
+  base <- 'S:/Network Shares/K Drive/DataServices/Projects/Current_Projects/'
 }
 
-root <- paste0(base,'/Projects/Current_Projects/Projections/Projections_2028/Data/01_Regional_Control_Totals/')
+root <- paste0(base,'Projections/Projections_2028/Data/01_Regional_Control_Totals/')
 
 urb.path <- paste0(root,'UrbanSim_base_pop/')
 raw.path <- paste0(urb.path,'ma_state_base_data_2010_2020_v20261005/')
 
-shop.path <- paste0(base,'/Projects/Current_Projects/Housing/StatewideHousingPlan/04_Analysis/Data/Working/Regional_Control_Totals/')
+shop.path <- paste0(base,'Housing/StatewideHousingPlan/04_Analysis/Data/Working/Regional_Control_Totals/')
 
 # PUMS vintage
 vintage <- 2023
@@ -103,7 +103,11 @@ NOTE: We use the CPI deflator time series to adjust PUMS income to 2013 dollars 
 
 pums <- readRDS(file.path(root,'PUMS',paste0('pums_',vintage,'_basic.rds')))
 
-pop <- hh <- arrow::open_dataset(paste0(raw.path,'ma_state_base_data_2020_persons.parquet')) |> 
+pop <- arrow::open_dataset(paste0(raw.path,'ma_state_base_data_2020_persons.parquet')) |> 
+  collect() |> 
+  setDT()
+
+hh <- arrow::open_dataset(paste0(raw.path,'ma_state_base_data_2020_households.parquet')) |> 
   collect() |> 
   setDT()
 
@@ -121,7 +125,7 @@ pums_data <- pums |>
     # clean negative personal incomes
     PINCP = case_when(
       PINCP<0 ~ 0,
-      .default=T)
+      .default = PINCP)
   ) |> 
   # recalculate household incomes
     group_by(SERIALNO) |> 
@@ -195,7 +199,9 @@ pums_data <- pums |>
 
 # join additional PUMS fields to UrbanSim 2020 base year micropopulation
 
-urbsim_pums <- left_join(pop |> select(-AGEP), pums_data, by=c('SERIALNO','SPORDER')) |> select(-WGTP,-PWGTP)
+urbsim_pums <- left_join(pop |> select(-AGEP), pums_data, by=c('SERIALNO','SPORDER')) |> 
+  select(-WGTP,-PWGTP) |> left_join(hh |> select(SERIALNO,income,age_of_head,hh_children_present, hh_type) |> unique(), by=c('SERIALNO')) |> 
+  setDT()
 fwrite(urbsim_pums, paste0(urb.path,'UrbanSim_2020_baseyear_micropop_with_PUMS_vars.csv'))
 
 

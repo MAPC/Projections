@@ -9,32 +9,6 @@ editor: source
 
 ```{r}
 
-# Paths
-if (grepl('VM',Sys.info()[['nodename']])){
-  base <- '//data-sync/Public/DataServices/Projects/Current_Projects/'
-} else {
-  base <- 'S:/Network Shares/K Drive/DataServices/Projects/Current_Projects/'
-}
-
-root <- paste0(base,'Projections/Projections_2028/Data/01_Regional_Control_Totals/')
-
-urb.path <- paste0(root,'UrbanSim_base_pop/')
-raw.path <- paste0(urb.path,'ma_state_base_data_2010_2020_v20261005/')
-rwt.path <- paste0(root, 'Reweighter/LRTP_2028/')
-mapcm.path <- paste0(rwt.path, 'MAPCM/Input_Files/')
-swm.path <- paste0(rwt.path, 'SWM/Input_Files/')
-
-shop.path <- paste0(base, "Housing/StatewideHousingPlan/04_Analysis/Data/Working/Regional_Control_Totals/Scenario_3/UPDATE/")
-
-# Set knitr path
-knitr::opts_knit$set(root.dir = root)
-
-```
-
-# 2 - Set package dependencies, set environment, set up data keys
-
-```{r}
-
 pacman::p_load(
   tidycensus,
   mapcdatakeys,
@@ -67,11 +41,29 @@ munis <- all_muni_data_keys |>
 # Bring in helper functions
 source(here('scripts/Projections.Functions.R'))
 
+# Paths
+if (grepl('VM',Sys.info()[['nodename']])){
+  base <- '//data-sync/Public/DataServices/Projects/Current_Projects/'
+} else {
+  base <- 'S:/Network Shares/K Drive/DataServices/Projects/Current_Projects/'
+}
+
+root <- paste0(base,'Projections/Projections_2028/Data/01_Regional_Control_Totals/')
+
+urb.path <- paste0(root,'UrbanSim_base_pop/')
+raw.path <- paste0(urb.path,'ma_state_base_data_2010_2020_v20261005/')
+rwt.path <- paste0(root, 'Reweighter/LRTP_2028/')
+mapcm.path <- paste0(rwt.path, 'MAPCM/Input_Files/')
+swm.path <- paste0(rwt.path, 'SWM/Input_Files/')
+
+shop.path <- paste0(base, "Housing/StatewideHousingPlan/04_Analysis/Data/Working/Regional_Control_Totals/Scenario_3/UPDATE/")
+
+# Set knitr path
+knitr::opts_knit$set(root.dir = root)
 ```
 
-#3 -  Generating reweighter target files
 
-# 3.1 - Generate Baseline data for each target category using UrbanSim base year 2020 microsim pop (which is based on 2019-2023 PUMS)
+# 2 - Generate Baseline data for each target category using UrbanSim base year 2020 microsim pop (which is based on 2019-2023 PUMS)
 
 
 ```{r}
