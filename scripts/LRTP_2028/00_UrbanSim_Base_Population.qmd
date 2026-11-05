@@ -30,24 +30,23 @@ if (grepl('VM',Sys.info()[['nodename']])){
 
 root <- paste0(base,'/Projects/Current_Projects/Projections/Projections_2028/Data/01_Regional_Control_Totals/')
 
-raw.path <- paste0(root,'ma_state_base_data_2010_2020_v20261005/')
+urb.path <- paste0(root,'UrbanSim_base_pop/')
+raw.path <- paste0(urb.path,'ma_state_base_data_2010_2020_v20261005/')
 
 shop.path <- paste0(base,'/Projects/Current_Projects/Housing/StatewideHousingPlan/04_Analysis/Data/Working/Regional_Control_Totals/')
 
-# Helpers
-sun <- function(x){
-  sort(unique(x))}
-lun <- function(x){
-  length(unique(x))}
-sna <- function(x){
-  sort(names(x))}
+# PUMS vintage
+vintage <- 2023
 
 # RPA names
-mpos <- unlist(c(mapcdatakeys::all_muni_data_keys |> select(mpo) |> unique()))
+mpos <- mapcdatakeys::all_muni_data_keys |> 
+  pull(mpo) |> 
+  unique()
 
 # Munis by RPA/MPO
-munis <- all_muni_data_keys |> select(muni_id, rpa_acr, mpo) |> setDT()
-nonmapc <- munis[mpo!='MAPC']
+munis <- all_muni_data_keys |> 
+  select(muni_id, rpa_acr, mpo) |> 
+  setDT()
 
 # 2020 Blocks / Munis / RPA / MPO
 blks <- geog_xw_2020 |> 
@@ -61,35 +60,17 @@ source(here('scripts/Projections.Functions.R'))
 knitr::opts_knit$set(root.dir = root)
 ```
 
-# 2 - Load Base Table for 2020 Households and Population - New UrbanSim Model
+# 2 - Raw PUMS data
 
 ```{r}
 
-hh <- arrow::open_dataset(paste0(raw.path,'ma_state_base_data_2020_households.parquet')) |> 
-  collect() |> 
-  setDT()
 
-pop <- hh <- arrow::open_dataset(paste0(raw.path,'ma_state_base_data_2020_persons.parquet')) |> 
-  collect() |> 
-  setDT()
-
-
-vars.dec20 <- load_variables(2020, dataset = c("dhc")) |> setDT()
-pop.vars <- dec.vars(vars.dec20, "SEX BY AGE FOR THE POPULATION IN HOUSEHOLDS")
-pop.labels <- dec.labels("2020", "SEX BY AGE FOR THE POPULATION IN HOUSEHOLDS")
-
-pop.vars <- 'P15_001N'
-
-hh.vars <- 'P21_001N'
-
-pop.values <- decennial_call(pop.vars, geog = "block", 2020) |> 
-  setDT()
-
-hh.values <- decennial_call(hh.vars, geog = "block", 2020) |> 
-  setDT()
+# Load 2023 PUMS data
 
 pums_vars_2023 <- c(
   "SERIALNO",
+  "WGTP",
+  "PWGTP",
   "PUMA",
   "TYPEHUGQ",
   "TEN",
@@ -97,63 +78,177 @@ pums_vars_2023 <- c(
   "SPORDER",
   "AGEP",
   "ESR",
-  "WAGP",
-  "SEMP",
   "PINCP",
   "HINCP",
   "ADJINC"
   )
 
-
-pums2023 <- get_pums(
+pums <- get_pums(
   state = 'MA',
-  year = 2023,
+  year = vintage,
   survey = 'acs5',
   variables = pums_vars_2023
-)
+) |> 
+  filter(TYPEHUGQ==1)
 
-saveRDS(pums2023, file.path(root,'PUMS','pums_2023_basic.rds'))
+saveRDS(pums, file.path(root,'PUMS',paste0('pums_',vintage,'_basic.rds')))
 
-#Clean the 2020 Household Population data
-hhpop.20 <- pa.values |> 
-  filter(GEOID %in% GEOID.20$GEOID) |> 
-  right_join(
-    labels,
-    by = c("variable"="name")
-  ) |> 
-  #Change the Census age category levels to match the ageCAT6 labels
+```
+
+# 3 - Join to PUMS and create new variables
+
+NOTE: We use the CPI deflator time series to adjust PUMS income to 2013 dollars (for UrbanSim). ACS uses the Consumer Price Index for All Urban Consumers Retroactive Series (R-CPI-U-RS, details here: <https://www.bls.gov/cpi/research-series/r-cpi-u-rs-home.htm>) as opposed to the ASEC/Census which uses C-CPI-U (details here: [*https://www.census.gov/topics/income-poverty/income/guidance/current-vs-constant-dollars.html*](https://www.census.gov/topics/income-poverty/income/guidance/current-vs-constant-dollars.html){.uri}*)*
+
+```{r}
+
+pums <- readRDS(file.path(root,'PUMS',paste0('pums_',vintage,'_basic.rds')))
+
+pop <- hh <- arrow::open_dataset(paste0(raw.path,'ma_state_base_data_2020_persons.parquet')) |> 
+  collect() |> 
+  setDT()
+
+# Load CPI time series for deflating income variable
+# Deflate to 2013 dollars to match old model spec
+
+cpi <- fread(paste0(root,'cpi_deflators_by_year.csv'))
+cpi.deflator <- cpi[year==2013, index] / cpi[year==vintage, index]
+
+pums_data <- pums |> 
   mutate(
-    ageCAT6 = case_when(
-      label == 'pop_Under_5_years' ~ '1',
-      label == "pop_5_to_9_years" ~ '2',
-      label == "pop_10_to_14_years" ~ '3',
-      label %in% c("pop_15_to_17_years","pop_18_and_19_years") ~ '4',
-      label %in% c("pop_20_years","pop_21_years","pop_22_to_24_years") ~ '5',
-      label == "pop_25_to_29_years" ~ '6',
-      label == "pop_30_to_34_years" ~ '7',
-      label == "pop_35_to_39_years" ~ '8',
-      label == "pop_40_to_44_years" ~ '9',
-      label == "pop_45_to_49_years" ~ '10',
-      label == "pop_50_to_54_years" ~ '11',
-      label == "pop_55_to_59_years" ~ '12',
-      label %in% c("pop_60_and_61_years","pop_62_to_64_years") ~ '13',
-      label %in% c("pop_65_and_66_years","pop_67_to_69_years") ~ '14',
-      label == "pop_70_to_74_years" ~ '15',
-      label == "pop_75_to_79_years" ~ '16',
-      label == "pop_80_to_84_years" ~ '17',
-      label == "pop_85_years_and_over" ~ '18'
+    # Generate five-year age groupings to match UMDI population projections data.
+    AgeCat = cut(AGEP, breaks = c(-Inf, seq(4, 84, 5), Inf), labels = 1:18),
+    ADJINC = as.numeric(ADJINC),
+    # clean negative personal incomes
+    PINCP = case_when(
+      PINCP<0 ~ 0,
+      .default=T)
+  ) |> 
+  # recalculate household incomes
+    group_by(SERIALNO) |> 
+    mutate(HINCP = sum(PINCP)) |> 
+  ungroup() |> 
+  # Adjust income first to the highest year in the 5-year vintage using included adjustment field (ADJINC)
+  # For UrbanSim we then deflate back to 2013, using the cpi deflator 
+  mutate(
+    HINCP = round((as.numeric(HINCP) * ADJINC) * cpi.deflator, 0),
+    hh_income_group =
+      cut(
+        HINCP,
+        breaks = c(-Inf, 35000, 75000, 125000, 225000, Inf),
+        labels = c("1", "2", "3", "4", "5")
+      ),
+    tenure = case_when(
+      TEN %in% c('1','2') ~ 1,
+      TEN %in% c('3','4') ~ 2
+    ),
+    # Categorizing Civilian Labor Force or not
+    # NOTE: Categories are (0) under 16 or non-civilian, (1) in labor force, (2) not in labor force
+    lf = case_when(
+      ESR == "b" | ESR == 4 | ESR == 5  ~ 0,
+      ESR == 1 | ESR == 2 | ESR == 3  ~ 1,
+      ESR == 6 ~ 2,
+      is.na(ESR) ~ 0
+    ),
+    # Counts as Worker
+    # NOTE: Categories are (0) under 16 or not in labor force, or (1) in labor force or non-civilian worker
+    worker = case_when(
+      (ESR == "b" | ESR == 6) ~ 0,
+      (ESR == 1 | ESR == 2 | ESR == 3 | ESR == 4 | ESR == 5) ~ 1,
+      is.na(ESR) ~ 0
+    ),
+    # Determine if case counts as child
+    child = case_when(
+      AGEP < 18 ~ 1,
+      AGEP >= 18 ~ 0
+      ),
+    adult = case_when(
+      child == 1 ~ 0,
+      child == 0 ~ 1
     )
   ) |> 
-  filter(!is.na(ageCAT6)) |>  
-  right_join(
-    GEOID.20,
-    by = c('GEOID')
-  )
-census_2020_hh |> 
-  get_decennial(
-    state='MA',
-    year=2020,
-    variables = 
-  )
+  #Generating Household Variables
+  group_by(SERIALNO) |> 
+  mutate(
+    workers = sum(worker),
+    persons = max(SPORDER),
+    children = sum(child),
+    adults = sum(adult)
+  ) |> 
+  ungroup() |> 
+  # Categorizing household sizes by number of persons (1) one person, (2) two persons, (3) three persons, (4) four or more persons
+  mutate(
+    HHSize = case_when(
+      persons == 1 ~ 1,
+      persons == 2 ~ 2,
+      persons == 3 ~ 3,
+      persons >= 4 ~ 4
+    ),
+    # Determine type of household (1) hh with children, (3) multiple adults no children, (5) single
+    HHtype = case_when(
+      children > 0 & persons > 1 ~ 1,
+      children == 0 & persons > 1 ~ 3,
+      persons == 1 ~ 5
+    ),
+    pid = paste0(SERIALNO,'_',SPORDER)
+  ) |> 
+  setDT()
+
+# join additional PUMS fields to UrbanSim 2020 base year micropopulation
+
+urbsim_pums <- left_join(pop |> select(-AGEP), pums_data, by=c('SERIALNO','SPORDER')) |> select(-WGTP,-PWGTP)
+fwrite(urbsim_pums, paste0(urb.path,'UrbanSim_2020_baseyear_micropop_with_PUMS_vars.csv'))
+
+
+# Create PUMA to RPA/MPO Crosswalk for 2020 PUMAs
+
+xw97 <- mapcdatakeys::puma_muni_xw_2020 |> 
+  left_join(munis, by='muni_id') |> 
+  group_by(mpo, PUMACE20) |> 
+  summarise(
+    mpo_overlap_m2 = sum(overlap_m2)
+         ) |> 
+  ungroup() |> 
+  filter(mpo_overlap_m2 > 1e6) |> 
+  select(PUMACE20, mpo) |> 
+  unique() |> 
+  rename(PUMA=PUMACE20) |> 
+  mutate(PUMA = as.numeric(PUMA))
+
+# Subset of PUMS SERIALNOs represented in urbansim base year micropop
+pums_sampling_domain97 <- pums_data |> 
+  mutate(pid = paste0(SERIALNO, '_', SPORDER),
+         PUMA = as.numeric(PUMA)) |> 
+  filter(pid %in% urbsim_pums$pid) |> 
+  left_join(xw97, by='PUMA') |> 
+  setDT()
+
+fwrite(pums_sampling_domain97, paste0(root, 'PUMS/pums_',vintage,'_urbansim_baseline_MAPC97.csv'))
+
+xw101 <- mapcdatakeys::puma_muni_xw_2020 |> 
+  left_join(munis, by='muni_id') |> 
+  group_by(rpa_acr, PUMACE20) |> 
+  summarise(
+    rpa_overlap_m2 = sum(overlap_m2)
+         ) |> 
+  ungroup() |> 
+  filter(rpa_overlap_m2 > 1e6) |> 
+  select(PUMACE20, rpa_acr) |> 
+  unique() |> 
+  rename(PUMA=PUMACE20) |> 
+  mutate(PUMA = as.numeric(PUMA))
+
+pums_sampling_domain101 <- pums_data |> 
+  mutate(pid = paste0(SERIALNO, '_', SPORDER),
+         PUMA = as.numeric(PUMA)) |> 
+  filter(pid %in% urbsim_pums$pid) |> 
+  left_join(xw101, by='PUMA') |> 
+  setDT()
+
+fwrite(pums_sampling_domain101, paste0(root, 'PUMS/pums_',vintage,'_urbansim_baseline_MAPC101.csv'))
+
+# pums_excluded <- pums_data |> 
+#   mutate(pid = paste0(SERIALNO, '_', SPORDER)) |> 
+#   filter(pid %notin% urbsim_pums$pid) |> 
+#   setDT()
 
 ```

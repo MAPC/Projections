@@ -7,13 +7,13 @@ setwd(inpath)
 version <- 'September 17, 2024'
 
 # Log text file that holds messages for this scenario
-log_file <- paste0(outpath,"logfile_",scen,"_",reb,"_",mid,"_",yr,".txt")
+log_file <- paste0(outpath,"logfile_",reb,"_",mid,"_",yr,".txt")
 
 #  Input PUMS extract csv file that was used by read_config_hh.R
 pums_file <- pums
 
 # Output csv file for the weights created by algo_hh.R
-weights_file <- paste0(outpath,"weights_final_",scen,"_",reb,"_",mid,"_",yr,".csv")
+weights_file <- paste0(outpath,"weights_final_",reb,"_",mid,"_",yr,".csv")
 
 # Output csv file for iteration statistics
 iter_file <- paste0(outpath,"iter_stats.csv")

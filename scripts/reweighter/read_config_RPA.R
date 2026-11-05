@@ -4,10 +4,10 @@
 
 setwd(inpath)
 # specify the config file name
-config_file <- paste0("reweighting_config_2021_",mid,".json")
+config_file <- paste0("reweighting_config_",vintage,'_',mid,".json")
 
 #
-print("Version 11/11/2022")
+print("Version 11/02/2026")
 #
 #  Moves the construction of the children list to
 #  before the block loop.
