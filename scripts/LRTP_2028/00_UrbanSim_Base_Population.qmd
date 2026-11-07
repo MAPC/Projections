@@ -134,7 +134,7 @@ pums_data <- pums |>
   # Adjust income first to the highest year in the 5-year vintage using included adjustment field (ADJINC)
   # For UrbanSim we then deflate back to 2013, using the cpi deflator 
   mutate(
-    HINCP = round((as.numeric(HINCP) * ADJINC) * cpi.deflator, 0),
+    HINCP2013 = round((as.numeric(HINCP) * ADJINC) * cpi.deflator, 0),
     hh_income_group =
       cut(
         HINCP,

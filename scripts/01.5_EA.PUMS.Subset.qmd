@@ -894,7 +894,14 @@ shelter.pums_cleaned <- shelter.pums |>
 write.csv(
   shelter.pums_cleaned,
   paste0("C:/Project_Work/Local_Data/Housing/SWHP/Scenarios/Scenario_4/cleaned.shelter.pums.sample_run.1.csv"),
-  row.names = FALSE
-)
+  row.names = FALSE)
+
+  fwrite(
+    shelter.pums_cleaned,
+    paste0(shelter_path, '/cleaned.shelter.pums.sample_run.1.csv')
+  )
+  
+
+
 
 ```

@@ -5,7 +5,7 @@ editor: source
 project: execute-dir: project
 ---
 
-# 1 - Set Scenario Name, knitr path, and root directory, load packages
+# 1 - Set paths and root directory, load packages
 
 ```{r, setup, include=FALSE}
 
@@ -40,6 +40,8 @@ rwt.path <- paste0(root, 'Reweighter/LRTP_2028/')
 mapcm.path <- paste0(rwt.path, 'MAPCM/')
 swm.path <- paste0(rwt.path, 'SWM/')
 
+shop.path <- paste0(root, 'SHoP_Scenarios/Reweighter_Outputs/Scenario_3/')
+
 mpos <- mapcdatakeys::all_muni_data_keys |> pull(mpo) |> unique()
 
 if (reb == 'MAPC97') {
@@ -61,12 +63,8 @@ if (reb == 'MAPC101') {
   dir.create(paste0(input_path, 'MAPC'), showWarnings = F)
 }
 
-shop.path <- paste0(base, "Housing/StatewideHousingPlan/04_Analysis/Data/Working/Regional_Control_Totals/Scenario_3/UPDATE/")
-
-umdi.path <- paste0(base, 'Housing/StatewideHousingPlan/04_Analysis/Data/Working/Regional_Control_Totals/UMDI/Scenario_3/')
-
 # Set Shelter Households path
-shelter_path <- paste0(
+shelter.path <- paste0(
   base,
   'Housing/StatewideHousingPlan/04_Analysis/Data/Final_Outputs/Shelter_Households/'
 )
@@ -240,7 +238,7 @@ for (yr in c(2025, 2030,2035,2040,2045,2050)){
     outpath <- paste0(output_path, mid, '/')
     
     # Calculate total households from the reweighter outputs
-    
+   
     pums <- fread(paste0(inpath, 'PUMS', vintage, '_', mid, '.csv'))
     setkey(pums, SERIALNO, SPORDER)
 
@@ -365,5 +363,183 @@ for (yr in c(2025,2030,2035,2040,2045,2050)){
   }
  fwrite(sw,paste0(output_path,'/reweighted_PUMS_', reb, '_', yr, '.csv'))
  }
+```
+
+# 8 - Join with Shelter Households and Compare with SHoP control totals
+
+```{r}
+
+cpi <- fread(paste0(root,'cpi_deflators_by_year.csv'))
+cpi.deflator2021 <- cpi[year==2013, index] / cpi[year==2021, index]
+
+ shelter.pums <- fread(paste0(shelter.path, "cleaned.shelter.pums.sample_run.1.csv")) |>
+    mutate(
+      # Align SERIALNO variables
+      SERIALNO = SERIALNO.adj,
+      PUMA = as.numeric(PUMA),
+      HINCP.adj = case_when(
+        HINCP.adj < 0 ~ 0,
+        .default = HINCP.adj
+      ),
+      HINCP2013 = round(as.numeric(HINCP.adj) * cpi.deflator2021, 0)
+    ,
+    hh_income_group =
+      cut(
+        HINCP2013,
+        breaks = c(-Inf, 35000, 75000, 125000, 225000, Inf),
+        labels = c("1", "2", "3", "4", "5")
+      ),
+    adult = case_when(
+      child == 1 ~ 0,
+      child == 0 ~ 1
+    )
+    ) |> 
+    group_by(SERIALNO) |> 
+  mutate(
+    workers = sum(worker),
+    persons = max(SPORDER),
+    children = sum(child),
+    adults = sum(adult)
+  ) |> 
+  ungroup() |> 
+  # Categorizing household sizes by number of persons (1) one person, (2) two persons, (3) three persons, (4) four or more persons
+  mutate(
+    HHSize = case_when(
+      persons == 1 ~ 1,
+      persons == 2 ~ 2,
+      persons == 3 ~ 3,
+      persons >= 4 ~ 4
+    ),
+    # Determine type of household (1) hh with children, (3) multiple adults no children, (5) single
+    HHtype = case_when(
+      children > 0 & persons > 1 ~ 1,
+      children == 0 & persons > 1 ~ 3,
+      persons == 1 ~ 5
+    ),
+    pid = paste0(SERIALNO,'_',SPORDER)
+    ) |> 
+   setDT()
+  
+
+
+  if (reb == 'MAPC97') {
+    setnames(shelter.pums, 'rpa_acr', 'mpo')
+  }
+
+ fwrite(shelter.pums, paste0(rwt.path, 'shelter_pums_clean_final.csv'))
+ 
+# 2025 - no shelter pop added
+ 
+ comp25 <- fread(paste0(output_path, '/reweighted_PUMS_', reb, '_2025.csv')) |> 
+   mutate(year=2025)
+if (reb == 'MAPC97') {
+  rw.sum25 <- comp25 |>
+    filter(SPORDER == 1) |>
+    group_by(mpo, year) |>
+    summarize(rw_hh = round(sum(new_WGTP))) |>
+    setDT()
+} else {
+  rw.sum25 <- comp25 |>
+    filter(SPORDER == 1) |>
+    group_by(rpa_acr, year) |>
+    summarize(rw_hh = round(sum(new_WGTP))) |>
+    setDT()
+}
+
+ 
+   
+comp.yrs <- data.table()
+
+for (yr in seq(2030, 2050, 5)) {
+  dt <- readRDS(
+    paste0(
+      shop.path,
+      'processor_corrected_PUMS_',
+      reb,
+      '_Scenario_3_with_ShelterPop_',
+      yr,
+      '.rds'
+    )
+  ) |> 
+    mutate(year = yr) |> 
+    setDT()
+
+  rw <- fread(paste0(output_path, '/reweighted_PUMS_', reb, '_', yr, '.csv'))
+  
+  ns <- names(rw)[names(rw) %in% names(shelter.pums)]
+  shelt <- shelter.pums[,(ns), with=F]
+ 
+  r2 <- rbind(rw, shelt, fill = TRUE) |>
+    mutate(reb = reb, 
+           year = yr) |>
+    setDT()
+
+  fwrite(r2, paste0(output_path, '/reweighted_PUMS_', reb, '_with_shelter_', yr, '.csv'))
+
+  if (reb == 'MAPC97') {
+  dt.sum <- dt |>
+    filter(SPORDER == 1) |>
+    group_by(mpo, year) |>
+    summarize(shop_hh = round(sum(new_WGTP))) |>
+    setDT()
+} else {
+  dt.sum <- dt |>
+    filter(SPORDER == 1) |>
+    group_by(rpa_acr, year) |>
+    summarize(shop_hh = round(sum(new_WGTP))) |>
+    setDT()
+}
+
+if (reb == 'MAPC97') {
+  rw.sum <- r2 |>
+    filter(SPORDER == 1) |>
+    group_by(mpo, year) |>
+    summarize(rw_hh = round(sum(new_WGTP))) |>
+    setDT()
+} else {
+  rw.sum <- r2 |>
+    filter(SPORDER == 1) |>
+    group_by(rpa_acr, year) |>
+    summarize(rw_hh = round(sum(new_WGTP))) |>
+    setDT()
+}
+
+if (reb == 'MAPC97') {
+  comp <- left_join(dt.sum, rw.sum, by = c('mpo', 'year')) |>
+    mutate(diff = rw_hh - shop_hh)
+} else {
+  comp <- left_join(dt.sum, rw.sum, by = c('rpa_acr', 'year')) |>
+    mutate(diff = rw_hh - shop_hh)
+}
+
+comp.yrs <- rbind(comp.yrs, comp) 
+
+}
+
+
+shop.miss <- fread(paste0(base,'Housing/StatewideHousingPlan/04_Analysis/Data/Working/Reweighter/Scenario_3/Output_Files_UPDATE/reweighter_QC_all_RPAs_all_years_',reb,'_Scenario_3_scen2.csv'))
+
+target.miss <- fread(paste0(output_path,'reweighter_QC_all_RPAs_all_years_', reb,'.csv'))
+shelt.sum <- shelter.pums[SPORDER==1, sum(new_WGTP),mpo]
+
+c2 <- comp.yrs |>
+  left_join(target.miss, by=c('mpo','year')) |> 
+  left_join(shelt.sum, by='mpo') |> 
+  rename(target_diff = diff.y,
+         shelter_hh = V1,
+         shop_diff = diff.x,
+         rw_output = rw_HH,
+         rw_plus_shelter = rw_hh) |> 
+  mutate(target_plus_shelter = TARGET + shelter_hh,
+         chk = target_plus_shelter - shop_hh) |> 
+  select(-pums_baseline_hh) |> 
+  setDT()
+
+
+```
+# 9 - Weight adjustment to match SWHP Scenario 3 regional total households
+```{r}
+
+
 ```
 

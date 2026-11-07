@@ -897,4 +897,8 @@ write.csv(
   row.names = FALSE
 )
 
+fwrite(
+  shelter.pums_cleaned,
+  paste0(shelter_path, '/cleaned.shelter.pums.sample_run.1.csv')
+)
 ```
