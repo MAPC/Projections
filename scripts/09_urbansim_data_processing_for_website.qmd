@@ -669,9 +669,247 @@ st_write(
 
 ```
 
-# 5.0 - Plots and Charts
+# 5 - Website Presentation Visualizations
+```{r}
 
-# 5.1 Load 2010 Census Data
+# Create paths
+root <- "K:/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/04_Allocation_Results/Revised_Allocation_Sept2025/Tabular/"
+out_path <- paste0(root, "Website Visualizations/")
+
+# Load datakeys
+keys <- mapcdatakeys::all_muni_data_keys |> select(muni_name, cmtyp08)
+
+# Load Data
+proj20 <- read.csv(paste0(root, "urbansim_complete_microsim_population_website_revised_2019.csv"))
+proj30 <- read.csv(paste0(root, "urbansim_complete_microsim_population_website_revised_2029.csv"))
+proj40 <- read.csv(paste0(root, "urbansim_complete_microsim_population_website_revised_2039.csv"))
+proj50 <- read.csv(paste0(root, "urbansim_complete_microsim_population_website_revised_2049.csv"))
+emp20 <- read.csv(paste0(root, "muni_employment_2020.csv"))
+emp50  <- read.csv(paste0(root, "muni_employment_2050.csv"))
+
+# Households by Householder Age Group
+hh_tbl1.20 <- proj20 |>
+  filter(rpa_acr == "MAPC") |> 
+  mutate(
+    age_grp = case_when(
+      AGEP >= 15 & AGEP <=34 ~ "15-34",
+      AGEP >= 35 & AGEP <= 54 ~ "35-54",
+      AGEP >= 55 & AGEP <= 64 ~ "55-64",
+      AGEP >= 65 & AGEP <= 84 ~ "65-84",
+      AGEP >= 85 ~ "85+"
+    )
+  ) |> 
+  filter(sporder == 1) |> 
+  group_by(age_grp) |> 
+  summarise(
+    hh = n()
+  ) |> 
+  ungroup() |> 
+  mutate(
+    year = "2020"
+  )
+
+print(sum(hh_tbl1.20$hh))
+
+hh_tbl1.30 <- proj30 |>
+  filter(rpa_acr == "MAPC") |> 
+  mutate(
+    age_grp = case_when(
+      AGEP >= 15 & AGEP <=34 ~ "15-34",
+      AGEP >= 35 & AGEP <= 54 ~ "35-54",
+      AGEP >= 55 & AGEP <= 64 ~ "55-64",
+      AGEP >= 65 & AGEP <= 84 ~ "65-84",
+      AGEP >= 85 ~ "85+"
+    )
+  ) |> 
+  filter(sporder == 1) |> 
+  group_by(age_grp) |> 
+  summarise(
+    hh = n()
+  ) |> 
+  ungroup() |> 
+  mutate(
+    year = "2030"
+  )
+
+print(sum(hh_tbl1.30$hh))
+
+hh_tbl1.40 <- proj40 |>
+  filter(rpa_acr == "MAPC") |> 
+  mutate(
+    age_grp = case_when(
+      AGEP >= 15 & AGEP <=34 ~ "15-34",
+      AGEP >= 35 & AGEP <= 54 ~ "35-54",
+      AGEP >= 55 & AGEP <= 64 ~ "55-64",
+      AGEP >= 65 & AGEP <= 84 ~ "65-84",
+      AGEP >= 85 ~ "85+"
+    )
+  ) |> 
+  filter(sporder == 1) |> 
+  group_by(age_grp) |> 
+  summarise(
+    hh = n()
+  ) |> 
+  ungroup() |> 
+  mutate(
+    year = "2040"
+  )
+
+print(sum(hh_tbl1.40$hh))
+  
+hh_tbl1.50 <- proj50 |> 
+  filter(rpa_acr == "MAPC") |> 
+  mutate(
+    age_grp = case_when(
+      AGEP >= 15 & AGEP <=34 ~ "15-34",
+      AGEP >= 35 & AGEP <= 54 ~ "35-54",
+      AGEP >= 55 & AGEP <= 64 ~ "55-64",
+      AGEP >= 65 & AGEP <= 84 ~ "65-84",
+      AGEP >= 85 ~ "85+"
+    )
+  ) |> 
+  filter(sporder == 1) |> 
+  group_by(age_grp) |> 
+  summarise(
+    hh = n()
+  ) |> 
+  ungroup() |> 
+  mutate(
+    year = "2050"
+  )
+
+print(sum(hh_tbl1.50$hh))
+
+hh <- bind_rows(hh_tbl1.20, hh_tbl1.30, hh_tbl1.40, hh_tbl1.50) |> 
+  pivot_wider(
+    names_from = year,
+    values_from = hh
+  )
+  
+write_xlsx(
+  hh,
+  paste0(out_path, "hh_tbl1.xlsx"),
+)
+
+rm(hh, hh_tbl1.20, hh_tbl1.30, hh_tbl1.40, hh_tbl1.50)
+
+# Households by Household income Group and Household Type
+# income grp
+# HHtype Check
+  
+hh_tbl2.20 <- proj20 |> 
+  filter(rpa_acr == "MAPC") |> 
+  filter(sporder == 1) |> 
+  group_by(income_grp, HHtype.chk) |> 
+  summarise(
+    hh = n()
+  ) |> 
+  ungroup() |> 
+  mutate(
+    year = "2020"
+  )
+
+print(sum(hh_tbl2.20$hh))
+
+if (sum(hh_tbl2.20$hh) != 2756493){
+  print("Summarized data is INCORRECT. Review code.")
+  
+}else{
+  print("Summarized data looks as it should.")
+}
+  
+hh_tbl2.50 <- proj50 |> 
+  filter(rpa_acr == "MAPC") |> 
+  filter(sporder == 1) |> 
+  group_by(income_grp, HHtype.chk) |> 
+  summarise(
+    hh = n()
+  ) |> 
+  ungroup() |> 
+  mutate(
+    year = "2050"
+  )
+
+print(sum(hh_tbl2.50$hh))
+
+if (sum(hh_tbl2.50$hh) != 2948778){
+  print("Summarized data is INCORRECT. Review code.")
+  
+}else{
+  print("Summarized data looks as it should.")
+}
+
+hh <- bind_rows(hh_tbl2.20, hh_tbl2.50) |> 
+  pivot_wider(
+    names_from = year,
+    values_from = hh
+  )  |> 
+  mutate(
+    hh_diff = `2050`-`2020`,
+    hh_diff.pct = round(((`2050`/`2020`)-1), 4)
+  )
+
+write_xlsx(
+  hh,
+  paste0(out_path, "hh_tbl2.xlsx")
+)
+
+rm(hh, hh_tbl2.20, hh_tbl2.50)
+
+# Employment
+emp <- bind_rows(emp20, emp50) |> left_join(keys, by = c("muni_name"))
+
+# Employment by Super Sector
+emp_tbl1 <- emp |> 
+  filter(rpa_acr == "MAPC") |> 
+  group_by(SuperSector, year) |>
+  summarise(
+    emp = sum(jobs)
+  ) |> 
+  ungroup() |> 
+  pivot_wider(
+    names_from = year,
+    values_from = emp
+  ) |> 
+  mutate(
+    emp_diff = `2050`-`2020`,
+    emp_diff.pct = round(((`2050`/`2020`)-1), 4)
+  )
+
+write_xlsx(
+  emp_tbl1,
+  paste0(out_path, "emp_tbl1.xlsx")
+)
+
+#Employment by Community Type
+emp_tbl2 <- emp |> 
+  filter(rpa_acr == "MAPC") |> 
+  group_by(cmtyp08, year) |>
+  summarise(
+    emp = sum(jobs)
+  ) |> 
+  ungroup() |> 
+  pivot_wider(
+    names_from = year,
+    values_from = emp
+  ) |> 
+  mutate(
+    emp_diff = `2050`-`2020`,
+    emp_diff.pct = round(((`2050`/`2020`)-1), 4)
+  )
+
+write_xlsx(
+  emp_tbl2,
+  paste0(out_path, "emp_tbl2.xlsx")
+)
+
+# 
+rm(emp, emp_tbl1, emp_tbl2, emp20, emp50)
+```
+
+# 6 - Plots and Charts
+
+# 6.1 Load 2010 Census Data
 
 ```{r}
 #Municipal GEOIDs for 2010 Decennial Census
@@ -821,7 +1059,7 @@ hhpop.10 <- pa.values |>
 rm(pa.labels, pa.values, pa.vars)
 ```
 
-# 5.2 Load
+# 6.2 Load
 
 ```{r}
 # Functions created for the Urbansim/Projections workflow
@@ -850,7 +1088,7 @@ rpa_list <- unique(pop$RPA)
 
 ```
 
-# 5.3 Data Cleaning for Visualizations
+# 6.3 Data Cleaning for Visualizations
 
 ```{r}
 # Population
@@ -1426,9 +1664,9 @@ emp.ss.rpa <- emp |>
   ungroup()
 ```
 
-# 5.4 Visualizations
+# 6.4 Visualizations
 
-# 5.4.1 Population
+# 6.4.1 Population
 
 ```{r}
 # Overall
@@ -1608,7 +1846,7 @@ for (r in rpa_list) {
 # RPA
 ```
 
-# 5.4.2 Households
+# 6.4.2 Households
 
 ```{r}
 # Overall Households
@@ -1793,7 +2031,7 @@ for (r in rpa_list) {
 
 ```
 
-# 5.4.3 Employment
+# 6.4.3 Employment
 
 ```{r}
 # Overall Employment
