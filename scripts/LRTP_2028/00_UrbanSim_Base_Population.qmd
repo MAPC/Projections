@@ -199,8 +199,11 @@ pums_data <- pums |>
 
 # join additional PUMS fields to UrbanSim 2020 base year micropopulation
 
-urbsim_pums <- left_join(pop |> select(-AGEP), pums_data, by=c('SERIALNO','SPORDER')) |> 
-  select(-WGTP,-PWGTP) |> left_join(hh |> select(SERIALNO,income,age_of_head,hh_children_present, hh_type) |> unique(), by=c('SERIALNO')) |> 
+urbsim_pums <- left_join(pop |> select(-AGEP), pums_data, by = c('SERIALNO', 'SPORDER')) |>
+  select(-WGTP, -PWGTP) |> 
+  left_join(hh |> select(SERIALNO, income, age_of_head, hh_children_present, hh_type) |> unique(),
+    by = c('SERIALNO')
+  ) |>
   setDT()
 fwrite(urbsim_pums, paste0(urb.path,'UrbanSim_2020_baseyear_micropop_with_PUMS_vars.csv'))
 
