@@ -1,0 +1,42 @@
+---
+title: "LRTP23 SHoPS3 Comparison"
+format: html
+editor: visual
+---
+# 0.0 Environment Set-up
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+# Loads libraries from LPDB_libraries.R script
+source(here::here("/LRTP27/Scripts/projections_libraries.R"))
+
+# Load data keys to crosswalk municipality names to municipal IDs
+keys <- mapcdatakeys::all_muni_data_keys
+
+#Global options to remove scientific notation and set random seed
+options(scipen = 999)
+set.seed(351)
+
+# File Paths
+# Input Path
+in_path <- "K:/DataServices/Projects/Current_Projects/Projections/Projections_2028/Data/01_Regional_Control_Totals/"
+
+# Output Path for Comparison Files
+out_path <- "K:/DataServices/Projects/Current_Projects/Projections/Projections_2028/Data/01_Regional_Control_Totals/Comparisons/"
+```
+
+# 0.1 Load Data
+```{r}
+lrtp23 <- read.csv(paste0(in_path, "LRTP_2023/Statewide_Control_HHds_Projections2050_MB_v04.20.23_one_year_offset_HH_Adj.csv"))
+```
+
+# 1.0 Join LRTP23 and SHoPS3 Inputs
+```{r}
+```
+
+# 2.0 Create Comparison Tables
+```{r}
+``` 
+
+# 3.0 Outputs
+```{r}
+```
