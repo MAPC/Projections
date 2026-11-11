@@ -2087,7 +2087,7 @@ for (r in rpa_list) {
   rm(tmp)
   
   # Print statement
-  print(paste0("Population charts for ", r, " saved on disk!"))
+  print(paste0("Household charts for ", r, " saved on disk!"))
   
 }
 
@@ -2268,11 +2268,113 @@ for (r in rpa_list) {
     bg = NULL
   )
   
+  rm(graph)
+  
+  # Relative Percent Change (Line Graph)
+  graph <-
+    sv.line.chart(
+      df = "tmp",
+      x_var = "year",
+      y_var = "pct_diff.r",
+      x_label = "Year",
+      y_label = "Percent Change Relative to 2020 (%)",
+      custom_title = "Projected Percent Change in Employment",
+      geo = r
+    )
+  
+  ggsave(
+    filename = paste0("emp_pct_diff.r.", r, ".jpeg"),
+    plot = get_last_plot(),
+    path = paste0(output_path, "/Employment/RPA/", r),
+    width = 15,
+    height = 10,
+    dpi = 320,
+    bg = NULL
+  )
+  
+  rm(graph)
+  
+  # Remove the NA or 0 variables that won't be presented in these charts
+  tmp <- tmp |> drop_na()
+  
+  # Year-over-Year Level Difference (Bar Chart)
+  graph <-
+    sv.bar.chart_(
+      df = "tmp",
+      x_var = "year",
+      y_var = "diff",
+      x_label = "Year",
+      y_label = "Change in Employment",
+      custom_title = "Projected Y-o-Y Change in Employment",
+      geo = r
+    )
+  
+  ggsave(
+    filename = paste0("emp_diff.", r, ".jpeg"),
+    plot = get_last_plot(),
+    path = paste0(output_path, "/Employment/RPA/", r),
+    width = 15,
+    height = 10,
+    dpi = 320,
+    bg = NULL
+  )
+  
+  rm(graph)
+  
+  # Year-over-Year Percent Change (Line Graph)
+  graph <-
+    sv.line.chart(
+      df = "tmp",
+      x_var = "year",
+      y_var = "pct_diff",
+      x_label = "Year",
+      y_label = "Percent Change Relative to 2020 (%)",
+      custom_title = "Projected Percent Change in Households",
+      geo = r
+    )
+  
+  ggsave(
+    filename = paste0("emp_pct_diff.", r, ".jpeg"),
+    plot = get_last_plot(),
+    path = paste0(output_path, "/Employment/RPA/", r),
+    width = 15,
+    height = 10,
+    dpi = 320,
+    bg = NULL
+  )
+  
+  rm(graph)
+  
+  # Cumulative Level Difference (Bar Chart)
+  graph <-
+    sv.bar.chart_(
+      df = "tmp",
+      x_var = "year",
+      y_var = "diff.r",
+      x_label = "Year",
+      y_label = "Employment",
+      custom_title = "Projected Change in Employment Relative to 2020",
+      geo = r
+    )
+  
+  
+  ggsave(
+    filename = paste0("emp_diff.r.", r, ".jpeg"),
+    plot = get_last_plot(),
+    path = paste0(output_path, "/Employment/RPA/", r),
+    width = 15,
+    height = 10,
+    dpi = 320,
+    bg = NULL
+  )
+  
+  rm(graph)
+  
   # Remove tmp dataframe and graph object
-  rm(tmp, graph)
+  rm(tmp)
   
   # Print statement
-  print(paste0("Overall Employment bar chart for ", r, " saved on disk!"))
+  print(paste0("Employment charts for ", r, " saved on disk!"))
   
 }
 
