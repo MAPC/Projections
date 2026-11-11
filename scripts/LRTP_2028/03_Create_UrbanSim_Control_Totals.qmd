@@ -25,6 +25,9 @@ pacman::p_load(
 # Set ACS / PUMS vintage
 vintage <-  2023
 
+# Date tag for output files
+prod.date <- Sys.Date()
+
 # Set MAPC at 101 or 97 towns
 # reb <- 'MAPC101'
 reb <- 'MAPC97'
@@ -80,41 +83,197 @@ knitr::opts_knit$set(root.dir = rwt.path)
 
 ```
 
-# 2 - Load and Process Reweighter Outputs
+# 2 - SWM
+## 2a - Base Year Control Totals
 
 ```{r}
 
-prod.date <- Sys.Date()
-# Statewide model with 97
+input_path <- paste0(swm.path, 'Output_Files/')
+output_path <- paste0(root, 'Control_Total_Files/SWM/')
 
-swm.ctrl <- data.table()
+yr <- 2020
 
-if (reb == 'MAPC97') {
-  for (yr in seq(2025, 2050, 5)) {
-    if(yr==2020){
-      fl <- fread(paste0(
-        urb.path,
-        'UrbanSim_2020_baseyear_micropop_with_PUMS_vars.csv'
-      )) |> 
-        mutate(block_id = as.character(block_id),
-               new_WGTP = 1) |> 
-        left_join(blks20, by='block_id')
-    } else {
-      fl <- fread(paste0(
-        swm.path,
-        'Output_Files/reweighted_PUMS_',
+dt <- fread(paste0(
+  urb.path,
+  'UrbanSim_2020_baseyear_micropop_with_PUMS_vars.csv'
+)) |>
+  mutate(block_id = as.character(block_id), new_WGTP = 1) |>
+  left_join(blks20, by = 'block_id') |>
+  filter(SPORDER == 1) |>
+  left_join(subregion_xwalk, by = c('mpo' = 'RPA')) |>
+  rename(subregion_code = subregion_code_urbansim) |>
+  mutate(
+    year = yr,
+    US_AGEHHDER = case_when(
+      AGEP < 15 ~ 0,
+      AGEP >= 15 & AGEP <= 35 ~ 1,
+      AGEP >= 36 & AGEP <= 45 ~ 2,
+      AGEP >= 46 & AGEP <= 65 ~ 3,
+      AGEP >= 66 & AGEP <= 75 ~ 4,
+      AGEP >= 76 ~ 5
+    ),
+    US_HINC = case_when(
+      HINCP2013 <= 35000 ~ "1",
+      HINCP2013 > 35000 & HINCP2013 <= 75000 ~ "2",
+      HINCP2013 > 75000 & HINCP2013 <= 125000 ~ "3",
+      HINCP2013 > 125000 & HINCP2013 <= 225000 ~ "4",
+      HINCP2013 > 225000 ~ "5"
+    ),
+    HHSize = case_when(persons == 1 ~ 1, persons == 2 ~ 2, persons == 3 ~ 3, persons >= 4 ~ 4),
+    age_of_head_min = case_when(
+      US_AGEHHDER == 1 ~ 15,
+      US_AGEHHDER == 2 ~ 35,
+      US_AGEHHDER == 3 ~ 45,
+      US_AGEHHDER == 4 ~ 65,
+      US_AGEHHDER == 5 ~ 75
+    ),
+    age_of_head_max = case_when(
+      US_AGEHHDER == 1 ~ 35,
+      US_AGEHHDER == 2 ~ 45,
+      US_AGEHHDER == 3 ~ 65,
+      US_AGEHHDER == 4 ~ 75,
+      US_AGEHHDER == 5 ~ -1
+    ),
+    income_min = case_when(
+      US_HINC == 1 ~ 0,
+      US_HINC == 2 ~ 35000,
+      US_HINC == 3 ~ 75000,
+      US_HINC == 4 ~ 125000,
+      US_HINC == 5 ~ 225000
+    ),
+    income_max = case_when(
+      US_HINC == 1 ~ 35000,
+      US_HINC == 2 ~ 75000,
+      US_HINC == 3 ~ 125000,
+      US_HINC == 4 ~ 225000,
+      US_HINC == 5 ~ -1
+    ),
+    persons_min = case_when(HHSize == 1 ~ 1, HHSize == 2 ~ 2, HHSize == 3 ~ 3, HHSize == 4 ~ 4),
+    persons_max = case_when(HHSize == 1 ~ 1, HHSize == 2 ~ 2, HHSize == 3 ~ 3, HHSize == 4 ~ -1),
+    children_min = case_when(children == 0 | persons == 1 ~ 0, children > 0 &
+                               persons > 1 ~ 1),
+    children_max = case_when(children == 0 | persons == 1 ~ 0, children > 0 &
+                               persons > 1 ~ -1)
+  )
+
+full_segment_set <- dt |>
+  select(
+    age_of_head_min,
+    age_of_head_max,
+    income_min,
+    income_max,
+    persons_min,
+    persons_max,
+    children_min,
+    children_max
+  ) |>
+  unique() |>
+  group_by(
+    age_of_head_min,
+    age_of_head_max,
+    income_min,
+    income_max,
+    persons_min,
+    persons_max,
+    children_min,
+    children_max
+  ) |>
+  mutate(segment_id = cur_group_id()) |>
+  setDT()
+setorder(full_segment_set,segment_id)
+
+base.ctrl <- dt |>
+  group_by(
+    subregion_code,
+    age_of_head_min,
+    age_of_head_max,
+    income_min,
+    income_max,
+    persons_min,
+    persons_max,
+    children_min,
+    children_max
+  ) |>
+  summarize(total_number_of_households = round(sum(new_WGTP))) |>
+  ungroup() |>
+  group_by(
+    age_of_head_min,
+    age_of_head_max,
+    income_min,
+    income_max,
+    persons_min,
+    persons_max,
+    children_min,
+    children_max
+  ) |>
+  mutate(segment_id = cur_group_id()) |>
+  ungroup() |>
+  setDT()
+
+
+dt.expand <- data.table()
+
+for (i in unique(base.ctrl$subregion_code)){
+  
+  df <- left_join(
+    full_segment_set,
+    base.ctrl[subregion_code == i],
+    by = c(
+      'segment_id',
+      'age_of_head_min',
+      'age_of_head_max',
+      'income_min',
+      'income_max',
+      'persons_min',
+      'persons_max',
+      'children_min',
+      'children_max'
+    )
+  ) |> 
+    mutate(
+      subregion_code = i,
+      total_number_of_households = case_when(
+        is.na(total_number_of_households) ~ 0, 
+        .default = total_number_of_households)
+    )
+  
+  dt.expand <- rbind(dt.expand, df)
+  rm(df)
+}
+
+
+setnames(dt.expand,
+         'total_number_of_households',
+         paste0('total_number_of_households', yr))
+
+fwrite(dt.expand,
+       paste0(
+         output_path,
+         'urbansim_2020baseyear_control_totals_all_segments_SWM.csv'
+       ))
+
+
+```
+
+## 2b - Projection Year Control Totals
+```{r}
+
+ctrl.wide <- fread(paste0(output_path,'urbansim_2020baseyear_control_totals_all_segments_SWM.csv'))
+
+for (yr in seq(2025, 2050, 5)) {
+      
+    dt <- fread(paste0(
+        input_path,
+        'reweighted_PUMS_',
         reb,
         '_',
         yr,
         '_hh_adj_final.csv'
-      ))
-    }
-    dt <- fl |>
+      )) |>
       filter(SPORDER == 1) |>
       left_join(subregion_xwalk, by = c('mpo' = 'RPA')) |>
       rename(subregion_code = subregion_code_urbansim) |>
       mutate(
-        year = yr,
         US_AGEHHDER = case_when(
           AGEP < 15 ~ 0,
           AGEP >= 15 & AGEP <= 35 ~ 1,
@@ -130,7 +289,10 @@ if (reb == 'MAPC97') {
           HINCP2013 > 125000 & HINCP2013 <= 225000 ~ "4",
           HINCP2013 > 225000 ~ "5"
         ),
-        HHSize = case_when(persons == 1 ~ 1, persons == 2 ~ 2, persons == 3 ~ 3, persons >= 4 ~ 4),
+        HHSize = case_when(persons == 1 ~ 1,
+                           persons == 2 ~ 2, 
+                           persons == 3 ~ 3, 
+                           persons >= 4 ~ 4),
         age_of_head_min = case_when(
           US_AGEHHDER == 1 ~ 15,
           US_AGEHHDER == 2 ~ 35,
@@ -159,13 +321,20 @@ if (reb == 'MAPC97') {
           US_HINC == 4 ~ 225000,
           US_HINC == 5 ~ -1
         ),
-        persons_min = case_when(HHSize == 1 ~ 1, HHSize == 2 ~ 2, HHSize == 3 ~ 3, HHSize == 4 ~ 4),
-        persons_max = case_when(HHSize == 1 ~ 1, HHSize == 2 ~ 2, HHSize == 3 ~ 3, HHSize == 4 ~ -1),
-        children_min = case_when(children == 0 ~ 0, children > 0 ~ 1),
-        children_max = case_when(children == 0 ~ 0, children > 0 ~ -1)
+        persons_min = case_when(HHSize == 1 ~ 1, 
+                                HHSize == 2 ~ 2, 
+                                HHSize == 3 ~ 3, 
+                                HHSize == 4 ~ 4),
+        persons_max = case_when(HHSize == 1 ~ 1, 
+                                HHSize == 2 ~ 2, 
+                                HHSize == 3 ~ 3, 
+                                HHSize == 4 ~ -1),
+        children_min = case_when(children == 0 | persons == 1 ~ 0,
+                                 children > 0 & persons > 1 ~ 1),
+        children_max = case_when(children == 0 | persons == 1 ~ 0,
+                                 children > 0 & persons > 1 ~ -1)
       ) |>
       group_by(
-        year,
         subregion_code,
         age_of_head_min,
         age_of_head_max,
@@ -190,50 +359,161 @@ if (reb == 'MAPC97') {
       ) |>
       mutate(segment_id = cur_group_id()) |> 
       ungroup() |> 
-      relocate(total_number_of_households, .before = age_of_head_min) |> 
-      relocate(segment_id, .after = year) |>
       setDT()
-    
-    if (yr == 2020) {
-      fwrite(dt,
-             paste0(
-               output_path,
-               'urbsim_baseyear_control_total_groups_',
-               reb,
-               '.csv'
-             ))
-    }
-    if (yr > 2020) {
-      fwrite(dt,
-             paste0(
-               output_path,
-               'swm_control_totals_',
-               reb,
-               '_',
-               yr,
-               '.csv'
-             ))
-    }
-    swm.ctrl <- rbind(swm.ctrl, dt)
-    rm(dt)
-    gc()
-    message(paste0('SWM Control Totals ', yr, ' Complete'))
-  }
   
-  fwrite(
-    swm.ctrl,
-    paste0(
-      output_path,
-      'swm_5yr_control_totals_',
-      reb,
-      '_LRTP2028_',
-      prod.date,
-      '.csv'
-    )
-  )
+    ctrl.wide <- left_join(
+      ctrl.wide,
+      dt,
+      by = c(
+        'segment_id',
+        'subregion_code',
+        'age_of_head_min',
+        'age_of_head_max',
+        'income_min',
+        'income_max',
+        'persons_min',
+        'persons_max',
+        'children_min',
+        'children_max'
+      )
+    ) |> 
+    mutate(
+      total_number_of_households = case_when(
+        is.na(total_number_of_households) ~ 0, 
+        .default = total_number_of_households)
+    ) |> 
+      setDT()
   
+    setnames(ctrl.wide, 'total_number_of_households', paste0('total_number_of_households', yr))
+ 
 }
 
+fwrite(ctrl.wide, paste0(output_path, 'SWM_control_totals_5yr_wide_', prod.date, '.csv'))
+
+subregion_zerobase_nonzeroproj <- ctrl.wide[total_number_of_households2020 == 0 &
+            (
+              total_number_of_households2025 > 0 |
+                total_number_of_households2030 > 0 |
+                total_number_of_households2035 > 0 |
+                total_number_of_households2040 > 0 |
+                total_number_of_households2045 > 0 |
+                total_number_of_households2050 > 0
+            )]
+fwrite(subregion_zerobase_nonzeroproj, paste0(output_path, 'SWM_subregion_segments_zeroHH_baseyear_nonzeroHH_projyears_',prod.date,'.csv'))
+
+ctrl.long <- pivot_longer(ctrl.wide, c(paste0('total_number_of_households',seq(2020,2050,5)))) |> 
+  mutate(year = as.numeric(str_sub(name,-4,-1))) |> 
+  rename(total_number_of_households = value) |> 
+  select(-name) |> 
+  relocate(year,subregion_code,segment_id,total_number_of_households) |> 
+  setDT()
+
+fwrite(ctrl.long, paste0(output_path, 'SWM_control_totals_5yr_long_', prod.date, '.csv'))
+
+sk <- arrow::open_dataset("K:/DataServices/Projects/Current_Projects/Projections/Projections_2023/Data/03_UrbanSim/Skims/TDM23/tdm23.3.0/2024_skims_20260915/swm_skims_2024_skims_20260915/Parquet/swm_skims_2024_skims_20260915.parquet") |> 
+  collect() |> 
+  setDT()
+
+```
+
+## 2c - Interpolate to Annual Totals
+
+```{r}
+
+input_path <- paste0(swm.path, 'Output_Files/')
+output_path <- paste0(root, 'Control_Total_Files/SWM/')
+
+reb <- 'MAPC97'
+
+swm.expand <- ctrl.long %>%
+  select(
+    age_of_head_min,
+    age_of_head_max,
+    income_min,
+    income_max,
+    persons_min,
+    persons_max,
+    children_min,
+    children_max,
+    year,
+    subregion_code
+  ) |>
+  group_by(
+    age_of_head_min,
+    age_of_head_max,
+    income_min,
+    income_max,
+    persons_min,
+    persons_max,
+    children_min,
+    children_max,
+    subregion_code
+  ) |>
+  tidyr::complete(year = tidyr::full_seq(2020:2050, 1)) %>%
+  ungroup() |>
+  left_join(
+    ctrl.long,
+    by = c(
+      'age_of_head_min',
+      'age_of_head_max',
+      'income_min',
+      'income_max',
+      'persons_min',
+      'persons_max',
+      'children_min',
+      'children_max',
+      'year',
+      'subregion_code'
+    )
+  ) |>
+  setorder(
+    year,
+    subregion_code,
+    age_of_head_min,
+    age_of_head_max,
+    income_min,
+    income_max,
+    persons_min,
+    persons_max,
+    children_min,
+    children_max
+  ) |> 
+  group_by(
+    subregion_code,
+    age_of_head_min,
+    age_of_head_max,
+    income_min,
+    income_max,
+    persons_min,
+    persons_max,
+    children_min,
+    children_max
+    ) %>%
+  mutate(total_number_of_households = round(zoo::na.approx(total_number_of_households, na.rm = FALSE))) %>% 
+  ungroup() |> 
+  select(-segment_id) |> 
+  relocate(year,subregion_code,total_number_of_households) |> 
+  setDT()
+
+
+swm.expand[is.na(total_number_of_households), total_number_of_households:=0]
+
+fwrite(swm.expand, paste0(output_path,'SWM_Annual_Household_Control_Totals_',reb,'_LRTP2028_',
+      prod.date,'.csv'))
+
+```
+
+
+# 3 - MAPCM
+## 3a - Base Year Control Totals
+
+```{r}
+
+```
+
+
+## 3b - Projection Year Control Totals
+```{r}
 # MAPC model with 101
 
 if (reb == 'MAPC101') {
@@ -306,14 +586,21 @@ if (reb == 'MAPC101') {
           US_HINC == 4 ~ 225000,
           US_HINC == 5 ~ -1
         ),
-        persons_min = case_when(HHSize == 1 ~ 1, HHSize == 2 ~ 2, HHSize == 3 ~ 3, HHSize == 4 ~ 4),
-        persons_max = case_when(HHSize == 1 ~ 1, HHSize == 2 ~ 2, HHSize == 3 ~ 3, HHSize == 4 ~ -1),
-        children_min = case_when(children == 0 ~ 0, children > 0 ~ 1),
-        children_max = case_when(children == 0 ~ 0, children > 0 ~ -1)
+        persons_min = case_when(HHSize == 1 ~ 1, 
+                                HHSize == 2 ~ 2, 
+                                HHSize == 3 ~ 3, 
+                                HHSize == 4 ~ 4),
+        persons_max = case_when(HHSize == 1 ~ 1, 
+                                HHSize == 2 ~ 2, 
+                                HHSize == 3 ~ 3, 
+                                HHSize == 4 ~ -1),
+        children_min = case_when(children == 0 | persons == 1 ~ 0,
+                                 children > 0 & persons > 1 ~ 1),
+        children_max = case_when(children == 0 | persons == 1 ~ 0,
+                                 children > 0 & persons > 1 ~ -1)
       ) |>
       group_by(
         year,
-        subregion_code,
         age_of_head_min,
         age_of_head_max,
         income_min,
@@ -384,59 +671,14 @@ if (reb == 'MAPC101') {
 
 ```
 
-# 2b - check if segment congruence between base year and projection years
-
-```{r}
-
-if(reb=='MACP97'){
-  
-base <- fread(paste0(output_path,'urbsim_baseyear_control_total_groups_',reb,'.csv')) |> 
-  group_by(segment_id) |> 
-  summarize(hh_base = sum(total_number_of_households)) |> 
-  select(segment_id,hh_base)
-            
-p25 <- fread(paste0(output_path,'swm_control_totals_',reb,'_2025.csv')) |> 
-  group_by(segment_id) |> 
-  summarize(hh_2025 = sum(total_number_of_households)) |> 
-  select(segment_id,hh_2025)
-p30 <- fread(paste0(output_path,'swm_control_totals_',reb,'_2030.csv')) |> 
-  group_by(segment_id) |> 
-  summarize(hh_2030 = sum(total_number_of_households)) |> 
-  select(segment_id,hh_2030)
-p35 <- fread(paste0(output_path,'swm_control_totals_',reb,'_2035.csv')) |> 
-  group_by(segment_id) |> 
-  summarize(hh_2035 = sum(total_number_of_households)) |> 
-  select(segment_id,hh_2035)
-p40 <- fread(paste0(output_path,'swm_control_totals_',reb,'_2040.csv')) |> 
-  group_by(segment_id) |> 
-  summarize(hh_2040 = sum(total_number_of_households)) |> 
-  select(segment_id,hh_2040)
-p45 <- fread(paste0(output_path,'swm_control_totals_',reb,'_2045.csv')) |> 
-  group_by(segment_id) |> 
-  summarize(hh_2045 = sum(total_number_of_households)) |> 
-  select(segment_id,hh_2045)
-p50 <- fread(paste0(output_path,'swm_control_totals_',reb,'_2050.csv')) |> 
-  group_by(segment_id) |> 
-  summarize(hh_2050 = sum(total_number_of_households)) |> 
-  select(segment_id,hh_2050)
-
-j1 <- full_join(base, p25, by='segment_id') |> 
-  full_join(p30, by='segment_id') |> 
-  full_join(p35, by='segment_id') |> 
-  full_join(p40, by='segment_id') |> 
-  full_join(p45, by='segment_id') |> 
-  full_join(p50, by='segment_id') |> 
-  setDT()
-
-
-}
-
-```
 
 #3 - Interpolate to annual control totals
 
 ## 3a - SWM 
 ```{r}
+
+input_path <- paste0(swm.path, 'Output_Files/')
+output_path <- paste0(root, 'Control_Total_Files/SWM/')
 
 reb <- 'MAPC97'
 
@@ -517,10 +759,13 @@ fwrite(swm.expand, paste0(output_path,'SWM_Annual_Household_Control_Totals_',reb
 
 ```
 
-## 3b - MAPC - with pop correction
+## 3b - MAPCM
 
 ```{r}
 
+input_path <- paste0(mapcm.path, 'Output_Files/')
+output_path <- paste0(root, 'Control_Total_Files/MAPCM/')
+  
 reb <- 'MAPC101'
 
 mapc.expand <- mapc.ctrl %>%

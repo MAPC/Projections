@@ -117,6 +117,11 @@ hh <- arrow::open_dataset(paste0(raw.path,'ma_state_base_data_2020_households.pa
 cpi <- fread(paste0(root,'cpi_deflators_by_year.csv'))
 cpi.deflator <- cpi[year==2013, index] / cpi[year==vintage, index]
 
+h2 <- hh |> 
+  mutate(income2013 = income * cpi.deflator)
+
+arrow::write_dataset(h2, path = raw.path, basename_template = 'ma_state_base_data_2020_households_income2013_{i}.parquet')
+
 pums_data <- pums |> 
   mutate(
     # Generate five-year age groupings to match UMDI population projections data.
@@ -137,7 +142,7 @@ pums_data <- pums |>
     HINCP2013 = round((as.numeric(HINCP) * ADJINC) * cpi.deflator, 0),
     hh_income_group =
       cut(
-        HINCP,
+        HINCP2013,
         breaks = c(-Inf, 35000, 75000, 125000, 225000, Inf),
         labels = c("1", "2", "3", "4", "5")
       ),
@@ -206,7 +211,6 @@ urbsim_pums <- left_join(pop |> select(-AGEP), pums_data, by = c('SERIALNO', 'SP
   ) |>
   setDT()
 fwrite(urbsim_pums, paste0(urb.path,'UrbanSim_2020_baseyear_micropop_with_PUMS_vars.csv'))
-
 
 # Create PUMA to RPA/MPO Crosswalk for 2020 PUMAs
 
