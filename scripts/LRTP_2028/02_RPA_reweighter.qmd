@@ -446,7 +446,16 @@ if (reb == 'MAPC97') {
     setDT()
 }
 
- 
+ comp25 <- fread(paste0(shop.path, 'output.tbl_Scenario_3_MAPC101_Households.by.Tenure.csv')) |> 
+   group_by(rpa, year) |> 
+   summarize(shop_hh = round(sum(hhds))) |>
+   ungroup() |> 
+   rename(mpo = rpa) |> 
+   filter(year==2025) |> 
+   left_join(rw.sum25, by=c('mpo','year')) |> 
+   mutate(diff = rw_hh - shop_hh) |> 
+   setDT()
+   comp25[mpo %in% c('OCPC','MAPC'), diff:=0]
    
 comp.yrs <- data.table()
 
@@ -522,7 +531,7 @@ shop.miss <- fread(paste0(base,'Housing/StatewideHousingPlan/04_Analysis/Data/Wo
 target.miss <- fread(paste0(output_path,'reweighter_QC_all_RPAs_all_years_', reb,'.csv'))
 shelt.sum <- shelter.pums[SPORDER==1, sum(new_WGTP),mpo]
 
-c2 <- comp.yrs |>
+c2 <- rbind(comp25, comp.yrs) |>
   left_join(target.miss, by=c('mpo','year')) |> 
   left_join(shelt.sum, by='mpo') |> 
   rename(target_diff = diff.y,
@@ -535,11 +544,114 @@ c2 <- comp.yrs |>
   select(-pums_baseline_hh) |> 
   setDT()
 
+fwrite(c2, paste0(output_path, 'lrtp2028_', reb, '_shop_scen3_household_mismatch.csv'))
+
 
 ```
+
 # 9 - Weight adjustment to match SWHP Scenario 3 regional total households
+
 ```{r}
 
+mis <- fread(paste0(output_path, 'lrtp2028_', reb, '_shop_scen3_household_mismatch.csv')) |> 
+  select(mpo,year,shop_hh,rw_plus_shelter,shop_diff)
+
+comp.adj <- data.table()
+
+  for (yr in seq(2025,2050,5)){
+    if (yr ==2025){
+      dt <- fread(paste0(output_path, '/reweighted_PUMS_', reb, '_', yr, '.csv'))
+    } else {
+    dt <- fread(paste0(output_path, '/reweighted_PUMS_', reb, '_with_shelter_', yr, '.csv'))  
+    }
+    for (m in mpos){
+    
+      adj <- mis[mpo==m & year==yr, shop_diff]
+    
+      if (adj < 0){
+        add <- sample(dt[mpo==m & new_WGTP >=2,SERIALNO], abs(adj), replace=F)
+        add.recs <- dt[mpo==m & SERIALNO %in% add]
+        fwrite(add.recs, paste0(output_path,'/Adjusted_PUMS_records/PUMS_sample_records_for_household_increase_adjustment_',m,'_',yr,'.csv'))
+        dt[mpo==m & SERIALNO %in% add, new_WGTP := new_WGTP + 1]
+      }
+    if (adj > 0){
+        sub <- sample(dt[mpo==m & new_WGTP >=2,SERIALNO], abs(adj), replace=F)
+        sub.recs <- dt[mpo==m & SERIALNO %in% sub]
+        fwrite(sub.recs, paste0(output_path,'/Adjusted_PUMS_records/PUMS_sample_records_for_household_decrease_adjustment_',m,'_',yr,'.csv'))
+        dt[mpo==m & SERIALNO %in% sub, new_WGTP := new_WGTP - 1]
+      }
+    }
+    fwrite(dt, paste0(output_path, '/reweighted_PUMS_', reb, '_', yr, '_hh_adj_final.csv'))
+    message(paste(yr, 'complete'))
+    
+    dt.sum <- dt |>
+      filter(SPORDER == 1) |>
+      group_by(mpo, year) |>
+      summarize(rw_hh_adj = round(sum(new_WGTP))) |>
+      setDT()
+    
+    comp.adj <- rbind(comp.adj, dt.sum)
+    
+}
+
+m2 <- left_join(mis, comp.adj, by=c('mpo','year')) |> 
+  mutate(new_diff = rw_hh_adj - shop_hh) |> 
+  setDT()
+setorder(m2,mpo,year)
+
+# Repeat to finalize after rounding errors
+still <- m2[new_diff!=0 & abs(new_diff)<100,.(mpo,year,new_diff)]
+
+comp.adj2 <- data.table()
+
+  for (yr in unique(still$year)){
+    
+    dt <- fread(paste0(output_path, '/reweighted_PUMS_', reb, '_', yr, '_hh_adj_final.csv'))
+    
+    for (m in unique(still$mpo)){
+    
+      adj <- m2[mpo==m & year==yr, new_diff]
+    
+      if (adj < 0){
+        add.prev <- fread(paste0(output_path,'/Adjusted_PUMS_records/PUMS_sample_records_for_household_increase_adjustment_',m,'_',yr,'.csv'))
+        add <- sample(dt[mpo==m & new_WGTP >=2 & SERIALNO %notin% add.prev$SERIALNO, SERIALNO], abs(adj), replace=F)
+        add.recs <- dt[mpo==m & SERIALNO %in% add] |> 
+          rbind(add.prev)
+        fwrite(add.prev, paste0(output_path,'/Adjusted_PUMS_records/PUMS_sample_records_for_household_increase_adjustment_',m,'_',yr,'.csv'))
+        dt[mpo==m & SERIALNO %in% add, new_WGTP := new_WGTP + 1]
+      }
+      
+    if (adj > 0){
+      sub.prev <- fread(paste0(output_path,'/Adjusted_PUMS_records/PUMS_sample_records_for_household_decrease_adjustment_',m,'_',yr,'.csv'))
+        sub <- sample(dt[mpo==m & new_WGTP >=2 & SERIALNO %notin% sub.prev$SERIALNO, SERIALNO], abs(adj), replace=F)
+        sub.recs <- dt[mpo==m & SERIALNO %in% sub] |> 
+          rbind(sub.prev)
+        fwrite(sub.prev, paste0(output_path,'/Adjusted_PUMS_records/PUMS_sample_records_for_household_decrease_adjustment_',m,'_',yr,'.csv'))
+        dt[mpo==m & SERIALNO %in% sub, new_WGTP := new_WGTP - 1]
+      }
+    }
+    fwrite(dt, paste0(output_path, '/reweighted_PUMS_', reb, '_', yr, '_hh_adj_final.csv'))
+    message(paste(yr, 'complete'))
+    
+    dt.sum <- dt |>
+      filter(SPORDER == 1) |>
+      group_by(mpo, year) |>
+      summarize(rw_hh_adj2 = round(sum(new_WGTP))) |>
+      setDT()
+    
+    comp.adj2 <- rbind(comp.adj2, dt.sum)
+    
+}
+
+m3 <- left_join(m2, comp.adj2, by=c('mpo','year')) |> 
+  mutate(new_diff2 = rw_hh_adj2 - shop_hh) |> 
+  setDT()
+setorder(m3,mpo,year)
+
+if(m3[!is.na(new_diff2), sum(new_diff2)] == 0 &
+   m3[is.na(new_diff2) & abs(new_diff) < 100, sum(new_diff) == 0]){
+  print('Proceed')
+} else{print('Match NOT COMPLETE')}
 
 ```
 
