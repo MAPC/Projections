@@ -38,7 +38,11 @@ sv.bar.chart_ <- function(df, x_var, y_var, x_label, y_label, custom_title, geo)
       y = y_label,
       caption = "Source: MAPC Data Services - Research Division"
     ) +
-    scale_y_continuous(labels = scales::label_comma(), expand = expansion(mult = c(0, .1))) +
+    scale_y_continuous(
+      labels = scales::label_comma(),
+      limits = c(if_else(min(get(df)[[y_var]]) < 0, (min(get(df)[[y_var]]) + (0.1*min(get(df)[[y_var]]))), 0),NA),
+      expand = expansion(mult = c(0, .1)) 
+    ) +
     theme_bw() +
     theme(
       panel.background = element_blank(),
@@ -79,7 +83,11 @@ mv.bar.chart_ <- function(df, x_var, y_var, group_var, x_label, y_label, group_l
       fill = group_label,
       caption = "Source: MAPC Data Services - Research Division"
     ) +
-    scale_y_continuous(labels = scales::label_comma(), expand = expansion(mult = c(0, .1))) +
+    scale_y_continuous(
+      labels = scales::label_comma(),
+      limits = c(if_else(min(get(df)[[y_var]]) < 0, (min(get(df)[[y_var]]) + (0.1*min(get(df)[[y_var]]))), 0),NA),
+      expand = expansion(mult = c(0, .1))
+    ) +
     theme_bw() +
     theme(
       panel.background = element_blank(),
@@ -106,14 +114,18 @@ sv.line.chart <- function(df, x_var, y_var, x_label, y_label, custom_title, geo)
   graph <- ggplot(data = get(df), aes(x = get(x_var), y = get(y_var), group = 1)) +
     geom_line() +
     geom_point() +
-    geom_text(aes(label = scales::comma(get(y_var))), vjust = -1) +
+    geom_text(aes(label = scales::comma(get(y_var))), vjust = -1, size = 10) +
     labs(
       title = paste0(custom_title, ", ", geo ," (2020-2050)"),
       x = x_label,
       y = y_label,
       caption = "Source: MAPC Data Services - Research Division"
     ) +
-    scale_y_continuous(labels = scales::label_comma(), limits = c(0,NA), expand = expansion(mult = c(0, .1))) +
+    scale_y_continuous(
+      labels = scales::label_comma(),
+      limits = c(if_else(min(get(df)[[y_var]], na.rm = T) < 0, (min(get(df)[[y_var]], na.rm = T) - 0.5), 0),NA),
+      expand = expansion(mult = c(0, .1))
+    ) +
     theme_bw() +
     theme(
       panel.background = element_blank(),
@@ -122,11 +134,11 @@ sv.line.chart <- function(df, x_var, y_var, x_label, y_label, custom_title, geo)
         fill = NA,
         size = 1
       ),
-      plot.title = element_text(color = "black", size = 18),
-      axis.title.x = element_text(color = "black", size = 16),
-      axis.title.y = element_text(color = "black", size = 16),
-      axis.text.x = element_text(color = "black", size = 14),
-      axis.text.y = element_text(color = "black", size = 14)
+      plot.title = element_text(color = "black", size = 28),
+      axis.title.x = element_text(color = "black", size = 20),
+      axis.title.y = element_text(color = "black", size = 20),
+      axis.text.x = element_text(color = "black", size = 20),
+      axis.text.y = element_text(color = "black", size = 20)
     )
   
   return(graph)

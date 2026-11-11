@@ -908,165 +908,13 @@ rm(emp, emp_tbl1, emp_tbl2, emp20, emp50)
 ```
 
 # 6 - Plots and Charts
-
-# 6.1 Load 2010 Census Data
-
-```{r}
-#Municipal GEOIDs for 2010 Decennial Census
-GEOID.10 <- mapcdatakeys::all_muni_data_keys |>  
-  select(muni_id, cosub_cn10) |> 
-  mutate(
-    GEOID = as.character(cosub_cn10)
-  ) |> 
-  select(GEOID, muni_id)
-
-# 
-vars.dec10 <- load_variables(2010, dataset = c("sf1"))
-
-#Decennial 2010 Population
-#Creates a list of sex by age population variables to use in the API query
-pop.vars <- dec.vars(vars.dec10, "SEX BY AGE")
-pop.vars <- data.frame(pop.vars) |> dplyr::slice(1:49) |> pull(pop.vars)
-
-#Assigns appropriate labels to the Decennial Census variables
-pop.labels <- dec.labels("2010", "SEX BY AGE") |> slice(1:46)
-
-#Queries the Census API via {tidycensus} to retrieve data about the population
-pop.values <- decennial_call(pop.vars, geog = "county subdivision", 2010)
-
-#Clean the Population data.
-pop.10 <- pop.values |> 
-  filter(GEOID %in% GEOID.10$GEOID) |> 
-  right_join(
-    pop.labels,
-    by = c("variable"="name")
-  ) |> 
-  #Change the Census age category levels to match the ageCAT6 labels
-  mutate(
-    ageCAT6 = case_when(
-      label == 'pop_Under_5_years' ~ '1',
-      label == "pop_5_to_9_years" ~ '2',
-      label == "pop_10_to_14_years" ~ '3',
-      label %in% c("pop_15_to_17_years","pop_18_and_19_years") ~ '4',
-      label %in% c("pop_20_years","pop_21_years","pop_22_to_24_years") ~ '5',
-      label == "pop_25_to_29_years" ~ '6',
-      label == "pop_30_to_34_years" ~ '7',
-      label == "pop_35_to_39_years" ~ '8',
-      label == "pop_40_to_44_years" ~ '9',
-      label == "pop_45_to_49_years" ~ '10',
-      label == "pop_50_to_54_years" ~ '11',
-      label == "pop_55_to_59_years" ~ '12',
-      label %in% c("pop_60_and_61_years","pop_62_to_64_years") ~ '13',
-      label %in% c("pop_65_and_66_years","pop_67_to_69_years") ~ '14',
-      label == "pop_70_to_74_years" ~ '15',
-      label == "pop_75_to_79_years" ~ '16',
-      label == "pop_80_to_84_years" ~ '17',
-      label == "pop_85_years_and_over" ~ '18'
-    )
-  ) |> 
-  filter(!is.na(ageCAT6)) |>  
-  right_join(
-    GEOID.10,
-    by = c('GEOID')
-  ) |>  
-  mutate(
-    muni_id = as.character(muni_id)
-  ) |> 
-  dplyr::rename(
-    Population = value,
-    Sex = sex
-  ) |>  
-  select(muni_id, Sex, ageCAT6, Population) |>  
-  group_by(
-    muni_id,
-    Sex,
-    ageCAT6
-  ) |> 
-  summarise(
-    Population = sum(Population)
-  ) |>  
-  ungroup()
-
-#Remove dataframes no longer needed in the process.
-rm(pop.labels, pop.values, pop.vars)
-
-#===============================================================================
-#Decennial 2010 Population in Households
-#Creates a list of sex by age population variables to use in the API query
-pa.vars <- dec.vars(vars.dec10, "SEX BY AGE FOR THE POPULATION IN HOUSEHOLDS")
-
-#Assigns appropriate labels to the Decennial Census variables
-pa.labels <- dec.labels("2010", "SEX BY AGE FOR THE POPULATION IN HOUSEHOLDS")
-
-#Queries the Census API via {tidycensus} to retrieve data about the population
-#in households
-pa.values <- decennial_call(pa.vars, geog = "county subdivision", 2010)
-
-#Clean the Household Population data.
-hhpop.10 <- pa.values |> 
-  filter(GEOID %in% GEOID.10$GEOID) |> 
-  right_join(
-    pa.labels,
-    by = c("variable"="name")
-  ) |> 
-  #Change the Census age category levels to match the ageCAT6 labels
-  mutate(
-    ageCAT6 = case_when(
-      label == 'pop_Under_5_years' ~ '1',
-      label == "pop_5_to_9_years" ~ '2',
-      label == "pop_10_to_14_years" ~ '3',
-      label %in% c("pop_15_to_17_years","pop_18_and_19_years") ~ '4',
-      label %in% c("pop_20_years","pop_21_years","pop_22_to_24_years") ~ '5',
-      label == "pop_25_to_29_years" ~ '6',
-      label == "pop_30_to_34_years" ~ '7',
-      label == "pop_35_to_39_years" ~ '8',
-      label == "pop_40_to_44_years" ~ '9',
-      label == "pop_45_to_49_years" ~ '10',
-      label == "pop_50_to_54_years" ~ '11',
-      label == "pop_55_to_59_years" ~ '12',
-      label %in% c("pop_60_and_61_years","pop_62_to_64_years") ~ '13',
-      label %in% c("pop_65_and_66_years","pop_67_to_69_years") ~ '14',
-      label == "pop_70_to_74_years" ~ '15',
-      label == "pop_75_to_79_years" ~ '16',
-      label == "pop_80_to_84_years" ~ '17',
-      label == "pop_85_years_and_over" ~ '18'
-    )
-  ) |> 
-  filter(!is.na(ageCAT6)) |>  
-  right_join(
-    GEOID.10,
-    by = c('GEOID')
-  ) |>  
-  mutate(
-    muni_id = as.character(muni_id)
-  ) |> 
-  dplyr::rename(
-    HHPopulation = value,
-    Sex = sex
-  ) |>  
-  select(muni_id, Sex, ageCAT6, HHPopulation) |>  
-  group_by(
-    muni_id,
-    Sex,
-    ageCAT6
-  ) |> 
-  summarise(
-    HHPopulation = sum(HHPopulation)
-  ) |>  
-  ungroup()
-
-#Remove dataframes no longer needed in the process.
-rm(pa.labels, pa.values, pa.vars)
-```
-
-# 6.2 Load
-
+# 6.1 Load Pubished Projections Data
 ```{r}
 # Functions created for the Urbansim/Projections workflow
 source(here("urbansim_model_update/projections_functions.R"))
 
 # Set the path to the data to load in the for loop below.
-input.path <- paste0(root,"04_Allocation_Results/Revised_Allocation_Sept2025/Tabular/")
+input.path <- paste0(root,"Data/04_Allocation_Results/Revised_Allocation_Sept2025/Tabular/")
 output_path <- paste0(root,"Final_Release/Visualizations")
 
 # Load data from workbook posted to Projections webiste.
@@ -1085,11 +933,34 @@ emp <- readxl::read_xlsx(paste0(input.path, "LRTP2023_Municipal_Data_revised_202
 
 # Create RPA list
 rpa_list <- unique(pop$RPA)
+# Create Data Type List
+dt_list <- c("Population", "Households", "Employment")
+
+# Create Directories
+for (i in dt_list) {
+      if (!dir.exists(paste0(output_path, "/", i))) {
+      dir.create(paste0(output_path, "/", i))
+      dir.create(paste0(output_path, "/", i, "/RPA"))
+      print(paste0("Created Data Type Directory: ", i, "."))
+    } else {
+      print("Dir already exists!")
+    }
+}
+
+for (i in dt_list) {
+  for (r in rpa_list) {
+    if (!dir.exists(paste0(output_path, "/", i, "/RPA/", r))) {
+      dir.create(paste0(output_path, "/", i, "/RPA/", r))
+      print(paste0("Created RPA Directory: ", r, "."))
+    } else {
+      print("Dir already exists!")
+    }
+  }
+}
 
 ```
 
-# 6.3 Data Cleaning for Visualizations
-
+# 6.2 Data Cleaning for Visualizations
 ```{r}
 # Population
 # State
@@ -1664,9 +1535,9 @@ emp.ss.rpa <- emp |>
   ungroup()
 ```
 
-# 6.4 Visualizations
+# 6.3 Visualizations
 
-# 6.4.1 Population
+# 6.3.1 Population
 
 ```{r}
 # Overall
@@ -1722,7 +1593,7 @@ ggsave(
 rm(graph)
 
 # Remove the NA or 0 variables that won't be presented in these charts
-pop.state <- pop.state |> filter(across(everything(), ~!is.na(.x)))
+pop.state <- pop.state |> drop_na()
 
 # Year-over-Year Level Difference (Bar Chart)
 graph <-
@@ -1812,7 +1683,7 @@ for (r in rpa_list) {
   graph <- sv.bar.chart_(
     df = "tmp",
     x_var = "year",
-    y_var = "emp",
+    y_var = "pop",
     x_label = "Year",
     y_label = "Population",
     custom_title = "Projected Population",
@@ -1821,19 +1692,121 @@ for (r in rpa_list) {
   
   # Save graph to disk.
   ggsave(
-    filename = paste0("pop_overall.",r,".jpeg"),
+    filename = paste0("pop_overall.", r, ".jpeg"),
     plot = get_last_plot(),
-    path = paste0(output_path, "/Population/RPA"),
+    path = paste0(output_path, "/Population/RPA/", r),
     width = 10,
     dpi = 320,
     bg = NULL
   )
   
+  rm(graph)
+  
+  # Relative Percent Change (Line Graph)
+  graph <-
+    sv.line.chart(
+      df = "tmp",
+      x_var = "year",
+      y_var = "pct_diff.r",
+      x_label = "Year",
+      y_label = "Percent Change Relative to 2020 (%)",
+      custom_title = "Projected Percent Change in Household Population",
+      geo = r
+    )
+  
+  ggsave(
+    filename = paste0("pop_pct_diff.r.", r, ".jpeg"),
+    plot = get_last_plot(),
+    path = paste0(output_path, "/Population/RPA/", r),
+    width = 15,
+    height = 10,
+    dpi = 320,
+    bg = NULL
+  )
+  
+  rm(graph)
+  
+  # Remove the NA or 0 variables that won't be presented in these charts
+  tmp <- tmp |> drop_na()
+  
+  # Year-over-Year Level Difference (Bar Chart)
+  graph <-
+    sv.bar.chart_(
+      df = "tmp",
+      x_var = "year",
+      y_var = "diff",
+      x_label = "Year",
+      y_label = "Change in Household Population",
+      custom_title = "Projected Y-o-Y Change in Household Population",
+      geo = r
+    )
+  
+  ggsave(
+    filename = paste0("pop_diff.", r, ".jpeg"),
+    plot = get_last_plot(),
+    path = paste0(output_path, "/Population/RPA/", r),
+    width = 15,
+    height = 10,
+    dpi = 320,
+    bg = NULL
+  )
+  
+  rm(graph)
+  
+  # Year-over-Year Percent Change (Line Graph)
+  graph <-
+    sv.line.chart(
+      df = "tmp",
+      x_var = "year",
+      y_var = "pct_diff",
+      x_label = "Year",
+      y_label = "Percent Change Relative to 2020 (%)",
+      custom_title = "Projected Percent Change in Household Population",
+      geo = r
+    )
+  
+  ggsave(
+    filename = paste0("pop_pct_diff.", r, ".jpeg"),
+    plot = get_last_plot(),
+    path = paste0(output_path, "/Population/RPA/", r),
+    width = 15,
+    height = 10,
+    dpi = 320,
+    bg = NULL
+  )
+  
+  rm(graph)
+  
+  # Cumulative Level Difference (Bar Chart)
+  graph <-
+    sv.bar.chart_(
+      df = "tmp",
+      x_var = "year",
+      y_var = "diff.r",
+      x_label = "Year",
+      y_label = "Population",
+      custom_title = "Projected Change in Household Population Relative to 2020",
+      geo = r
+    )
+  
+  
+  ggsave(
+    filename = paste0("pop_diff.r.", r, ".jpeg"),
+    plot = get_last_plot(),
+    path = paste0(output_path, "/Population/RPA/", r),
+    width = 15,
+    height = 10,
+    dpi = 320,
+    bg = NULL
+  )
+  
+  rm(graph)
+  
   # Remove tmp dataframe and graph object
-  rm(tmp, graph)
+  rm(tmp)
   
   # Print statement
-  print(paste0("Overall Population bar chart for ", r, " saved on disk!"))
+  print(paste0("Population charts for ", r, " saved on disk!"))
   
 }
 
@@ -1846,8 +1819,7 @@ for (r in rpa_list) {
 # RPA
 ```
 
-# 6.4.2 Households
-
+# 6.3.2 Households
 ```{r}
 # Overall Households
 # State
@@ -1902,7 +1874,7 @@ ggsave(
 rm(graph)
 
 # Remove the NA or 0 variables that won't be presented in these charts
-hh.state <- hh.state |> filter(across(everything(), ~!is.na(.x)))
+hh.state <- hh.state |> drop_na()
 
 # Year-over-Year Level Difference (Bar Chart)
 graph <-
@@ -2009,11 +1981,113 @@ for (r in rpa_list) {
     bg = NULL
   )
   
+  rm(graph)
+  
+  # Relative Percent Change (Line Graph)
+  graph <-
+    sv.line.chart(
+      df = "tmp",
+      x_var = "year",
+      y_var = "pct_diff.r",
+      x_label = "Year",
+      y_label = "Percent Change Relative to 2020 (%)",
+      custom_title = "Projected Percent Change in Households",
+      geo = r
+    )
+  
+  ggsave(
+    filename = paste0("hh_pct_diff.r.", r, ".jpeg"),
+    plot = get_last_plot(),
+    path = paste0(output_path, "/Households/RPA/", r),
+    width = 15,
+    height = 10,
+    dpi = 320,
+    bg = NULL
+  )
+  
+  rm(graph)
+  
+  # Remove the NA or 0 variables that won't be presented in these charts
+  tmp <- tmp |> drop_na()
+  
+  # Year-over-Year Level Difference (Bar Chart)
+  graph <-
+    sv.bar.chart_(
+      df = "tmp",
+      x_var = "year",
+      y_var = "diff",
+      x_label = "Year",
+      y_label = "Change in Households",
+      custom_title = "Projected Y-o-Y Change in Households",
+      geo = r
+    )
+  
+  ggsave(
+    filename = paste0("hh_diff.", r, ".jpeg"),
+    plot = get_last_plot(),
+    path = paste0(output_path, "/Households/RPA/", r),
+    width = 15,
+    height = 10,
+    dpi = 320,
+    bg = NULL
+  )
+  
+  rm(graph)
+  
+  # Year-over-Year Percent Change (Line Graph)
+  graph <-
+    sv.line.chart(
+      df = "tmp",
+      x_var = "year",
+      y_var = "pct_diff",
+      x_label = "Year",
+      y_label = "Percent Change Relative to 2020 (%)",
+      custom_title = "Projected Percent Change in Households",
+      geo = r
+    )
+  
+  ggsave(
+    filename = paste0("hh_pct_diff.", r, ".jpeg"),
+    plot = get_last_plot(),
+    path = paste0(output_path, "/Households/RPA/", r),
+    width = 15,
+    height = 10,
+    dpi = 320,
+    bg = NULL
+  )
+  
+  rm(graph)
+  
+  # Cumulative Level Difference (Bar Chart)
+  graph <-
+    sv.bar.chart_(
+      df = "tmp",
+      x_var = "year",
+      y_var = "diff.r",
+      x_label = "Year",
+      y_label = "Households",
+      custom_title = "Projected Change in Households Relative to 2020",
+      geo = r
+    )
+  
+  
+  ggsave(
+    filename = paste0("hh_diff.r.", r, ".jpeg"),
+    plot = get_last_plot(),
+    path = paste0(output_path, "/Households/RPA/", r),
+    width = 15,
+    height = 10,
+    dpi = 320,
+    bg = NULL
+  )
+  
+  rm(graph)
+  
   # Remove tmp dataframe and graph object
-  rm(tmp, graph)
+  rm(tmp)
   
   # Print statement
-  print(paste0("Overall Households bar chart for ", r, " saved on disk!"))
+  print(paste0("Household charts for ", r, " saved on disk!"))
   
 }
 
@@ -2194,11 +2268,113 @@ for (r in rpa_list) {
     bg = NULL
   )
   
+  rm(graph)
+  
+  # Relative Percent Change (Line Graph)
+  graph <-
+    sv.line.chart(
+      df = "tmp",
+      x_var = "year",
+      y_var = "pct_diff.r",
+      x_label = "Year",
+      y_label = "Percent Change Relative to 2020 (%)",
+      custom_title = "Projected Percent Change in Employment",
+      geo = r
+    )
+  
+  ggsave(
+    filename = paste0("emp_pct_diff.r.", r, ".jpeg"),
+    plot = get_last_plot(),
+    path = paste0(output_path, "/Employment/RPA/", r),
+    width = 15,
+    height = 10,
+    dpi = 320,
+    bg = NULL
+  )
+  
+  rm(graph)
+  
+  # Remove the NA or 0 variables that won't be presented in these charts
+  tmp <- tmp |> drop_na()
+  
+  # Year-over-Year Level Difference (Bar Chart)
+  graph <-
+    sv.bar.chart_(
+      df = "tmp",
+      x_var = "year",
+      y_var = "diff",
+      x_label = "Year",
+      y_label = "Change in Employment",
+      custom_title = "Projected Y-o-Y Change in Employment",
+      geo = r
+    )
+  
+  ggsave(
+    filename = paste0("emp_diff.", r, ".jpeg"),
+    plot = get_last_plot(),
+    path = paste0(output_path, "/Employment/RPA/", r),
+    width = 15,
+    height = 10,
+    dpi = 320,
+    bg = NULL
+  )
+  
+  rm(graph)
+  
+  # Year-over-Year Percent Change (Line Graph)
+  graph <-
+    sv.line.chart(
+      df = "tmp",
+      x_var = "year",
+      y_var = "pct_diff",
+      x_label = "Year",
+      y_label = "Percent Change Relative to 2020 (%)",
+      custom_title = "Projected Percent Change in Households",
+      geo = r
+    )
+  
+  ggsave(
+    filename = paste0("emp_pct_diff.", r, ".jpeg"),
+    plot = get_last_plot(),
+    path = paste0(output_path, "/Employment/RPA/", r),
+    width = 15,
+    height = 10,
+    dpi = 320,
+    bg = NULL
+  )
+  
+  rm(graph)
+  
+  # Cumulative Level Difference (Bar Chart)
+  graph <-
+    sv.bar.chart_(
+      df = "tmp",
+      x_var = "year",
+      y_var = "diff.r",
+      x_label = "Year",
+      y_label = "Employment",
+      custom_title = "Projected Change in Employment Relative to 2020",
+      geo = r
+    )
+  
+  
+  ggsave(
+    filename = paste0("emp_diff.r.", r, ".jpeg"),
+    plot = get_last_plot(),
+    path = paste0(output_path, "/Employment/RPA/", r),
+    width = 15,
+    height = 10,
+    dpi = 320,
+    bg = NULL
+  )
+  
+  rm(graph)
+  
   # Remove tmp dataframe and graph object
-  rm(tmp, graph)
+  rm(tmp)
   
   # Print statement
-  print(paste0("Overall Employment bar chart for ", r, " saved on disk!"))
+  print(paste0("Employment charts for ", r, " saved on disk!"))
   
 }
 
