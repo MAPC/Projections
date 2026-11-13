@@ -25,8 +25,8 @@ pacman::p_load(
 vintage <-  2023
 
 # Set MAPC at 101 or 97 towns
-# reb <- 'MAPC101'
-reb <- 'MAPC97'
+reb <- 'MAPC101'
+# reb <- 'MAPC97'
 
 if (grepl('VM',Sys.info()[['nodename']])){
   base <- '//data-sync/Public/DataServices/Projects/Current_Projects/'
@@ -42,9 +42,10 @@ swm.path <- paste0(rwt.path, 'SWM/')
 
 shop.path <- paste0(root, 'SHoP_Scenarios/Reweighter_Outputs/Scenario_3/')
 
-mpos <- mapcdatakeys::all_muni_data_keys |> pull(mpo) |> unique()
+
 
 if (reb == 'MAPC97') {
+  mpos <- mapcdatakeys::all_muni_data_keys |> pull(mpo) |> unique()
   input_path <- paste0(rwt.path, 'SWM/Input_Files/')
   output_path <- paste0(rwt.path, 'SWM/Output_Files/')
   dir.create(input_path, showWarnings = F)
@@ -56,6 +57,7 @@ if (reb == 'MAPC97') {
 }
 
 if (reb == 'MAPC101') {
+  mpos <- 'MAPC'
   input_path <- paste0(rwt.path, 'MAPCM/Input_Files/')
   output_path <- paste0(rwt.path, 'MAPCM/Output_Files/')
   dir.create(input_path, showWarnings = F)
@@ -115,12 +117,14 @@ knitr::opts_knit$set(root.dir = rwt.path)
 # Template config file
 infile1 <- paste0(rwt.path, 'Templates/reweighting_config_2023.json')
 
-for (m in mpos){
-  outfile1 <- paste0(input_path, m, '/reweighting_config_2023_', m, '.json')
-  cfig1 = readLines(infile1)
-  cfig1 = gsub('PUMS2023', paste0('PUMS2023_', m), cfig1)
-  writeLines(cfig1, outfile1)
-}
+
+  for (m in mpos) {
+    outfile1 <- paste0(input_path, m, '/reweighting_config_2023_', m, '.json')
+    cfig1 = readLines(infile1)
+    cfig1 = gsub('PUMS2023', paste0('PUMS2023_', m), cfig1)
+    writeLines(cfig1, outfile1)
+  }
+
 
 ```
 
@@ -133,10 +137,9 @@ for (m in mpos){
 source(here('scripts/reweighter/algo_hh.R'))
 
 
-# for (yr in c(2040,2045,2050)) {
-  for (yr in c(2035, 2040, 2045, 2050)) {
-  for (mid in c('MAPC','OCPC')) {
-    # for (mid in mpos) {
+for (yr in c(2025,2030,2035,2040,2045,2050)) {
+  # for (yr in c(2035, 2040, 2045, 2050)) {
+    for (mid in mpos) {
     # Set config
     inpath <- paste0(input_path, mid, '/')
     source(here('scripts/reweighter/read_config_RPA.R'))
@@ -305,33 +308,33 @@ for (yr in c(2025, 2030,2035,2040,2045,2050)){
       left_join(pums, by=c('SERIALNO','SPORDER')) |> 
       setDT()
     fwrite(xp, paste0(outpath, 'reweighted_PUMS_', reb, '_', mid, '_', yr, '.csv'))
-    rw <- xp[SPORDER == 1, lapply(.SD, sum), .(mpo), .SDcols = c('WGTP', 'new_WGTP')]
+    rw <- xp[SPORDER == 1, lapply(.SD, sum), .(rpa_acr), .SDcols = c('WGTP', 'new_WGTP')]
     rw[, rw_HH := round(new_WGTP)][, pums_baseline_hh := round(WGTP)]
-    setkey(rw, mpo)
+    setkey(rw, rpa_acr)
     
-    r1 <- xp[SPORDER == 1, lapply(.SD, sum), .(mpo,AgeCat,HHtype), .SDcols = c('WGTP', 'new_WGTP')]
+    r1 <- xp[SPORDER == 1, lapply(.SD, sum), .(rpa_acr,AgeCat,HHtype), .SDcols = c('WGTP', 'new_WGTP')]
     r1[, new_WGTP := round(new_WGTP)][, WGTP := round(WGTP)]
     r1[,AgeCat:=paste0('x == ',AgeCat)]
     r1[,HHtype:=paste0('x == ',HHtype)]
-    setkey(r1, mpo,AgeCat,HHtype)
+    setkey(r1, rpa_acr,AgeCat,HHtype)
     
     # Summarize total households by mpo from target inputs to reweighter
     target <- fread(paste0(input_path, 'hhtype.targetfile.', reb, '.y', yr, '.csv')) |>
-      filter(RPA == mid) |> rename(mpo=RPA) |> setDT()
-    setkey(target,mpo,AgeCat,HHtype)
+      filter(RPA == mid) |> rename(rpa_acr=RPA) |> setDT()
+    setkey(target,rpa_acr,AgeCat,HHtype)
     
     cc <- r1[target]
     cc[,diff:=new_WGTP-TARGET]
     cc[,year:=yr]
     
     
-    tsum <- target[, lapply(.SD, sum), mpo, .SDcols = 'TARGET']
+    tsum <- target[, lapply(.SD, sum), rpa_acr, .SDcols = 'TARGET']
     tsum[, TARGET := round(TARGET)][,year:=yr]
     #setnames(tsum, 'RPA', 'mpo')
-    setkey(tsum, mpo)
+    setkey(tsum, rpa_acr)
     
     comp <- tsum[rw]
-    comp.out <- comp[,.(year,mpo,pums_baseline_hh, TARGET,rw_HH)]
+    comp.out <- comp[,.(year,rpa_acr,pums_baseline_hh, TARGET,rw_HH)]
     comp.out[,diff:= TARGET - rw_HH]
     fwrite(comp.out,paste0(outpath,'reweighter_QC_', reb, '_', mid, '_', yr,'.csv'))
     comp.dt <- rbind(comp.dt,comp.out)
@@ -348,7 +351,7 @@ comp.dt[abs(diff)>1]
 
 ```
 
-# 7 - Create summary tables of reweighted households
+# 7 - Create compiled reweighted households
 
 ```{r}
 
@@ -368,6 +371,11 @@ for (yr in c(2025,2030,2035,2040,2045,2050)){
 # 8 - Join with Shelter Households and Compare with SHoP control totals
 
 ```{r}
+
+
+shop.miss <- fread(paste0(base,'Housing/StatewideHousingPlan/04_Analysis/Data/Working/Reweighter/Scenario_3/Output_Files_UPDATE/reweighter_QC_all_RPAs_all_years_',reb,'_Scenario_3_scen2.csv'))
+
+target.miss <- fread(paste0(output_path,'reweighter_QC_all_RPAs_all_years_', reb,'.csv'))
 
 cpi <- fread(paste0(root,'cpi_deflators_by_year.csv'))
 cpi.deflator2021 <- cpi[year==2013, index] / cpi[year==2021, index]
@@ -421,42 +429,61 @@ cpi.deflator2021 <- cpi[year==2013, index] / cpi[year==2021, index]
    setDT()
   
 
-
   if (reb == 'MAPC97') {
     setnames(shelter.pums, 'rpa_acr', 'mpo')
   }
 
- fwrite(shelter.pums, paste0(rwt.path, 'shelter_pums_clean_final.csv'))
+ fwrite(shelter.pums, paste0(rwt.path, 'shelter_pums_clean_final_',reb,'.csv'))
  
 # 2025 - no shelter pop added
  
- comp25 <- fread(paste0(output_path, '/reweighted_PUMS_', reb, '_2025.csv')) |> 
+ rw25 <- fread(paste0(output_path, '/reweighted_PUMS_', reb, '_2025.csv')) |> 
    mutate(year=2025)
-if (reb == 'MAPC97') {
-  rw.sum25 <- comp25 |>
-    filter(SPORDER == 1) |>
-    group_by(mpo, year) |>
-    summarize(rw_hh = round(sum(new_WGTP))) |>
-    setDT()
-} else {
-  rw.sum25 <- comp25 |>
-    filter(SPORDER == 1) |>
-    group_by(rpa_acr, year) |>
-    summarize(rw_hh = round(sum(new_WGTP))) |>
-    setDT()
-}
-
- comp25 <- fread(paste0(shop.path, 'output.tbl_Scenario_3_MAPC101_Households.by.Tenure.csv')) |> 
-   group_by(rpa, year) |> 
-   summarize(shop_hh = round(sum(hhds))) |>
-   ungroup() |> 
-   rename(mpo = rpa) |> 
-   filter(year==2025) |> 
-   left_join(rw.sum25, by=c('mpo','year')) |> 
-   mutate(diff = rw_hh - shop_hh) |> 
-   setDT()
-   comp25[mpo %in% c('OCPC','MAPC'), diff:=0]
+ 
+ 
+ if (reb == 'MAPC97') {
+   rw.sum25 <- rw25 |>
+     filter(SPORDER == 1) |>
+     group_by(mpo, year) |>
+     summarize(rw_hh = round(sum(new_WGTP))) |>
+     setDT()
    
+   comp25 <- fread(paste0(
+     shop.path,
+     'output.tbl_Scenario_3_MAPC101_Households.by.Tenure.csv'
+   )) |>
+     group_by(rpa, year) |>
+     summarize(shop_hh = round(sum(hhds))) |>
+     ungroup() |>
+     rename(mpo = rpa) |>
+     filter(year == 2025) |>
+     left_join(rw.sum25, by = c('mpo', 'year')) |>
+     mutate(diff = rw_hh - shop_hh) |>
+     setDT()
+   comp25[mpo %in% c('OCPC', 'MAPC'), diff := 0]
+   
+ } else {
+   rw.sum25 <- rw25 |>
+     filter(SPORDER == 1) |>
+     group_by(rpa_acr, year) |>
+     summarize(rw_hh = round(sum(new_WGTP))) |>
+     setDT()
+   
+   comp25 <- fread(paste0(
+     shop.path,
+     'output.tbl_Scenario_3_MAPC101_Households.by.Tenure.csv'
+   )) |>
+     filter(rpa=='MAPC') |> 
+     group_by(rpa, year) |>
+     summarize(shop_hh = round(sum(hhds))) |>
+     ungroup() |>
+     rename(rpa_acr = rpa) |>
+     filter(year == 2025) |>
+     left_join(rw.sum25, by = c('rpa_acr', 'year')) |>
+     mutate(diff = rw_hh - shop_hh) |>
+     setDT()
+ }
+ 
 comp.yrs <- data.table()
 
 for (yr in seq(2030, 2050, 5)) {
@@ -478,71 +505,100 @@ for (yr in seq(2030, 2050, 5)) {
   ns <- names(rw)[names(rw) %in% names(shelter.pums)]
   shelt <- shelter.pums[,(ns), with=F]
  
-  r2 <- rbind(rw, shelt, fill = TRUE) |>
-    mutate(reb = reb, 
-           year = yr) |>
-    setDT()
-
-  fwrite(r2, paste0(output_path, '/reweighted_PUMS_', reb, '_with_shelter_', yr, '.csv'))
-
+  
   if (reb == 'MAPC97') {
-  dt.sum <- dt |>
-    filter(SPORDER == 1) |>
-    group_by(mpo, year) |>
-    summarize(shop_hh = round(sum(new_WGTP))) |>
-    setDT()
-} else {
-  dt.sum <- dt |>
-    filter(SPORDER == 1) |>
-    group_by(rpa_acr, year) |>
-    summarize(shop_hh = round(sum(new_WGTP))) |>
-    setDT()
-}
-
-if (reb == 'MAPC97') {
-  rw.sum <- r2 |>
-    filter(SPORDER == 1) |>
-    group_by(mpo, year) |>
-    summarize(rw_hh = round(sum(new_WGTP))) |>
-    setDT()
-} else {
-  rw.sum <- r2 |>
-    filter(SPORDER == 1) |>
-    group_by(rpa_acr, year) |>
-    summarize(rw_hh = round(sum(new_WGTP))) |>
-    setDT()
-}
-
-if (reb == 'MAPC97') {
-  comp <- left_join(dt.sum, rw.sum, by = c('mpo', 'year')) |>
-    mutate(diff = rw_hh - shop_hh)
-} else {
-  comp <- left_join(dt.sum, rw.sum, by = c('rpa_acr', 'year')) |>
-    mutate(diff = rw_hh - shop_hh)
-}
+    r2 <- rbind(rw, shelt, fill = TRUE) |>
+      mutate(reb = reb, year = yr) |>
+      setDT()
+    fwrite(r2,
+           paste0(
+             output_path,
+             '/reweighted_PUMS_',
+             reb,
+             '_with_shelter_',
+             yr,
+             '.csv'
+           ))
+    
+    dt.sum <- dt |>
+      filter(SPORDER == 1) |>
+      group_by(mpo, year) |>
+      summarize(shop_hh = round(sum(new_WGTP))) |>
+      setDT()
+    rw.sum <- r2 |>
+      filter(SPORDER == 1) |>
+      group_by(mpo, year) |>
+      summarize(rw_hh = round(sum(new_WGTP))) |>
+      setDT()
+    comp <- left_join(dt.sum, rw.sum, by = c('mpo', 'year')) |>
+      mutate(diff = rw_hh - shop_hh)
+  } else {
+    r2 <- rbind(rw, shelt |> filter(rpa_acr == 'MAPC'), fill = TRUE) |>
+      mutate(reb = reb, year = yr) |>
+      setDT()
+    fwrite(r2,
+           paste0(
+             output_path,
+             '/reweighted_PUMS_',
+             reb,
+             '_with_shelter_',
+             yr,
+             '.csv'
+           ))
+    dt.sum <- dt |>
+      filter(SPORDER == 1) |>
+      group_by(rpa_acr, year) |>
+      summarize(shop_hh = round(sum(new_WGTP))) |>
+      setDT()
+    rw.sum <- r2 |>
+      filter(SPORDER == 1) |>
+      group_by(rpa_acr, year) |>
+      summarize(rw_hh = round(sum(new_WGTP))) |>
+      setDT()
+    comp <- left_join(rw.sum, dt.sum, by = c('rpa_acr', 'year')) |>
+      mutate(diff = rw_hh - shop_hh)
+  }
 
 comp.yrs <- rbind(comp.yrs, comp) 
 
 }
 
 
-shop.miss <- fread(paste0(base,'Housing/StatewideHousingPlan/04_Analysis/Data/Working/Reweighter/Scenario_3/Output_Files_UPDATE/reweighter_QC_all_RPAs_all_years_',reb,'_Scenario_3_scen2.csv'))
-
-target.miss <- fread(paste0(output_path,'reweighter_QC_all_RPAs_all_years_', reb,'.csv'))
-shelt.sum <- shelter.pums[SPORDER==1, sum(new_WGTP),mpo]
-
-c2 <- rbind(comp25, comp.yrs) |>
-  left_join(target.miss, by=c('mpo','year')) |> 
-  left_join(shelt.sum, by='mpo') |> 
-  rename(target_diff = diff.y,
-         shelter_hh = V1,
-         shop_diff = diff.x,
-         rw_output = rw_HH,
-         rw_plus_shelter = rw_hh) |> 
-  mutate(target_plus_shelter = TARGET + shelter_hh,
-         chk = target_plus_shelter - shop_hh) |> 
-  select(-pums_baseline_hh) |> 
-  setDT()
+if (reb == 'MAPC97') {
+  shelt.sum <- shelter.pums[SPORDER == 1, sum(new_WGTP), mpo]
+  c2 <- rbind(comp25, comp.yrs) |>
+    left_join(target.miss, by = c('mpo', 'year')) |>
+    left_join(shelt.sum, by = 'mpo') |>
+    rename(
+      target_diff = diff.y,
+      shelter_hh = V1,
+      shop_diff = diff.x,
+      rw_output = rw_HH,
+      rw_plus_shelter = rw_hh
+    ) |>
+    mutate(target_plus_shelter = TARGET + shelter_hh,
+           chk = target_plus_shelter - shop_hh) |>
+    select(-pums_baseline_hh) |>
+    setDT()
+  
+} else {
+  shelt.sum <- shelter.pums[SPORDER == 1 &
+                              rpa_acr == 'MAPC', sum(new_WGTP), rpa_acr]
+  c2 <- rbind(comp25, comp.yrs) |>
+    left_join(target.miss, by = c('rpa_acr', 'year')) |>
+    left_join(shelt.sum, by = 'rpa_acr') |>
+    rename(
+      target_diff = diff.y,
+      shelter_hh = V1,
+      shop_diff = diff.x,
+      rw_output = rw_HH,
+      rw_plus_shelter = rw_hh
+    ) |>
+    mutate(target_plus_shelter = TARGET + shelter_hh,
+           chk = target_plus_shelter - shop_hh) |>
+    select(-pums_baseline_hh) |>
+    setDT()
+}
 
 fwrite(c2, paste0(output_path, 'lrtp2028_', reb, '_shop_scen3_household_mismatch.csv'))
 
@@ -550,9 +606,12 @@ fwrite(c2, paste0(output_path, 'lrtp2028_', reb, '_shop_scen3_household_mismatch
 ```
 
 # 9 - Weight adjustment to match SWHP Scenario 3 regional total households
+## --- Only needed for SWM not MAPCM
 
 ```{r}
 
+if( reb == 'MAPC97'){
+  
 mis <- fread(paste0(output_path, 'lrtp2028_', reb, '_shop_scen3_household_mismatch.csv')) |> 
   select(mpo,year,shop_hh,rw_plus_shelter,shop_diff)
 
@@ -652,6 +711,8 @@ if(m3[!is.na(new_diff2), sum(new_diff2)] == 0 &
    m3[is.na(new_diff2) & abs(new_diff) < 100, sum(new_diff) == 0]){
   print('Proceed')
 } else{print('Match NOT COMPLETE')}
+
+}
 
 ```
 
