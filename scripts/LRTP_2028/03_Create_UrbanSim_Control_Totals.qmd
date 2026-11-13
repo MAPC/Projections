@@ -70,6 +70,7 @@ blks20 <- mapcdatakeys::geog_xw_2020 |>
   left_join(ms, by='muni_id') |> 
   mutate(block_id=as.character(bl20_id))
 
+mapc101.blks <- blks20 |> filter(rpa_acr=='MAPC')
 ## turn off scientific notation
 options(scipen = 999)
 #Set random seed
@@ -945,13 +946,13 @@ base.emp <- arrow::open_dataset(paste0(raw.path,'ma_state_base_data_2020_jobs.pa
   setDT()
 
 semp <- base.emp |> 
-  mutate(sector_id = case_when(
+  mutate(naics = case_when(
     sector_id == '31-33' ~ '31',
     sector_id == '44-45' ~ '44',
     sector_id == '48-49' ~ '48',
     .default = sector_id 
   ),
-  naics2digit = as.numeric(sector_id)) |> 
+  naics2digit = as.numeric(naics)) |> 
   left_join(naics.xw, by = 'naics2digit') |> 
   rename(aggr_sector_id = superNAICS) |> 
   mutate(block_id = as.character(block_id)) |> 
@@ -966,14 +967,14 @@ semp <- base.emp |>
   setDT()
 
 memp <- base.emp |> 
-  filter(block_id %in% mapc101.blks)
-mutate(sector_id = case_when(
+  filter(block_id %in% mapc101.blks$block_id) |> 
+mutate(naics = case_when(
     sector_id == '31-33' ~ '31',
     sector_id == '44-45' ~ '44',
     sector_id == '48-49' ~ '48',
     .default = sector_id 
   ),
-  naics2digit = as.numeric(sector_id)) |> 
+  naics2digit = as.numeric(naics)) |> 
   left_join(naics.xw, by = 'naics2digit') |> 
   rename(aggr_sector_id = superNAICS) |> 
   group_by(aggr_sector_id) |> 
@@ -983,12 +984,82 @@ mutate(sector_id = case_when(
   select(year,aggr_sector_id,total_number_of_jobs) |> 
   setDT()
 
+fwrite(semp, paste0(emp_path, 'UrbanSim_baseyear_2020_employment_by_superNAICS_SWM.csv'))
+fwrite(memp, paste0(emp_path, 'UrbanSim_baseyear_2020_employment_by_superNAICS_MAPCM.csv'))
+
+
 # Load MassDOT/OTP employment projections for LRTP 2028
 
-swm.emp <- read_excel(paste0(emp_path, "Employment based on workforce.xlsx"),
-                  sheet = 'SWM_employment_projection')
-mapcm.emp <- read_excel(paste0(emp_path, "Employment based on workforce.xlsx"),
-                  sheet = 'MAPCM_employment_projection')
+swm.emp <- fread(
+  paste0(
+    emp_path,
+    'MassDOT_LRTP2028_SWM_10yr_employment_control_totals_2026-10-05.csv'
+  )
+) |>
+  mutate(emp_2030 = round((emp_2030)),
+         emp_2040 = round((emp_2040)),
+         emp_2050 = round((emp_2050))
+         ) |> 
+  rename(aggr_sector_id = superNAICS) |> 
+  left_join(subregion_xwalk, by=c('mpo'='RPA')) |> 
+  rename(subregion_code = subregion_code_urbansim) |> 
+  pivot_longer(c(paste0('emp_',seq(2030,2050,10)))) |> 
+  mutate(year = as.numeric(str_sub(name,-4,-1))) |> 
+  rename(total_number_of_jobs = value) |> 
+  select(-name, -subregion_code_mapc, -mpo, -superNAICS_sector_description) |> 
+  rbind(semp) |> 
+  setorder(year,subregion_code,aggr_sector_id) |> 
+  group_by(
+    aggr_sector_id,
+    subregion_code
+  ) |> 
+  #Expands the number of years between 2020 and 2050 to include all inter-
+  #decadal years
+  tidyr::complete(
+    year = tidyr::full_seq(2020:2050,1)
+  ) %>% 
+  mutate(
+    #Interpolates data for the number of jobs in those years by the variables
+    #in the group_by() call. 
+    total_number_of_jobs = round(zoo::na.approx(total_number_of_jobs, na.rm = FALSE))
+  ) |> 
+  relocate(year,subregion_code,aggr_sector_id,total_number_of_jobs) |> 
+  setDT()
+
+mapcm.emp <- fread(paste0(emp_path,'MassDOT_LRTP2028_MAPCM_10yr_employment_control_totals_2026-10-05.csv')) |> 
+  group_by(superNAICS) |> 
+  summarize(emp_2030 = round(sum(emp_2030)),
+            emp_2040 = round(sum(emp_2040)),
+            emp_2050 = round(sum(emp_2050))
+  ) |> 
+  rename(aggr_sector_id = superNAICS) |> 
+  pivot_longer(c(paste0('emp_',seq(2030,2050,10)))) |> 
+  mutate(year = as.numeric(str_sub(name,-4,-1))) |> 
+  rename(total_number_of_jobs = value) |> 
+  select(-name) |> 
+  rbind(memp) |> 
+  setorder(year,aggr_sector_id) |> 
+  group_by(
+    aggr_sector_id
+  ) |> 
+  #Expands the number of years between 2020 and 2050 to include all inter-
+  #decadal years
+  tidyr::complete(
+    year = tidyr::full_seq(2020:2050,1)
+  ) %>% 
+  mutate(
+    #Interpolates data for the number of jobs in those years by the variables
+    #in the group_by() call. 
+    total_number_of_jobs = round(zoo::na.approx(total_number_of_jobs, na.rm = FALSE))
+  ) |> 
+  relocate(year,aggr_sector_id,total_number_of_jobs) |> 
+  setDT()
+
+
+fwrite(swm.emp, paste0(root, 'Control_Total_Files/SWM/SWM_Annual_Employment_Control_Totals_MAPC97_LRTP2028_',prod.date,'.csv'))
+
+fwrite(mapcm.emp, paste0(root, 'Control_Total_Files/MAPCM/MAPCM_Annual_Employment_Control_Totals_MAPC101_LRTP2028_',prod.date,'.csv'))
+
 
 
 ```
